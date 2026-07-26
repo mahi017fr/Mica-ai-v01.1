@@ -1,0 +1,11 @@
+{
+  "projectId": "sendxx-3651b",
+  "appId": "1:1041074558801:web:14b6037fb92138bd32a570",
+  "apiKey": "AIzaSyAxtD1O04YksiMsMTIpJkt0uyxSSy6RPyQ",
+  "authDomain": "sendxx-3651b.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "sendxx-3651b.firebasestorage.app",
+  "messagingSenderId": "1041074558801",
+  "measurementId": "G-B1QRLE51SR",
+  "databaseURL": "https://sendxx-3651b-default-rtdb.firebaseio.com"
+}

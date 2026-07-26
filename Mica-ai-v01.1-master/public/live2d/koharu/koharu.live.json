@@ -1,0 +1,896 @@
+{
+    "major": 3,
+    "minor": 0,
+    "model": {
+        "description": "SDキャラクターのモデルです。\n\nSNSへの投稿や動画配信に使用することができます。\n「nizima LIVEソフトウェア使用許諾契約書」および「nizima LIVEサンプルモデル利用条件」の詳細をご確認の上、ご使用ください。\n\nYou can use it for posting to social media or streaming videos.\nPlease read the details in nizima LIVE’s [Software License Agreement] and [Terms of Use for Sample Models].",
+        "descriptions": {
+            "en": "This is an SD-style character model.\n\nYou can use it for posting to social media or streaming videos.\nPlease read the details in nizima LIVE’s [Software License Agreement] and [Terms of Use for Sample Models].",
+            "ja": "SDキャラクターのモデルです。\n\nSNSへの投稿や動画配信に使用することができます。\n「nizima LIVEソフトウェア使用許諾契約書」および「nizima LIVEサンプルモデル利用条件」の詳細をご確認の上、ご使用ください。"
+        },
+        "icon": "ico_koharu.png",
+        "name": "07こはる",
+        "names": {
+            "en": "07_Koharu",
+            "ja": "07こはる"
+        }
+    },
+    "motions": [
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/01.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/02.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/03.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/05.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/04.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/06.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/idle.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/idle_02.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/07.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/08.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        },
+        {
+            "backgroundEnabled": true,
+            "event": "Normal",
+            "fileKey": "motion/09.motion3.json",
+            "name": "",
+            "overridingPhysics": false,
+            "shortcut": "",
+            "shortcutToggle": true
+        }
+    ],
+    "parameter": {
+        "automationConnections": [
+            {
+                "controlId": "PARAM_BREATH",
+                "cycle": 3245,
+                "max": 1,
+                "min": 0,
+                "offset": 0,
+                "peak": 0.5,
+                "wave": true
+            }
+        ],
+        "trackingConnections": [
+            {
+                "controlId": "PARAM_ANGLE_X",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 30,
+                    "min": -30
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "Yaw",
+                "weight": 0.800000011920929,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_ANGLE_Y",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 30,
+                    "min": -30
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "Pitch",
+                "weight": 0.800000011920929,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_ANGLE_Z",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 30,
+                    "min": -30
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "Roll",
+                "weight": 0.800000011920929,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_BODY_ANGLE_X",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 30,
+                    "min": -30
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "Yaw",
+                "weight": 0.6000000238418579,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_BODY_ANGLE_Y",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 30,
+                    "min": -30
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "Pitch",
+                "weight": 0.6000000238418579,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_BODY_ANGLE_Z",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 30,
+                    "min": -30
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "Roll",
+                "weight": 0.6000000238418579,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_BROW_L_FORM",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "BrowYRight",
+                "weight": 0.5,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_BROW_R_FORM",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "BrowYRight",
+                "weight": 0.5,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_EYE_L_OPEN",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 0.5,
+                                "y": 1
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 2,
+                    "min": 0
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "EyeOpenLeft",
+                "weight": 0.800000011920929,
+                "weightForceZero": true
+            },
+            {
+                "controlId": "PARAM_EYE_R_OPEN",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 0.5,
+                                "y": 1
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 2,
+                    "min": 0
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "EyeOpenRight",
+                "weight": 0.800000011920929,
+                "weightForceZero": true
+            },
+            {
+                "controlId": "PARAM_EYE_BALL_X",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 1.5,
+                "smoothLevel": 0,
+                "sourceId": "EyeLookX",
+                "weight": 0.5,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_EYE_BALL_Y",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 1.5,
+                "smoothLevel": 0,
+                "sourceId": "EyeLookY",
+                "weight": 0.5,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_MOUTH_OPEN_Y",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": 0
+                },
+                "invert": false,
+                "scale": 1,
+                "smoothLevel": 0,
+                "sourceId": "MouthOpen",
+                "weight": 1,
+                "weightForceZero": true
+            },
+            {
+                "controlId": "PARAM_MOUTH_FORM",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 1.5,
+                "smoothLevel": 0,
+                "sourceId": "MouthSpread",
+                "weight": 0.800000011920929,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_EYE_L_SMILE",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 0.5,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 1.5,
+                "smoothLevel": 0,
+                "sourceId": "MouthSpread",
+                "weight": 0.800000011920929,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "PARAM_EYE_R_SMILE",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 0.5,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 1.5,
+                "smoothLevel": 0,
+                "sourceId": "MouthSpread",
+                "weight": 0.800000011920929,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "<X>",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 0,
+                "smoothLevel": 5,
+                "sourceId": "PositionX",
+                "weight": 0.20000000298023224,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "<Y>",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 0,
+                "smoothLevel": 5,
+                "sourceId": "PositionY",
+                "weight": 0.20000000298023224,
+                "weightForceZero": false
+            },
+            {
+                "controlId": "<Z>",
+                "curve": {
+                    "keyframes": [
+                        {
+                            "anchor": {
+                                "x": 0,
+                                "y": 0
+                            },
+                            "nextControl": {
+                                "x": 0.30000001192092896,
+                                "y": 0
+                            },
+                            "type": 1
+                        },
+                        {
+                            "anchor": {
+                                "x": 1,
+                                "y": 1
+                            },
+                            "previousControl": {
+                                "x": 0.699999988079071,
+                                "y": 1
+                            },
+                            "type": 0
+                        }
+                    ],
+                    "max": 1,
+                    "min": -1
+                },
+                "invert": false,
+                "scale": 0,
+                "smoothLevel": 5,
+                "sourceId": "PositionZ",
+                "weight": 0.10000000149011612,
+                "weightForceZero": false
+            }
+        ]
+    }
+}

@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account containing credentials, wallet address, status, and profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "walletAddress": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["online", "offline"] },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "onboardingCompleted": { "type": "boolean" },
+        "pushToken": { "type": "string" }
+      },
+      "required": ["uid", "username", "displayName"]
+    },
+    "FriendRequest": {
+      "title": "Friend Request",
+      "description": "Friend requests sent between users to allow messaging.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderUsername": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "receiverUsername": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "receiverId", "status", "timestamp"]
+    },
+    "Chat": {
+      "title": "Chat Thread",
+      "description": "A direct message thread between two friends.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participants": { "type": "array" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "typing": { "type": "object" }
+      },
+      "required": ["id", "participants"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "An individual chat message in a direct message thread, with support for text and images.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderUsername": { "type": "string" },
+        "text": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "reactions": { "type": "object" }
+      },
+      "required": ["id", "senderId", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Public and private user details stored under userId."
+    },
+    "friend_requests/{requestId}": {
+      "schema": "FriendRequest",
+      "description": "Relational pending friend requests."
+    },
+    "chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Direct chat sessions."
+    },
+    "chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages inside direct chat sessions."
+    }
+  }
+}

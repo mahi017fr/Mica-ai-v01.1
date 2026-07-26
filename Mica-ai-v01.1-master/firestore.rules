@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable validation helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId)
+        && (!('uid' in request.resource.data) || request.resource.data.uid == userId)
+        && (!('username' in request.resource.data) || (request.resource.data.username is string && request.resource.data.username.size() >= 3 && request.resource.data.username.size() <= 32))
+        && (!('displayName' in request.resource.data) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 64));
+      allow update: if isOwner(userId)
+        && (!('uid' in request.resource.data) || request.resource.data.uid == userId)
+        && (!('displayName' in request.resource.data) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 64))
+        && (!('username' in request.resource.data) || (request.resource.data.username is string && request.resource.data.username.size() >= 3 && request.resource.data.username.size() <= 32))
+        && (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'avatarUrl', 'status', 'lastActive', 'walletAddress', 'pushToken', 'username', 'onboardingCompleted', 'bio', 'moodEmoji', 'githubUrl', 'twitterUrl'
+        ]));
+    }
+
+    // Friend Requests collection
+    match /friend_requests/{requestId} {
+      allow read: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.receiverId != request.auth.uid;
+      allow update: if isSignedIn() && (
+        // Receiver accepting or declining
+        (request.auth.uid == resource.data.receiverId && (request.resource.data.status == 'accepted' || request.resource.data.status == 'declined') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        // Sender cancelling
+        (request.auth.uid == resource.data.senderId && request.resource.data.status == 'declined' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid
+      );
+    }
+
+    // Chats collection
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid in chatId.split('_') ||
+        (resource != null && 'participants' in resource.data && request.auth.uid in resource.data.participants)
+      );
+      allow create: if isSignedIn() && (
+        request.auth.uid in chatId.split('_') ||
+        ('participants' in request.resource.data && request.auth.uid in request.resource.data.participants)
+      );
+      allow update: if isSignedIn() && (
+        request.auth.uid in chatId.split('_') ||
+        (resource != null && 'participants' in resource.data && request.auth.uid in resource.data.participants)
+      );
+    }
+
+    // Calls collection (voice/video call signaling)
+    match /calls/{callId} {
+      allow read: if isSignedIn() && (
+        resource.data.callerId == request.auth.uid ||
+        resource.data.calleeId == request.auth.uid
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.callerId == request.auth.uid
+        && request.resource.data.calleeId != request.auth.uid
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.type in ['audio', 'video'];
+      allow update: if isSignedIn() && (
+        resource.data.callerId == request.auth.uid ||
+        resource.data.calleeId == request.auth.uid
+      );
+      allow delete: if false;
+
+      // ICE candidates exchanged during connection setup
+      match /callerCandidates/{candidateId} {
+        allow read, create: if isSignedIn() && (
+          get(/databases/$(database)/documents/calls/$(callId)).data.callerId == request.auth.uid ||
+          get(/databases/$(database)/documents/calls/$(callId)).data.calleeId == request.auth.uid
+        );
+        allow update, delete: if false;
+      }
+      match /calleeCandidates/{candidateId} {
+        allow read, create: if isSignedIn() && (
+          get(/databases/$(database)/documents/calls/$(callId)).data.callerId == request.auth.uid ||
+          get(/databases/$(database)/documents/calls/$(callId)).data.calleeId == request.auth.uid
+        );
+        allow update, delete: if false;
+      }
+    }
+
+    // Messages inside chats (guarded by participants in the chat document)
+    match /chats/{chatId}/messages/{messageId} {
+      allow read, list: if isSignedIn() && (
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+      );
+      allow create: if isSignedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 4096;
+      allow update: if isSignedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      allow delete: if false;
+    }
+  }
+}

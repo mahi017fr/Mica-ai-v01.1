@@ -1,0 +1,281 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,450;1,600&display=swap');
+@import "tailwindcss";
+
+/* ==========================================================================
+   Design tokens — Premium AI SaaS theme (Linear / Vercel / ChatGPT inspired)
+   ========================================================================== */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
+
+  /* Re-map the Tailwind shades this codebase already uses everywhere
+     (sky-*, emerald-*, yellow-*) onto the new brand palette, so every
+     existing className in the app inherits the new look automatically. */
+  --color-sky-50:  #F8FAFC;
+  --color-sky-100: #F8FAFC;
+  --color-sky-200: #CBD5E1;
+  --color-sky-300: #94A3B8;
+  --color-sky-400: #94A3B8;
+  --color-sky-500: #64748B;
+
+  --color-emerald-200: #86EFAC;
+  --color-emerald-300: #4ADE80;
+  --color-emerald-400: #22C55E;
+  --color-emerald-500: #22C55E;
+  --color-emerald-900: #14532D;
+  --color-emerald-950: #0F2419;
+
+  --color-yellow-400: #F59E0B;
+  --color-yellow-500: #F59E0B;
+}
+
+:root {
+  --bg:            #0B0F17;
+  --sidebar:       #0D111D;
+  --surface:       #12172A;
+  --card:          #161A2B;
+  --hover:         #1C2235;
+  --border:        rgba(255, 255, 255, 0.06);
+  --primary:       #6C5CE0;
+  --ai-accent:     #7C3AED;
+  --success:       #22C55E;
+  --warning:       #F59E0B;
+  --danger:        #EF4444;
+  --text-primary:   #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+
+  /* legacy aliases kept so any remaining var() references still resolve */
+  --premium-black: var(--sidebar);
+  --premium-grey: var(--sidebar);
+  --premium-blue-deep: var(--sidebar);
+  --premium-blue-deep-2: var(--sidebar);
+  --premium-blue-accent: var(--primary);
+  --premium-blue-accent-soft: rgba(108, 92, 224, 0.35);
+  --premium-pink-accent: var(--primary);
+  --premium-pink-accent-soft: rgba(108, 92, 224, 0.35);
+  --premium-purple-accent: var(--ai-accent);
+  --premium-text-primary: var(--text-primary);
+  --premium-text-secondary: var(--text-secondary);
+  --premium-border-blue: rgba(108, 92, 224, 0.22);
+  --premium-border-pink: rgba(108, 92, 224, 0.22);
+}
+
+/* Custom scrollbar — quiet, single-tone */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Scroll layout helpers */
+.my-auto-only {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+/* iPhone safe area padding */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+.pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+
+/* Prevent horizontal overflow globally */
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+}
+
+/* Ensure touch targets meet minimum size */
+button, a, [role="button"] {
+  min-height: 44px;
+}
+
+/* Fix iOS safe area on body */
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+/* ==========================================================================
+   Premium surfaces — subtle glass, calm depth, no neon
+   ========================================================================== */
+
+.premium-bg-gradient,
+.premium-bg-gradient-light {
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+.glass-panel-blue,
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
+}
+
+.neu-glass-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
+}
+
+/* Buttons — flat, calm, single accent color */
+.btn-neu-blue,
+.btn-neu {
+  background: var(--card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+}
+
+.btn-neu-blue:hover,
+.btn-neu:hover {
+  background: var(--hover);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.btn-neu-blue:active,
+.btn-neu:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-neu-blue-solid,
+.btn-neu-solid {
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 150ms ease-out, transform 150ms ease-out;
+}
+
+.btn-neu-blue-solid:hover,
+.btn-neu-solid:hover {
+  filter: brightness(1.08);
+  transform: scale(1.02);
+}
+
+.btn-neu-blue-solid:active,
+.btn-neu-solid:active {
+  transform: scale(0.98);
+  filter: brightness(0.96);
+}
+
+/* Circular emoji-reaction buttons */
+.neu-emoji-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform 150ms ease-out, border-color 150ms ease-out, background 150ms ease-out;
+}
+
+.neu-emoji-btn:hover {
+  transform: translateY(-2px);
+  background: var(--hover);
+  border-color: rgba(108, 92, 224, 0.4);
+}
+
+.neu-emoji-btn.is-active {
+  background: rgba(108, 92, 224, 0.16);
+  border-color: rgba(108, 92, 224, 0.5);
+}
+
+.glass-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: transform 150ms ease-out, background 150ms ease-out;
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.glass-btn.is-active {
+  background: rgba(108, 92, 224, 0.18);
+  border-color: rgba(108, 92, 224, 0.45);
+}
+
+/* Soft, calm pulse for online/active/typing indicators (no glow) */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.glow-pulse { animation: glow-pulse 2.2s ease-in-out infinite; }
+
+.text-premium-primary { color: var(--text-primary); }
+.text-premium-secondary { color: var(--text-secondary); }
+
+/* ==========================================================================
+   Glass — app-wide, very subtle
+   Panels using Tailwind's backdrop-blur-* utilities (chat header, sidebar,
+   message bubbles, modals, input bar, dropdowns, toasts) get a quiet
+   frosted look: soft blur, faint border, gentle shadow. No saturation
+   boost, no colored sheen, no heavy glow.
+   ========================================================================== */
+
+.backdrop-blur-sm  { --glass-blur: 8px; }
+.backdrop-blur      { --glass-blur: 10px; }
+.backdrop-blur-md  { --glass-blur: 12px; }
+.backdrop-blur-lg  { --glass-blur: 14px; }
+.backdrop-blur-xl  { --glass-blur: 16px; }
+.backdrop-blur-2xl { --glass-blur: 18px; }
+.backdrop-blur-3xl { --glass-blur: 20px; }
+
+[class*="backdrop-blur"] {
+  backdrop-filter: blur(var(--glass-blur, 12px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 12px));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+}
+
+/* Card hover lift, per spec: translateY(-2px), 150ms ease-out */
+.card, [class*="rounded-2xl"], [class*="rounded-xl"] {
+  transition: transform 150ms ease-out, border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+/* Uppercase, tracked labels used throughout the profile / settings panels */
+.label-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  color: var(--text-secondary);
+}

@@ -1,0 +1,9 @@
+/* Legacy theme file — superseded by the token system in index.css.
+   Kept minimal and unused by default (not imported by main.tsx). */
+:root {
+  --primary: #6C5CE0;
+  --ai-accent: #7C3AED;
+}
+body {
+  background: #0B0F17;
+}

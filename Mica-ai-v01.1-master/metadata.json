@@ -1,0 +1,6 @@
+{
+  "name": "SendXX",
+  "description": "Sleek real-time Web3 chat application with a gorgeous black and silver metallic style. Complete with wallet connect via Privy.io modal, image attachments, user active presence indicators, user search, custom profiles, and in-app push banners.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
