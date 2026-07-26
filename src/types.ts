@@ -65,9 +65,42 @@ export interface AppNotification {
   id: string;
   title: string;
   body: string;
-  type: "message" | "friend_request" | "system";
+  type: "message" | "friend_request" | "system" | "deal_room_invite";
   timestamp: Date;
   senderName?: string;
   senderAvatar?: string;
   chatId?: string;
+  dealRoomId?: string;
+}
+
+export interface DealRoomDoc {
+  id: string;
+  title: string;
+  createdBy: string;
+  createdAt: any;
+  expiresAt: any;
+  status: "active" | "expired" | "read_only";
+  participants: string[];
+  invitees: string[];
+  dealSummary?: string;
+}
+
+export interface DealRoomMessage {
+  id: string;
+  senderId: string;
+  senderUsername: string;
+  text: string;
+  imageUrl?: string;
+  timestamp: any;
+}
+
+export interface DealRoomInvitation {
+  id: string;
+  dealRoomId: string;
+  dealRoomTitle: string;
+  invitedUserId: string;
+  invitedByUsername: string;
+  invitedBy: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: any;
 }

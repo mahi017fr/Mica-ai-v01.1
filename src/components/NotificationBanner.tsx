@@ -1,6 +1,6 @@
 import { useChat } from "../context/ChatContext";
 import { motion, AnimatePresence } from "motion/react";
-import { MessageSquare, UserPlus, X } from "lucide-react";
+import { MessageSquare, UserPlus, Handshake, X } from "lucide-react";
 
 export default function NotificationBanner() {
   const { appNotifications, dismissNotification, setActiveChatId } = useChat();
@@ -8,6 +8,8 @@ export default function NotificationBanner() {
   const handleNotificationClick = (noti: any) => {
     if (noti.type === "message" && noti.chatId) {
       setActiveChatId(noti.chatId);
+    } else if (noti.type === "deal_room_invite") {
+      window.dispatchEvent(new CustomEvent("navigate-dealroom"));
     }
     dismissNotification(noti.id);
   };
@@ -38,6 +40,8 @@ export default function NotificationBanner() {
               <div className="w-9 h-9 rounded-full bg-[#0B0F17] border border-white/[0.06] flex items-center justify-center text-[#94A3B8]">
                 {noti.type === "message" ? (
                   <MessageSquare className="w-4 h-4 text-[#94A3B8]" />
+                ) : noti.type === "deal_room_invite" ? (
+                  <Handshake className="w-4 h-4 text-[#F472B6]" />
                 ) : (
                   <UserPlus className="w-4 h-4 text-[#94A3B8]" />
                 )}
@@ -52,7 +56,7 @@ export default function NotificationBanner() {
                 {noti.body}
               </p>
               <p className="text-[9px] text-[#6C5CE0] font-mono mt-1">
-                {noti.type === "message" ? "Tap to chat" : "Review in friend Requests"}
+                {noti.type === "message" ? "Tap to chat" : noti.type === "deal_room_invite" ? "Tap to view invitation" : "Review in friend Requests"}
               </p>
             </div>
 

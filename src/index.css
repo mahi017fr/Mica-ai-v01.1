@@ -279,3 +279,20 @@ body {
   font-size: 11px;
   color: var(--text-secondary);
 }
+
+/* ─── Message composer ambient glow ──────────────────────────────────── */
+@property --composer-glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes composer-glow-rotate {
+  from { --composer-glow-angle: 0deg; }
+  to   { --composer-glow-angle: 360deg; }
+}
+
+@keyframes composer-glow-fade {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.8; }
+}

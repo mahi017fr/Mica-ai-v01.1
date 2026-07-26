@@ -4,6 +4,7 @@ import { useCall } from "../context/CallContext";
 import { UserProfile, ChatMessage } from "../types";
 import { compressImage } from "../utils/image";
 import CallHistory from "./CallHistory";
+import DealRoom from "./DealRoom";
 // @ts-ignore
 import micaLogo from "../assets/images/micalogo.png";
 
@@ -55,6 +56,7 @@ import {
   Pencil,
   Phone,
   Video,
+  Handshake,
 } from "lucide-react";
 
 interface VoiceMessagePlayerProps {
@@ -862,9 +864,9 @@ export default function ChatDashboard() {
   const [viewChatOnMobile, setViewChatOnMobile] = useState(false);
 
   // Dynamic Tab state representing bottom navigation (mimics uploaded interface)
-  const [activeTab, setActiveTab] = useState<"chats" | "calls" | "friends" | "notifications" | "settings" | "analytics">("chats");
+  const [activeTab, setActiveTab] = useState<"chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom">("chats");
 
-  const handleSelectTab = (tab: "chats" | "calls" | "friends" | "notifications" | "settings" | "analytics") => {
+  const handleSelectTab = (tab: "chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom") => {
     setActiveTab(tab);
     setViewChatOnMobile(false);
     
@@ -890,6 +892,13 @@ export default function ChatDashboard() {
       setShowSettingsPage(false);
     }
   };
+
+  // Listen for deal room navigation events from notification banner
+  useEffect(() => {
+    const handler = () => handleSelectTab("dealroom");
+    window.addEventListener("navigate-dealroom", handler);
+    return () => window.removeEventListener("navigate-dealroom", handler);
+  }, []);
 
   // Dynamic Non-blocking top corner Toast indicators
   const [toastMsg, setToastMsg] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
@@ -1458,10 +1467,10 @@ export default function ChatDashboard() {
               { key: "chats", label: "Inbox", icon: MessageSquare },
               { key: "calls", label: "Calls", icon: Phone },
               { key: "friends", label: "Add Friend", icon: UsersRound },
-              { key: "notifications", label: "Channels", icon: Bell },
-              { key: "analytics", label: "Analytics", icon: Activity },
+              { key: "notifications", label: "NOTIFICATION", icon: Bell },
+              { key: "dealroom", label: "Deal Room", icon: Handshake },
               { key: "settings", label: "Settings", icon: Settings },
-            ] as { key: "chats" | "calls" | "friends" | "notifications" | "analytics" | "settings"; label: string; icon: any }[]).map(
+            ] as { key: "chats" | "calls" | "friends" | "notifications" | "dealroom" | "settings"; label: string; icon: any }[]).map(
               (item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.key;
@@ -1512,7 +1521,7 @@ export default function ChatDashboard() {
       {/* SIDEBAR WRAPPER: Responsive view management on mobile */}
       <div
         className={`bg-[#0D111D]/75 border-r border-white/5 flex flex-col h-screen shrink-0 relative backdrop-blur-xl z-10 transition-[width,opacity,margin] duration-300 ease-in-out overflow-hidden ${
-          showSettingsPage
+          showSettingsPage || activeTab === "dealroom"
             ? "w-0 opacity-0 -ml-2 pointer-events-none"
             : `w-full md:w-96 opacity-100 ml-0 ${viewChatOnMobile ? "hidden md:flex" : "flex"}`
         }`}
@@ -2049,6 +2058,8 @@ export default function ChatDashboard() {
                       onClick={() => {
                         if (noti.type === "message" && noti.chatId) {
                           handleSelectFriendChat(noti.chatId);
+                        } else if (noti.type === "deal_room_invite") {
+                          handleSelectTab("dealroom");
                         } else {
                           setActiveTab("friends");
                         }
@@ -2079,7 +2090,7 @@ export default function ChatDashboard() {
                             {noti.body}
                           </p>
                           <span className="text-[8px] text-[#6C5CE0] font-mono block mt-1 uppercase tracking-wider">
-                            {noti.type === "message" ? "Direct Message" : "Peer Request"} • Tap to View
+                            {noti.type === "message" ? "Direct Message" : noti.type === "deal_room_invite" ? "Deal Room Invitation" : "Peer Request"} • Tap to View
                           </span>
                         </div>
                         <button
@@ -2172,7 +2183,7 @@ export default function ChatDashboard() {
 
         {/* Persistent High-Fidelity Bottom Navigation Bar (matches uploaded image layout) */}
         <div className="md:hidden bg-[#0D111D] border-t border-white/5 px-4 sm:px-6 py-2 flex items-center justify-between shrink-0 h-16 shadow-[0_-8px_35px_rgba(0,0,0,0.6)] z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]" id="bottom_navbar_tabs">
-          <div className="grid grid-cols-5 w-full h-full my-auto items-center">
+          <div className="grid grid-cols-6 w-full h-full my-auto items-center">
             {/* Chats Tab Button */}
             <button
               onClick={() => handleSelectTab("chats")}
@@ -2260,6 +2271,26 @@ export default function ChatDashboard() {
                   <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                 )}
                 {activeTab === "notifications" && (
+                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                )}
+              </div>
+            </button>
+
+            {/* Settings/Menu Tab Button */}
+            <button
+              onClick={() => handleSelectTab("dealroom")}
+              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
+              title="Deal Room"
+            >
+              <div className="relative p-1.5 rounded-xl transition-all duration-200">
+                <Handshake
+                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                    activeTab === "dealroom"
+                      ? "text-[#6C5CE0] drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                  }`}
+                />
+                {activeTab === "dealroom" && (
                   <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
                 )}
               </div>
@@ -2911,6 +2942,8 @@ export default function ChatDashboard() {
                 </div>
               </div>
             </motion.div>
+          ) : activeTab === "dealroom" ? (
+            <DealRoom onBack={handleBackToChats} />
           ) : activeChatId && activeChatFriend ? (
             <div className="flex-1 flex flex-row h-full overflow-hidden">
               <motion.div
@@ -3689,9 +3722,19 @@ export default function ChatDashboard() {
                       You have blocked {activeChatFriend.displayName}. Messages are disabled while blocked.
                     </div>
                   ) : (
+                  <div className="relative rounded-[36px] p-[5px] pointer-events-none">
+                  <div
+  className="absolute inset-0 rounded-[36px]"
+  style={{
+    background: 'conic-gradient(from var(--composer-glow-angle, 0deg), #6C5CE7, #8B5CF6, #A78BFA, #F472B6, #F9A8D4, #A78BFA, #8B5CF6, #6C5CE7)',
+    filter: 'blur(6px)',
+    opacity: 0.20,
+    animation: 'composer-glow-rotate 10s linear infinite',
+  }}
+/>
                   <form
   onSubmit={handleSendMessage}
-  className="flex items-center gap-3 relative bg-[#0D111D]/90 backdrop-blur-2xl border border-white/[0.06] rounded-[32px] px-4 py-3 shadow-[0_0_30px_rgba(108, 92, 224,0.12)]"
+  className="relative flex items-center gap-3 bg-[#0D111D]/90 backdrop-blur-2xl border border-white/[0.06] rounded-[32px] px-4 py-3 shadow-[0_0_30px_rgba(108,92,224,0.12)] pointer-events-auto"
 >
                     {isUploadingVoice && (
                       <div className="absolute inset-0 bg-[#0D111D]/90 rounded-xl flex items-center justify-center gap-2 z-30">
@@ -3983,6 +4026,7 @@ export default function ChatDashboard() {
                       </>
                     )}
                   </form>
+                  </div>
                   )}
                 </div>
               </motion.div>

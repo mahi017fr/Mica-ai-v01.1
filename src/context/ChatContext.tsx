@@ -55,6 +55,7 @@ interface ChatContextType {
   isFriendTyping: boolean;
   setTypingStatus: (isTyping: boolean) => Promise<void>;
   triggerBotResponse: (chatId: string, userText: string, replyToMessage?: any) => Promise<void>;
+  triggerNotification: (noti: AppNotification) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -488,6 +489,44 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubscribes.forEach(unsub => unsub());
     };
   }, [currentUser, friends, activeChatId, userProfile]);
+
+  // Deal Room invitation listener — triggers inbox notifications for new invitations
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const invQuery = query(
+      collection(db, "deal_room_invitations"),
+      where("invitedUserId", "==", currentUser.uid),
+      where("status", "==", "pending")
+    );
+
+    const seenInvites = new Set<string>();
+    const unsub = onSnapshot(invQuery, (snap) => {
+      snap.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const invId = change.doc.id;
+          if (seenInvites.has(invId)) return;
+          seenInvites.add(invId);
+
+          const inv = change.doc.data() as any;
+          triggerNotification({
+            id: `dr_invite_${invId}`,
+            title: `Deal Room Invitation`,
+            body: `You've been invited to "${inv.dealRoomTitle}" by @${inv.invitedByUsername}. Tap to accept or decline.`,
+            type: "deal_room_invite" as any,
+            timestamp: new Date(),
+            senderName: inv.invitedByUsername,
+            senderAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${inv.invitedBy}`,
+            dealRoomId: inv.dealRoomId,
+          });
+        }
+      });
+    }, (error) => {
+      console.warn("Deal room invitation listener skipped:", error);
+    });
+
+    return () => unsub();
+  }, [currentUser?.uid]);
 
   // Push notification helper (In-App Slide Banners & Native Notification API)
   const triggerNotification = (noti: AppNotification) => {
@@ -1196,6 +1235,7 @@ Keep your response warm, concise, and match the language of the incoming message
         isFriendTyping,
         setTypingStatus,
         triggerBotResponse,
+        triggerNotification,
       }}
     >
       {children}
