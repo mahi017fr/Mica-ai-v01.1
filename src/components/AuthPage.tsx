@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { auth, db } from "../firebase";
 import {
   createUserWithEmailAndPassword,
@@ -24,6 +24,7 @@ import {
   ChevronUp
 } from "lucide-react";
 import GoogleIcon from "./GoogleIcon";
+import { usePrivy } from "@privy-io/react-auth";
 
 // @ts-ignore
 import spaceGirlBg from "../assets/images/anime_space_girl_bg_1782060437755.jpg";
@@ -49,20 +50,77 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
   // System setup info collapsibility
   const [showFirebaseSetup, setShowFirebaseSetup] = useState(false);
 
-  // Privy Login Modal state
-  const [showPrivyModal, setShowPrivyModal] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpEmail, setOtpEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [privyLoading, setPrivyLoading] = useState(false);
-  const [hasMetaMask, setHasMetaMask] = useState(false);
+  // Privy Wallet Auth
+  const { login, authenticated, user, ready } = usePrivy();
+  const [privyBridgeLoading, setPrivyBridgeLoading] = useState(false);
+  const bridgedRef = useRef(false);
 
+  // Bridge Privy authentication to Firebase auth
   useEffect(() => {
-    // Detect MetaMask / Ethereum wallet presence
-    if (typeof window !== "undefined" && (window as any).ethereum) {
-      setHasMetaMask(true);
-    }
-  }, []);
+    if (!authenticated || !user || !ready || bridgedRef.current) return;
+    bridgedRef.current = true;
+
+    const bridgePrivyToFirebase = async () => {
+      setPrivyBridgeLoading(true);
+      setError("");
+
+      try {
+        const walletAddress = user.wallet?.address ||
+          user.linkedAccounts?.find(
+            (a: any) => a.type === "wallet" || a.type === "ethereum_wallet"
+          )?.address;
+
+        if (!walletAddress) {
+          throw new Error("No wallet address found. Please connect a wallet.");
+        }
+
+        const emailSeed = `privy_${walletAddress.toLowerCase()}@privy.auth`;
+        const pwdSeed = `PrivyBridge_${walletAddress.substring(2, 10)}_Secure`;
+
+        let userCredential;
+        try {
+          userCredential = await signInWithEmailAndPassword(auth, emailSeed, pwdSeed);
+        } catch (signInErr: any) {
+          if (signInErr.code === "auth/user-not-found" || signInErr.code === "auth/invalid-credential") {
+            userCredential = await createUserWithEmailAndPassword(auth, emailSeed, pwdSeed);
+          } else {
+            throw signInErr;
+          }
+        }
+
+        const uid = userCredential.user.uid;
+        const profileDoc = await getDoc(doc(db, "users", uid));
+        let profile;
+
+        if (profileDoc.exists()) {
+          profile = profileDoc.data();
+        } else {
+          const shortAddr = `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}`;
+          profile = {
+            uid,
+            username: `user_${walletAddress.substring(2, 10).toLowerCase()}`,
+            displayName: `Wallet (${shortAddr})`,
+            walletAddress: walletAddress.toLowerCase(),
+            avatarUrl: `https://api.dicebear.com/7.x/identicon/svg?seed=${walletAddress.toLowerCase()}`,
+            status: "online",
+            lastActive: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            onboardingCompleted: false,
+          };
+          await setDoc(doc(db, "users", uid), profile);
+        }
+
+        onAuthSuccess({ ...userCredential.user, profile });
+      } catch (err: any) {
+        console.error("Privy bridge error:", err);
+        setError(err.message || "Failed to complete wallet authentication.");
+      } finally {
+        setPrivyBridgeLoading(false);
+      }
+    };
+
+    bridgePrivyToFirebase();
+  }, [authenticated, user, ready]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,216 +248,9 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
     }
   };
 
-  // Cryptographic Signature Wallet Authentication
-  const handleWalletAuth = async () => {
-    if (!hasMetaMask) {
-      setError("No Web3 wallet detected. Please install MetaMask or use email login.");
-      setShowPrivyModal(false);
-      return;
-    }
-
-    setPrivyLoading(true);
+  const handleWalletClick = () => {
     setError("");
-
-    try {
-      const ethereum = (window as any).ethereum;
-      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-      const address = accounts[0];
-
-      if (!address) {
-        throw new Error("No ethereum address authorized.");
-      }
-
-      const timestamp = new Date().toISOString();
-      const message = `Welcome to SendXX!\n\nSign this secure cryptographic assertion to authenticate with Privy.io interface.\n\nAddress:\n${address.toLowerCase()}\nTimestamp:\n${timestamp}\n\nSecurity Code: cnqf5t8me00ls`;
-
-      const signature = await ethereum.request({
-        method: "personal_sign",
-        params: [message, address],
-      });
-
-      const verifyRes = await fetch("/api/auth/verify-wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, message, signature }),
-      });
-
-      const verifyData = await verifyRes.json();
-
-      if (!verifyRes.ok || !verifyData.success) {
-        throw new Error(verifyData.error || "Cryptographic signature validation failed on the backend.");
-      }
-
-      const emailSeed = `wallet_${address.toLowerCase()}@sendxx.chat`;
-      const pwdSeed = `Signature_Enc_${signature.substring(2, 32)}`;
-
-      let userCredential;
-      try {
-        userCredential = await signInWithEmailAndPassword(auth, emailSeed, pwdSeed);
-      } catch (signInErr: any) {
-        if (signInErr.code === "auth/user-not-found" || signInErr.code === "auth/invalid-credential") {
-          userCredential = await createUserWithEmailAndPassword(auth, emailSeed, pwdSeed);
-        } else {
-          throw signInErr;
-        }
-      }
-
-      const uid = userCredential.user.uid;
-      const profileDoc = await getDoc(doc(db, "users", uid));
-      let profile;
-
-      if (profileDoc.exists()) {
-        profile = profileDoc.data();
-      } else {
-        const shortAddr = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-        profile = {
-          uid,
-          username: `user_${address.substring(2, 10).toLowerCase()}`,
-          displayName: `Wallet (${shortAddr})`,
-          walletAddress: address.toLowerCase(),
-          avatarUrl: `https://api.dicebear.com/7.x/identicon/svg?seed=${address.toLowerCase()}`,
-          status: "online",
-          lastActive: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        };
-        await setDoc(doc(db, "users", uid), profile);
-      }
-
-      setShowPrivyModal(false);
-      onAuthSuccess({ ...userCredential.user, profile });
-    } catch (err: any) {
-      console.error("Wallet login failure:", err);
-      setError(err.message || "Failed to sign signature assertion via MetaMask.");
-    } finally {
-      setPrivyLoading(false);
-    }
-  };
-
-  // Simulated Web3 Wallet Authentication (Fully compatible with iframe sandbox environments)
-  const handleSimulatedWalletAuth = async () => {
-    setPrivyLoading(true);
-    setError("");
-
-    try {
-      // Simulate cryptographic processing delay for authentic experience
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const demoAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F";
-      const timestamp = new Date().toISOString();
-      const message = `Welcome to SendXX!\n\nSign this secure cryptographic assertion to authenticate with Privy.io interface.\n\nAddress:\n${demoAddress.toLowerCase()}\nTimestamp:\n${timestamp}\n\nSecurity Code: cnqf5t8me00ls`;
-      const mockSignature = "0x30783262663639343045326562323839333065466234436546343942326431463243394331313939_mock_signature_privy_sendxx";
-
-      const verifyRes = await fetch("/api/auth/verify-wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: demoAddress, message, signature: mockSignature, isMock: true }),
-      });
-
-      const verifyData = await verifyRes.json();
-
-      if (!verifyRes.ok || !verifyData.success) {
-        throw new Error(verifyData.error || "Simulated cryptographic signature validation failed.");
-      }
-
-      const emailSeed = `wallet_${demoAddress.toLowerCase()}@sendxx.chat`;
-      const pwdSeed = `Signature_Enc_${mockSignature.substring(2, 32)}`;
-
-      let userCredential;
-      try {
-        userCredential = await signInWithEmailAndPassword(auth, emailSeed, pwdSeed);
-      } catch (signInErr: any) {
-        if (signInErr.code === "auth/user-not-found" || signInErr.code === "auth/invalid-credential") {
-          userCredential = await createUserWithEmailAndPassword(auth, emailSeed, pwdSeed);
-        } else {
-          throw signInErr;
-        }
-      }
-
-      const uid = userCredential.user.uid;
-      const profileDoc = await getDoc(doc(db, "users", uid));
-      let profile;
-
-      if (profileDoc.exists()) {
-        profile = profileDoc.data();
-      } else {
-        profile = {
-          uid,
-          username: `user_${demoAddress.substring(2, 10).toLowerCase()}`,
-          displayName: `Demo Wallet (0x71C7...976F)`,
-          walletAddress: demoAddress.toLowerCase(),
-          avatarUrl: `https://api.dicebear.com/7.x/identicon/svg?seed=${demoAddress.toLowerCase()}`,
-          status: "online",
-          lastActive: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        };
-        await setDoc(doc(db, "users", uid), profile);
-      }
-
-      setShowPrivyModal(false);
-      onAuthSuccess({ ...userCredential.user, profile });
-    } catch (err: any) {
-      console.error("Simulated wallet login failure:", err);
-      setError(err.message || "Failed to sign simulated signature assertion.");
-    } finally {
-      setPrivyLoading(false);
-    }
-  };
-
-  // Simulate Privy Email OTP Verification Flow
-  const handlePrivyEmailOTP = async () => {
-    if (!otpEmail) {
-      setError("Please fill in your email address.");
-      return;
-    }
-    setPrivyLoading(true);
-    try {
-      if (!otpSent) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        setOtpSent(true);
-        setError("");
-      } else {
-        if (otpCode.length < 4) {
-          throw new Error("Please enter a valid OTP code");
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        const emailSeed = otpEmail.trim().toLowerCase();
-        const pwdSeed = `PrivyEmailOTP_Secure_2026_${emailSeed.length}`;
-
-        let userCredential;
-        try {
-          userCredential = await signInWithEmailAndPassword(auth, emailSeed, pwdSeed);
-        } catch (signInErr: any) {
-          userCredential = await createUserWithEmailAndPassword(auth, emailSeed, pwdSeed);
-        }
-
-        const uid = userCredential.user.uid;
-        const profileDoc = await getDoc(doc(db, "users", uid));
-        let profile;
-
-        if (profileDoc.exists()) {
-          profile = profileDoc.data();
-        } else {
-          profile = {
-            uid,
-            username: emailSeed.split("@")[0].toLowerCase() + Math.floor(Math.random() * 100),
-            displayName: emailSeed.split("@")[0],
-            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${uid}`,
-            status: "online",
-            lastActive: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          };
-          await setDoc(doc(db, "users", uid), profile);
-        }
-
-        setShowPrivyModal(false);
-        onAuthSuccess({ ...userCredential.user, profile });
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setPrivyLoading(false);
-    }
+    login();
   };
 
   return (
@@ -515,11 +366,8 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
                   whileHover={{ y: -1 }}
                   whileTap={{ scale: 0.98 }}
                   type="button"
-                  onClick={() => {
-                    setError("");
-                    setShowPrivyModal(true);
-                  }}
-                  disabled={loading}
+                  onClick={handleWalletClick}
+                  disabled={loading || privyBridgeLoading}
                   id="privy_oauth_btn"
                   className="w-full glass-btn rounded-[22px] py-3.5 px-5 flex items-center justify-between transition-all duration-200 cursor-pointer group border border-white/5"
                 >
@@ -702,191 +550,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
 
       </div>
 
-      {/* PRIVY.IO POPUP MODAL (Authentic UI layout) — UNCHANGED */}
-      <AnimatePresence>
-        {showPrivyModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                if (!privyLoading) setShowPrivyModal(false);
-              }}
-              className="absolute inset-0 bg-black/85 backdrop-blur-sm"
-            />
 
-            {/* Privy Dialog Container */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-[#0B0F17] border border-white/10 rounded-2xl w-full max-w-sm p-6 relative z-10 shadow-2xl"
-              id="privy_modal_box"
-            >
-              {/* Privy Branding Header */}
-              <div className="flex flex-col items-center mb-6">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-[#94A3B8] to-[#94A3B8] flex items-center justify-center shadow-lg font-bold text-white text-lg mb-2">
-                  P
-                </div>
-                <h3 className="text-base font-bold text-[#F8FAFC]">Privy Authentication</h3>
-                <p className="text-[10px] text-[#6C5CE0] font-mono tracking-wider">
-                  SECURE BRIDGE: PORTAL_0x26
-                </p>
-              </div>
-
-              {error && (
-                <div className="mb-4 text-[11px] text-red-300 bg-red-950/20 border border-red-900/30 px-2.5 py-1.5 rounded-lg text-center font-sans">
-                  {error}
-                </div>
-              )}
-
-              {/* Web3 Sign-in Options */}
-              <div className="space-y-3">
-                {/* Cryptographic signature wallet auth */}
-                <button
-                  type="button"
-                  disabled={privyLoading}
-                  onClick={handleWalletAuth}
-                  className="w-full flex items-center justify-between bg-[#0B0F17] border border-white/5 hover:border-white/15 rounded-xl px-4 py-3 text-left transition-all text-[#94A3B8] hover:text-white font-sans text-xs hover:scale-[1.01] cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <Wallet className="w-4 h-4 text-[#94A3B8]" />
-                    <div>
-                      <p className="font-semibold text-[#F8FAFC]">Connect Web3 Wallet</p>
-                      <p className="text-[10px] text-[#6C5CE0]">
-                        {hasMetaMask ? "MetaMask detected & ready" : "Prompt MetaMask signature"}
-                      </p>
-                    </div>
-                  </div>
-                  {privyLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-[#6C5CE0]" />
-                  ) : (
-                    <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/5 text-[#94A3B8]">
-                      ETH
-                    </span>
-                  )}
-                </button>
-
-                {/* Simulated Web3 Wallet for safe Sandbox/Iframe preview bypass */}
-                <button
-                  type="button"
-                  disabled={privyLoading}
-                  onClick={handleSimulatedWalletAuth}
-                  className="w-full flex items-center justify-between bg-[#94A3B8]/10 border border-[#94A3B8]/30 hover:border-[#94A3B8]/60 rounded-xl px-4 py-3 text-left transition-all text-sky-300 hover:text-white font-sans text-xs hover:scale-[1.01] cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <Wallet className="w-4 h-4 text-[#94A3B8] animate-pulse" />
-                    <div>
-                      <p className="font-semibold text-sky-200">Simulate Sandbox Wallet</p>
-                      <p className="text-[10px] text-sky-400/80">
-                        Iframe-friendly instantaneous login
-                      </p>
-                    </div>
-                  </div>
-                  {privyLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
-                  ) : (
-                    <span className="text-[9px] uppercase tracking-wider bg-sky-500/20 px-1.5 py-0.5 rounded border border-sky-500/20 text-sky-200 font-semibold font-mono">
-                      Bypass ⚡
-                    </span>
-                  )}
-                </button>
-
-                <p className="text-[9px] text-[#6C5CE0] text-center leading-normal px-2">
-                  Tip: Browser extensions (like MetaMask) are sometimes blocked inside sandboxed preview iframes. Use <strong>Simulate Sandbox Wallet</strong> to bypass and login instantly!
-                </p>
-
-                <div className="text-center my-3">
-                  <span className="text-[#94A3B8]/50 text-[10px] tracking-widest uppercase font-semibold">
-                    or social email link
-                  </span>
-                </div>
-
-                {/* Email OTP Auth */}
-                <div className="bg-[#0B0F17] border border-white/5 rounded-xl p-3.5 space-y-3">
-                  <div className="flex items-center gap-2.5">
-                    <Mail className="w-3.5 h-3.5 text-[#94A3B8]" />
-                    <span className="text-[#94A3B8] font-medium text-xs">
-                      Sign in with Email OTP
-                    </span>
-                  </div>
-
-                  {!otpSent ? (
-                    <div className="space-y-2">
-                      <input
-                        type="email"
-                        value={otpEmail}
-                        onChange={(e) => setOtpEmail(e.target.value)}
-                        placeholder="satoshi@bitcoin.org"
-                        className="w-full bg-[#0D111D]/50 border border-white/5 rounded-lg px-3 py-2 text-xs text-[#F8FAFC] placeholder-[#6C5CE0] focus:outline-none focus:border-neutral-500 transition-all font-sans"
-                      />
-                      <button
-                        type="button"
-                        onClick={handlePrivyEmailOTP}
-                        disabled={privyLoading}
-                        className="w-full bg-[#94A3B8] hover:bg-[#94A3B8] text-white font-semibold py-2 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        {privyLoading ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          "Send Login Code"
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 animate-fade-in">
-                      <p className="text-[10px] text-[#94A3B8] text-center">
-                        We sent a code to <span className="text-white font-medium">{otpEmail}</span>.
-                      </p>
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value)}
-                        placeholder="Verification Code"
-                        className="w-full bg-[#0D111D]/50 border border-white/5 rounded-lg px-3 py-2 text-xs text-center tracking-widest text-[#94A3B8] placeholder-[#6C5CE0] focus:outline-none focus:border-neutral-500 transition-all font-mono font-semibold"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setOtpSent(false)}
-                          className="flex-1 bg-[#0D111D] border border-white/5 hover:border-white/10 text-[#94A3B8] py-2 rounded-lg text-xs cursor-pointer"
-                        >
-                          Change Email
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handlePrivyEmailOTP}
-                          disabled={privyLoading}
-                          className="flex-1 bg-gradient-to-r from-[#94A3B8] to-[#94A3B8] hover:opacity-90 text-white font-semibold py-2 rounded-lg text-xs cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          {privyLoading ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            "Verify Code"
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Close Privy Dialog */}
-              <button
-                type="button"
-                disabled={privyLoading}
-                onClick={() => setShowPrivyModal(false)}
-                className="w-full text-center text-[#6C5CE0] hover:text-[#94A3B8] text-xs font-semibold focus:outline-none mt-5 cursor-pointer"
-              >
-                Cancel Authentication
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

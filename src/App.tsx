@@ -5,6 +5,7 @@
 
 import { ChatProvider, useChat } from "./context/ChatContext";
 import { CallProvider } from "./context/CallContext";
+import { PrivyProvider } from "@privy-io/react-auth";
 import AuthPage from "./components/AuthPage";
 import ChatDashboard from "./components/ChatDashboard";
 import NotificationBanner from "./components/NotificationBanner";
@@ -42,10 +43,24 @@ function MainAppContent() {
 
 export default function App() {
   return (
-    <ChatProvider>
-      <CallProvider>
-        <MainAppContent />
-      </CallProvider>
-    </ChatProvider>
+    <PrivyProvider
+      appId={import.meta.env.VITE_PRIVY_APP_ID || ""}
+      config={{
+        loginMethods: ["email", "wallet"],
+        appearance: {
+          theme: "dark",
+          accentColor: "#6C5CE0",
+        },
+        embeddedWallets: {
+          createOnLogin: "all-users",
+        },
+      }}
+    >
+      <ChatProvider>
+        <CallProvider>
+          <MainAppContent />
+        </CallProvider>
+      </ChatProvider>
+    </PrivyProvider>
   );
 }

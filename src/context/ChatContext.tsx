@@ -17,6 +17,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { UserProfile, FriendRequest, ChatSession, ChatMessage, AppNotification } from "../types";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface ChatContextType {
   currentUser: any;
@@ -81,6 +82,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [chatSessions, setChatSessions] = useState<Record<string, ChatSession>>({});
   const processedDndMessageIds = useRef<Set<string>>(new Set());
+  const { logout: privyLogout } = usePrivy();
 
   // 1. Listen to Authentication Changes
   useEffect(() => {
@@ -994,6 +996,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (e) {
         console.error(e);
       }
+    }
+    try {
+      await privyLogout();
+    } catch (e) {
+      console.log("Privy logout skipped (no active Privy session)");
     }
     await auth.signOut();
   };
