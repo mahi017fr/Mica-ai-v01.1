@@ -17,7 +17,8 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { DealRoomDoc, DealRoomMessage, DealRoomInvitation, UserProfile } from "../types";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { Live2DCharacter } from "./Live2DCharacter";
 import {
   ArrowLeft,
   Plus,
@@ -36,6 +37,11 @@ import {
   AlertTriangle,
   Lock,
   Hash,
+  Sparkles,
+  FileText,
+  Camera,
+  Mic,
+  MapPin,
 } from "lucide-react";
 
 interface DealRoomProps {
@@ -105,6 +111,9 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   const [decliningInvite, setDecliningInvite] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const attachmentMenuRef = useRef<HTMLDivElement>(null);
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, "buyer" | "seller">>({});
 
   // Countdown per invitation
   const [inviteCountdowns, setInviteCountdowns] = useState<Record<string, number>>({});
@@ -165,6 +174,22 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     return () => clearInterval(interval);
   }, [invitations]);
 
+  // Close attachment menu on click outside
+  useEffect(() => {
+    if (!showAttachmentMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(e.target as Node)) {
+        setShowAttachmentMenu(false);
+      }
+    };
+    // Delay adding listener so the same click that opened it doesn't close it
+    const timer = setTimeout(() => document.addEventListener("click", handleClick), 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClick);
+    };
+  }, [showAttachmentMenu]);
+
   // Listen for messages in active room
   useEffect(() => {
     if (!activeRoomId) {
@@ -179,6 +204,21 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
       const msgs: DealRoomMessage[] = [];
       snap.forEach((d) => msgs.push({ ...(d.data() as DealRoomMessage), id: d.id }));
       setRoomMessages(msgs);
+    });
+    return () => unsub();
+  }, [activeRoomId]);
+
+  // Listen for selectedRoles on active room doc
+  useEffect(() => {
+    if (!activeRoomId) {
+      setSelectedRoles({});
+      return;
+    }
+    const unsub = onSnapshot(doc(db, "deal_rooms", activeRoomId), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setSelectedRoles(data.selectedRoles || {});
+      }
     });
     return () => unsub();
   }, [activeRoomId]);
@@ -226,6 +266,36 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     };
     fetchParticipants();
   }, [activeRoom?.id, activeRoom?.participants?.length]);
+
+  // Role-derived data (declared early so all effects and JSX below can reference them)
+  const rolesComplete = Object.keys(selectedRoles).length === 2;
+  const currentUserRole = currentUser ? selectedRoles[currentUser.uid] : undefined;
+  const buyerUid = Object.entries(selectedRoles).find(([, r]) => r === "buyer")?.[0];
+  const sellerUid = Object.entries(selectedRoles).find(([, r]) => r === "seller")?.[0];
+  const buyerProfile = buyerUid ? roomParticipants.find((p) => p.uid === buyerUid) : undefined;
+  const sellerProfile = sellerUid ? roomParticipants.find((p) => p.uid === sellerUid) : undefined;
+  const initializationSent = roomMessages.some(
+    (m) => m.isSystem && m.text.startsWith("Deal initialized")
+  );
+
+  // Send system message when both roles are first selected
+  useEffect(() => {
+    if (!activeRoomId || !rolesComplete || initializationSent || roomExpired) return;
+    const sendInitMessage = async () => {
+      try {
+        await addDoc(collection(db, "deal_rooms", activeRoomId, "messages"), {
+          senderId: "system",
+          senderUsername: "System",
+          text: `Deal initialized successfully.\nBuyer: ${buyerProfile?.displayName || "Buyer"}\nSeller: ${sellerProfile?.displayName || "Seller"}`,
+          timestamp: Timestamp.fromDate(new Date()),
+          isSystem: true,
+        });
+      } catch (err) {
+        console.error("Failed to send initialization message:", err);
+      }
+    };
+    sendInitMessage();
+  }, [rolesComplete, activeRoomId, initializationSent, roomExpired, buyerProfile?.displayName, sellerProfile?.displayName]);
 
   // Create room
   const handleCreateRoom = async () => {
@@ -409,6 +479,18 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     } catch {
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  // Select a role in the deal room
+  const handleSelectRole = async (role: "buyer" | "seller") => {
+    if (!currentUser || !activeRoomId) return;
+    try {
+      await updateDoc(doc(db, "deal_rooms", activeRoomId), {
+        [`selectedRoles.${currentUser.uid}`]: role,
+      });
+    } catch (err) {
+      console.error("Failed to select role:", err);
     }
   };
 
@@ -697,7 +779,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
         </div>
 
         {/* Form */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 custom-scrollbar space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 custom-scrollbar">
+          <div className="max-w-[700px] mx-auto space-y-6">
           {/* Room Title */}
           <div className="space-y-2">
             <label className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider">
@@ -821,6 +904,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
               </p>
             </div>
           </div>
+          </div>
         </div>
       </div>
     );
@@ -880,7 +964,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
         {/* Room Body */}
         <div className="flex-1 flex overflow-hidden">
           {/* Participants Panel (desktop) */}
-          <div className="hidden lg:flex w-56 shrink-0 flex-col border-r border-white/5 bg-[#0D111D]/40 overflow-y-auto custom-scrollbar p-3 space-y-3">
+          <div className="hidden lg:flex w-72 shrink-0 flex-col border-r border-white/5 bg-[#0D111D]/40 overflow-y-auto custom-scrollbar p-3 space-y-3">
             <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
               Participants ({roomParticipants.length})
             </h4>
@@ -898,6 +982,15 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                 {p.uid === activeRoom.createdBy && (
                   <span className="text-[8px] font-mono text-[#6C5CE0] bg-[#6C5CE0]/10 px-1.5 py-0.5 rounded shrink-0">
                     CREATOR
+                  </span>
+                )}
+                {selectedRoles[p.uid] && (
+                  <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                    selectedRoles[p.uid] === "buyer"
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      : "bg-[#6C5CE0]/10 text-[#A78BFA] border border-[#6C5CE0]/20"
+                  }`}>
+                    {selectedRoles[p.uid] === "buyer" ? "BUYER" : "SELLER"}
                   </span>
                 )}
               </div>
@@ -946,7 +1039,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           </div>
 
           {/* Chat Area */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-[3] flex flex-col min-w-0">
             {/* Expired overlay */}
             {roomExpired && (
               <div className="bg-red-500/[0.04] border-b border-red-500/10 px-4 py-2.5 flex items-center gap-2 shrink-0">
@@ -970,14 +1063,24 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
               </div>
 
               {roomMessages.map((msg) => {
+                if (msg.isSystem) {
+                  return (
+                    <div key={msg.id} className="flex justify-center">
+                      <div className="bg-[#6C5CE0]/[0.06] border border-[#6C5CE0]/15 rounded-xl px-4 py-2.5 text-center max-w-sm">
+                        <p className="text-[11px] text-[#94A3B8] whitespace-pre-line leading-relaxed">{msg.text}</p>
+                      </div>
+                    </div>
+                  );
+                }
                 const isSelf = msg.senderId === currentUser?.uid;
+                const senderProfile = roomParticipants.find((p) => p.uid === msg.senderId);
                 return (
                   <div
                     key={msg.id}
                     className={`flex gap-2.5 ${isSelf ? "flex-row-reverse" : "flex-row"}`}
                   >
                     <img
-                      src={getAvatarUrl(msg.senderId)}
+                      src={senderProfile?.avatarUrl || getAvatarUrl(msg.senderId)}
                       alt=""
                       className="w-7 h-7 rounded-full bg-[#161A2B] border border-white/10 shrink-0 mt-1"
                     />
@@ -1010,7 +1113,17 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             </div>
 
             {/* Message Input */}
-            {!roomExpired ? (
+            {roomExpired ? (
+              <div className="p-4 border-t border-white/5 bg-[#0D111D]/60 flex items-center justify-center gap-2">
+                <Lock className="w-4 h-4 text-red-400/60" />
+                <span className="text-xs text-[#94A3B8]/60 font-medium">Room expired — read only</span>
+              </div>
+            ) : !rolesComplete ? (
+              <div className="p-4 border-t border-white/5 bg-[#0D111D]/60 flex items-center justify-center gap-2">
+                <Shield className="w-4 h-4 text-[#6C5CE0]/60" />
+                <span className="text-xs text-[#94A3B8]/80 font-medium">Waiting for both participants to confirm their roles.</span>
+              </div>
+            ) : (
               <form
                 onSubmit={handleSendMessage}
                 className="p-3 sm:p-4 border-t border-white/5 bg-[#0D111D]/60 backdrop-blur-md flex items-center gap-3"
@@ -1022,14 +1135,67 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   onChange={handleImageSend}
                   className="hidden"
                 />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2.5 rounded-xl bg-[#12172A] border border-white/[0.06] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/30 transition-all cursor-pointer shrink-0"
-                  title="Send image"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </button>
+                {/* Attachment Button + Menu */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowAttachmentMenu(prev => !prev)}
+                    className="p-2.5 rounded-xl bg-[#12172A] border border-white/[0.06] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/30 transition-all cursor-pointer shrink-0"
+                    title="Attach"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  <AnimatePresence>
+                    {showAttachmentMenu && (
+                      <div ref={attachmentMenuRef}>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute bottom-full mb-2 left-0 bg-[#12172A] border border-white/[0.08] rounded-xl p-1.5 shadow-xl backdrop-blur-xl min-w-[170px] z-50 origin-bottom-left"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => { fileInputRef.current?.click(); setShowAttachmentMenu(false); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                          >
+                            <span className="text-base">🖼</span>
+                            <span>Image</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                          >
+                            <span className="text-base">📄</span>
+                            <span>File</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                          >
+                            <span className="text-base">📷</span>
+                            <span>Camera</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                          >
+                            <span className="text-base">🎤</span>
+                            <span>Voice</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                          >
+                            <span className="text-base">📍</span>
+                            <span>Location</span>
+                          </button>
+                        </motion.div>
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <input
                   type="text"
                   value={msgText}
@@ -1050,14 +1216,168 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   )}
                 </button>
               </form>
-            ) : (
-              <div className="p-4 border-t border-white/5 bg-[#0D111D]/60 flex items-center justify-center gap-2">
-                <Lock className="w-4 h-4 text-red-400/60" />
-                <span className="text-xs text-[#94A3B8]/60 font-medium">Room expired — read only</span>
-              </div>
             )}
           </div>
+
+          {/* AI Assistant Sidebar (desktop/tablet) */}
+          <div className="hidden md:flex flex-[1] shrink-0 flex-col border-l border-white/5 bg-[#0D111D]/40 overflow-hidden">
+            {/* Header */}
+            <div className="px-4 pt-4 pb-3 border-b border-white/[0.06] shrink-0">
+              <span className="text-xs font-bold text-[#F8FAFC]">Mica AI</span>
+            </div>
+            {/* Character */}
+            <div className="flex flex-col items-center justify-start overflow-hidden shrink-0">
+              <div className="-mt-[80px]">
+                <Live2DCharacter
+                  width={170}
+                  height={280}
+                  focus="full"
+                  lively
+                />
+              </div>
+            </div>
+            {/* Deal Roles */}
+            <div className="px-3 pb-3 space-y-2">
+              <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
+                Deal Roles
+              </h4>
+              {rolesComplete && buyerProfile && sellerProfile ? (
+                <>
+                  <div className="p-2.5 rounded-xl bg-[#12172A]/40 border border-white/[0.04] space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🛒</span>
+                      <span className="text-[10px] font-bold text-emerald-400">Buyer</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={buyerProfile.avatarUrl || getAvatarUrl(buyerUid!)}
+                        alt=""
+                        className="w-7 h-7 rounded-full bg-[#161A2B] border border-white/10"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-white font-semibold truncate">
+                          {buyerProfile.displayName}
+                        </p>
+                        <p className="text-[9px] text-[#94A3B8] truncate">
+                          @{buyerProfile.username}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[#12172A]/40 border border-white/[0.04] space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🛍</span>
+                      <span className="text-[10px] font-bold text-[#A78BFA]">Seller</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={sellerProfile.avatarUrl || getAvatarUrl(sellerUid!)}
+                        alt=""
+                        className="w-7 h-7 rounded-full bg-[#161A2B] border border-white/10"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-white font-semibold truncate">
+                          {sellerProfile.displayName}
+                        </p>
+                        <p className="text-[9px] text-[#94A3B8] truncate">
+                          @{sellerProfile.username}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[10px] text-[#94A3B8] px-1 leading-relaxed">
+                  Waiting for participants to select their roles...
+                </p>
+              )}
+            </div>
+            {/* Spacer for future AI features */}
+            <div className="flex-1" />
+          </div>
         </div>
+        {/* Role Selection Modal */}
+        {view === "room" && !rolesComplete && !roomExpired && activeRoom && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D111D]/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2 }}
+              className="bg-[#12172A]/95 border border-white/[0.08] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl"
+            >
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-black text-white uppercase tracking-widest font-mono">
+                  Choose Your Role
+                </h3>
+                <p className="text-[11px] text-[#94A3B8] mt-2 max-w-sm mx-auto leading-relaxed">
+                  Each participant must select a unique role before the deal can begin.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleSelectRole("buyer")}
+                  disabled={!!buyerUid && buyerUid !== currentUser?.uid}
+                  className={`w-full p-4 rounded-2xl border transition-all text-left flex items-center gap-4 ${
+                    currentUserRole === "buyer"
+                      ? "bg-emerald-500/10 border-emerald-500/30"
+                      : buyerUid
+                      ? "bg-[#12172A]/30 border-white/[0.04] opacity-50 cursor-not-allowed"
+                      : "bg-[#12172A]/40 border-white/[0.06] hover:bg-emerald-500/[0.06] hover:border-emerald-500/20 cursor-pointer"
+                  }`}
+                >
+                  <span className="text-3xl">🛒</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white">Buyer</p>
+                    {buyerProfile ? (
+                      <p className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
+                        <Check className="w-3 h-3" /> Selected by {buyerProfile.displayName}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-[#94A3B8] mt-0.5">Waiting for a participant...</p>
+                    )}
+                  </div>
+                  {currentUserRole === "buyer" && (
+                    <span className="text-emerald-400"><Check className="w-5 h-5" /></span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => handleSelectRole("seller")}
+                  disabled={!!sellerUid && sellerUid !== currentUser?.uid}
+                  className={`w-full p-4 rounded-2xl border transition-all text-left flex items-center gap-4 ${
+                    currentUserRole === "seller"
+                      ? "bg-[#6C5CE0]/10 border-[#6C5CE0]/30"
+                      : sellerUid
+                      ? "bg-[#12172A]/30 border-white/[0.04] opacity-50 cursor-not-allowed"
+                      : "bg-[#12172A]/40 border-white/[0.06] hover:bg-[#6C5CE0]/[0.06] hover:border-[#6C5CE0]/20 cursor-pointer"
+                  }`}
+                >
+                  <span className="text-3xl">🛍</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white">Seller</p>
+                    {sellerProfile ? (
+                      <p className="text-[10px] text-[#A78BFA] flex items-center gap-1 mt-0.5">
+                        <Check className="w-3 h-3" /> Selected by {sellerProfile.displayName}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-[#94A3B8] mt-0.5">Waiting for another participant...</p>
+                    )}
+                  </div>
+                  {currentUserRole === "seller" && (
+                    <span className="text-[#A78BFA]"><Check className="w-5 h-5" /></span>
+                  )}
+                </button>
+              </div>
+
+              {currentUserRole && (
+                <p className="text-[10px] text-[#94A3B8] text-center mt-4">
+                  Waiting for both participants to confirm their roles.
+                </p>
+              )}
+            </motion.div>
+          </div>
+        )}
       </div>
     );
   }

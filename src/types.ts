@@ -83,6 +83,7 @@ export interface DealRoomDoc {
   participants: string[];
   invitees: string[];
   dealSummary?: string;
+  selectedRoles?: Record<string, "buyer" | "seller">;
 }
 
 export interface DealRoomMessage {
@@ -92,6 +93,7 @@ export interface DealRoomMessage {
   text: string;
   imageUrl?: string;
   timestamp: any;
+  isSystem?: boolean;
 }
 
 export interface DealRoomInvitation {
