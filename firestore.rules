@@ -32,7 +32,7 @@ service cloud.firestore {
         && (!('displayName' in request.resource.data) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 64))
         && (!('username' in request.resource.data) || (request.resource.data.username is string && request.resource.data.username.size() >= 3 && request.resource.data.username.size() <= 32))
         && (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'displayName', 'avatarUrl', 'status', 'lastActive', 'walletAddress', 'pushToken', 'username', 'onboardingCompleted', 'bio', 'moodEmoji', 'githubUrl', 'twitterUrl'
+          'displayName', 'avatarUrl', 'status', 'lastActive', 'walletAddress', 'walletProvider', 'walletLinkedAt', 'walletVerified', 'walletStatus', 'authProvider', 'privyUserId', 'pushToken', 'username', 'onboardingCompleted', 'bio', 'moodEmoji', 'githubUrl', 'twitterUrl', 'dndMode'
         ]));
     }
 
@@ -56,6 +56,26 @@ service cloud.firestore {
         resource.data.senderId == request.auth.uid ||
         resource.data.receiverId == request.auth.uid
       );
+    }
+
+    // Payments collection (Arc + Circle USDC transfers).
+    // Sender creates the record; only the sender and recipient may read it.
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.recipientId != request.auth.uid
+        && request.resource.data.type == 'usdc_transfer'
+        && request.resource.data.network == 'arc'
+        && request.resource.data.asset == 'circle_usdc'
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.status == 'succeeded'
+        && request.resource.data.transactionHash is string;
+      allow update, delete: if false;
     }
 
     // Chats collection

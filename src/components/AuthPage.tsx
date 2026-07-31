@@ -137,7 +137,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
         if (userDoc.exists()) {
           onAuthSuccess({ ...userCredential.user, profile: userDoc.data() });
         } else {
-          // If profile is missing, create a generic one
+          // If profile is missing, create a generic one and route to onboarding
           const defaultProfile = {
             uid: userCredential.user.uid,
             username: email.split("@")[0].toLowerCase() + Math.floor(Math.random() * 1000),
@@ -146,6 +146,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
             status: "online",
             lastActive: new Date().toISOString(),
             createdAt: new Date().toISOString(),
+            onboardingCompleted: false,
           };
           await setDoc(doc(db, "users", userCredential.user.uid), defaultProfile);
           onAuthSuccess({ ...userCredential.user, profile: defaultProfile });
@@ -173,6 +174,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
         const uid = userCredential.user.uid;
 
         // Save Firestore Profile (Duplicate username to displayName for simplified clean layout)
+        // Every account routes through wallet-required onboarding before the dashboard.
         const profile = {
           uid,
           username: cleanUsername,
@@ -181,7 +183,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
           status: "online",
           lastActive: new Date().toISOString(),
           createdAt: new Date().toISOString(),
-          onboardingCompleted: true,
+          onboardingCompleted: false,
         };
 
         await setDoc(doc(db, "users", uid), profile);

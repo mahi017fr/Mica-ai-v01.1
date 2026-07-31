@@ -1,5 +1,9 @@
 export type UserStatus = "online" | "offline";
 
+export type AuthProvider = "google" | "email" | "wallet";
+
+export type WalletStatus = "active" | "revoked" | "pending";
+
 export interface UserProfile {
   uid: string;
   username: string;
@@ -8,7 +12,17 @@ export interface UserProfile {
   status: UserStatus;
   lastActive: Date | string;
   createdAt: Date | string;
+  // Primary wallet — ALWAYS derived from Privy's verified user object, never from manual input.
   walletAddress?: string;
+  walletProvider?: string;
+  walletLinkedAt?: string;
+  walletVerified?: boolean;
+  walletStatus?: WalletStatus;
+  authProvider?: AuthProvider;
+  privyUserId?: string;
+  // Available Arc USDC balance (Circle USDC). Server/Arc managed — never
+  // client-writable; read-only for the payment UI.
+  usdcBalance?: number;
   pushToken?: string;
   onboardingCompleted?: boolean;
   bio?: string;
@@ -48,6 +62,16 @@ export interface ChatMessage {
   edited?: boolean;
   editedAt?: any; // Firestore Timestamp
   reactions?: Record<string, string[]>; // emoji -> array of userIds
+  isSystem?: boolean; // system-generated message (e.g. payments) — rendered as a pill, not a bubble
+  payment?: {
+    amount: number;
+    asset: string;
+    network: string;
+    recipientUsername: string;
+    direction: "sent" | "received";
+    status: string;
+    transactionHash?: string;
+  };
   replyTo?: {
     id: string;
     senderUsername: string;

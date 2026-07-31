@@ -16,7 +16,8 @@ import {
   deleteDoc,
   limit,
 } from "firebase/firestore";
-import { UserProfile, FriendRequest, ChatSession, ChatMessage, AppNotification } from "../types";
+import { UserProfile, FriendRequest, ChatSession, ChatMessage, AppNotification, AuthProvider } from "../types";
+import { VerifiedWallet } from "../hooks/usePrimaryWallet";
 import { usePrivy } from "@privy-io/react-auth";
 
 interface ChatContextType {
@@ -33,19 +34,31 @@ interface ChatContextType {
   updateProfile: (updates: {
     displayName: string;
     avatarUrl: string;
-    walletAddress?: string;
     bio?: string;
     moodEmoji?: string;
     githubUrl?: string;
     twitterUrl?: string;
     dndMode?: boolean;
   }) => Promise<void>;
-  completeOnboarding: (username: string, displayName: string, avatarUrl: string, walletAddress?: string) => Promise<void>;
+  completeOnboarding: (
+    username: string,
+    displayName: string,
+    avatarUrl: string,
+    wallet: VerifiedWallet,
+    privyUserId?: string
+  ) => Promise<void>;
+  updatePrimaryWallet: (wallet: VerifiedWallet, privyUserId?: string) => Promise<void>;
   searchUsers: (searchQuery: string) => Promise<UserProfile[]>;
   sendFriendRequest: (receiverId: string) => Promise<void>;
   acceptFriendRequest: (requestId: string) => Promise<void>;
   declineFriendRequest: (requestId: string) => Promise<void>;
   sendMessage: (text: string, imageUrl?: string, replyTo?: { id: string; senderUsername: string; text: string }, audioUrl?: string, isSticker?: boolean) => Promise<void>;
+  logPaymentMessage: (info: {
+    chatId: string;
+    amount: number;
+    recipientUsername: string;
+    transactionHash: string;
+  }) => Promise<void>;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   editMessage: (messageId: string, newText: string) => Promise<void>;
@@ -568,11 +581,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // --- API / Database Custom Operations ---
 
-  // Update Profile details
+  // Update Profile details (walletAddress is NOT editable here — the primary
+  // wallet can only be changed through `updatePrimaryWallet`, which only
+  // accepts Privy-verified wallet data).
   const updateProfile = async (updates: {
     displayName: string;
     avatarUrl: string;
-    walletAddress?: string;
     bio?: string;
     moodEmoji?: string;
     githubUrl?: string;
@@ -587,8 +601,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatarUrl: updates.avatarUrl.trim(),
         lastActive: new Date().toISOString(),
       };
-      
-      updateData.walletAddress = updates.walletAddress?.trim() ? updates.walletAddress.trim().toLowerCase() : "";
+
       updateData.bio = updates.bio ? updates.bio.trim() : "";
       updateData.moodEmoji = updates.moodEmoji ? updates.moodEmoji.trim() : "";
       updateData.githubUrl = updates.githubUrl ? updates.githubUrl.trim() : "";
@@ -603,13 +616,27 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Complete first-time user profile setup config (Google logins onboarding)
-  const completeOnboarding = async (username: string, displayName: string, avatarUrl: string, walletAddress?: string) => {
+  // Determine which sign-in method the Firebase user used.
+  const detectAuthProvider = (fbUser: any): AuthProvider => {
+    const email = fbUser?.email || "";
+    if (email.endsWith("@privy.auth")) return "wallet";
+    const providerId = fbUser?.providerData?.[0]?.providerId;
+    if (providerId === "google.com") return "google";
+    return "email";
+  };
+
+  // Complete first-time user profile setup config.
+  // A verified primary wallet (from Privy) is MANDATORY — the dashboard stays
+  // locked until both onboarding and a verified wallet exist.
+  const completeOnboarding = async (username: string, displayName: string, avatarUrl: string, wallet: VerifiedWallet, privyUserId?: string) => {
     if (!currentUser) return;
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     if (!cleanUsername) throw new Error("Username must contain alphanumeric characters or underscores");
     if (cleanUsername.length < 3 || cleanUsername.length > 32) {
       throw new Error("Username must be between 3 and 32 characters");
+    }
+    if (!wallet || !wallet.address) {
+      throw new Error("A verified wallet must be connected before you can continue.");
     }
 
     // Check if username is taken by another user
@@ -633,12 +660,40 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         displayName: displayName.trim(),
         avatarUrl: avatarUrl.trim(),
         onboardingCompleted: true,
+        authProvider: detectAuthProvider(currentUser),
+        walletAddress: wallet.address.toLowerCase(),
+        walletProvider: wallet.provider,
+        walletLinkedAt: wallet.linkedAt || new Date().toISOString(),
+        walletVerified: true,
+        walletStatus: "active",
+        privyUserId: privyUserId || null,
         lastActive: new Date().toISOString(),
       };
-      if (walletAddress?.trim()) {
-        updateData.walletAddress = walletAddress.trim().toLowerCase();
-      }
       await setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  // Replace the primary wallet. Only Privy-verified wallet data is accepted —
+  // the address always originates from `linkWallet()`/Privy's user object.
+  const updatePrimaryWallet = async (wallet: VerifiedWallet, privyUserId?: string) => {
+    if (!currentUser) return;
+    if (!wallet || !wallet.address) return;
+    const path = `users/${currentUser.uid}`;
+    try {
+      const updateData: any = {
+        walletAddress: wallet.address.toLowerCase(),
+        walletProvider: wallet.provider,
+        walletLinkedAt: wallet.linkedAt || new Date().toISOString(),
+        walletVerified: true,
+        walletStatus: "active",
+        lastActive: new Date().toISOString(),
+      };
+      if (privyUserId) {
+        updateData.privyUserId = privyUserId;
+      }
+      await updateDoc(doc(db, "users", currentUser.uid), updateData);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
@@ -821,6 +876,65 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           text
         });
       }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, messagesCollection);
+    }
+  };
+
+  // Insert a payment system message after a successful Arc USDC transfer.
+  // Rendered as a system pill (isSystem + payment payload), not a chat bubble.
+  const logPaymentMessage = async (info: {
+    chatId: string;
+    amount: number;
+    recipientUsername: string;
+    transactionHash: string;
+  }) => {
+    if (!currentUser || !userProfile) return;
+    const { chatId, amount, recipientUsername, transactionHash } = info;
+    const messagesCollection = `chats/${chatId}/messages`;
+    const text = `You sent ${amount} USDC to @${recipientUsername}.`;
+
+    try {
+      // Ensure the parent chat document exists before writing a subcollection.
+      const chatDocRef = doc(db, "chats", chatId);
+      const chatDocSnap = await getDoc(chatDocRef);
+      if (!chatDocSnap.exists()) {
+        const ids = chatId.split("_");
+        if (ids.includes(currentUser.uid)) {
+          await setDoc(chatDocRef, {
+            id: chatId,
+            participants: ids.sort(),
+            lastMessage: text,
+            lastMessageAt: new Date().toISOString(),
+          }, { merge: true });
+        }
+      }
+
+      await addDoc(collection(db, messagesCollection), {
+        senderId: currentUser.uid,
+        senderUsername: userProfile.username,
+        text,
+        imageUrl: "",
+        audioUrl: "",
+        isSticker: false,
+        isSystem: true,
+        seen: false,
+        timestamp: new Date().toISOString(),
+        payment: {
+          amount,
+          asset: "circle_usdc",
+          network: "arc",
+          recipientUsername,
+          direction: "sent",
+          status: "succeeded",
+          transactionHash,
+        },
+      });
+
+      await updateDoc(doc(db, "chats", chatId), {
+        lastMessage: text,
+        lastMessageAt: new Date().toISOString(),
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, messagesCollection);
     }
@@ -1227,11 +1341,13 @@ Keep your response warm, concise, and match the language of the incoming message
         setActiveChatId,
         updateProfile,
         completeOnboarding,
+        updatePrimaryWallet,
         searchUsers,
         sendFriendRequest,
         acceptFriendRequest,
         declineFriendRequest,
         sendMessage,
+        logPaymentMessage,
         editMessage,
         toggleReaction,
         deleteMessage,

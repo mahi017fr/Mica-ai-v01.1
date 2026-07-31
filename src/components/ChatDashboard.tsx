@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useChat } from "../context/ChatContext";
 import { useCall } from "../context/CallContext";
+import { usePrimaryWallet } from "../hooks/usePrimaryWallet";
 import { UserProfile, ChatMessage } from "../types";
 import { compressImage } from "../utils/image";
 import CallHistory from "./CallHistory";
 import DealRoom from "./DealRoom";
+import SendUsdcModal from "./SendUsdcModal";
+import { ArcPaymentReceipt, recordArcPayment } from "../payments";
 // @ts-ignore
 import micaLogo from "../assets/images/micalogo.png";
 
@@ -29,6 +32,8 @@ import {
   Wallet,
   MoreVertical,
   Shield,
+  ShieldCheck,
+  RefreshCw,
   Info,
   Copy,
   Github,
@@ -238,6 +243,8 @@ export default function ChatDashboard() {
     uploadImage,
     logout,
     completeOnboarding,
+    updatePrimaryWallet,
+    logPaymentMessage,
     appNotifications,
     chatSessions,
     dismissNotification,
@@ -248,10 +255,18 @@ export default function ChatDashboard() {
 
   const { startCall } = useCall();
 
+  // Privy-verified primary wallet. This is the ONLY source of truth for wallet
+  // addresses — manual wallet input is never accepted.
+  const {
+    primaryWallet: privyPrimaryWallet,
+    privyUserId,
+    connecting: walletConnecting,
+    connectWallet,
+  } = usePrimaryWallet();
+
   // Onboarding Screen States
   const [onboardUsername, setOnboardUsername] = useState("");
   const [onboardDisplayName, setOnboardDisplayName] = useState("");
-  const [onboardWallet, setOnboardWallet] = useState("");
   const [onboardAvatarSeed, setOnboardAvatarSeed] = useState("");
   const [onboardAvatarStyle, setOnboardAvatarStyle] = useState("bottts");
   const [onboardCustomAvatarUrl, setOnboardCustomAvatarUrl] = useState("");
@@ -264,8 +279,7 @@ export default function ChatDashboard() {
     if (userProfile && userProfile.onboardingCompleted === false) {
       setOnboardUsername(userProfile.username || "");
       setOnboardDisplayName(userProfile?.displayName || "");
-      setOnboardWallet(userProfile.walletAddress || "");
-      
+
       const avUrl = userProfile.avatarUrl || "";
       if (avUrl.includes("api.dicebear.com")) {
         setOnboardAvatarType("dicebear");
@@ -283,6 +297,14 @@ export default function ChatDashboard() {
     }
   }, [userProfile]);
 
+  const handleConnectOnboardWallet = async () => {
+    setOnboardError("");
+    const linked = await connectWallet();
+    if (!linked) {
+      setOnboardError("No wallet was connected. Please try again to link a wallet.");
+    }
+  };
+
   const handleOnboardingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setOnboardError("");
@@ -298,6 +320,10 @@ export default function ChatDashboard() {
         throw new Error("Username can only contain alphanumeric characters and underscores");
       }
 
+      if (!privyPrimaryWallet || !privyPrimaryWallet.address) {
+        throw new Error("Please connect a verified wallet to continue.");
+      }
+
       const finalAvatarUrl = onboardAvatarType === "custom" && onboardCustomAvatarUrl
         ? onboardCustomAvatarUrl
         : `https://api.dicebear.com/7.x/${onboardAvatarStyle}/svg?seed=${onboardAvatarSeed.trim() || "default"}`;
@@ -306,7 +332,8 @@ export default function ChatDashboard() {
         cleanUser,
         onboardDisplayName.trim(),
         finalAvatarUrl,
-        onboardWallet.trim()
+        privyPrimaryWallet,
+        privyUserId || undefined
       );
     } catch (err: any) {
       setOnboardError(err.message || "Could not complete onboarding configuration.");
@@ -329,13 +356,13 @@ export default function ChatDashboard() {
   const [avatarStyle, setAvatarStyle] = useState("bottts");
   const [customAvatarUrl, setCustomAvatarUrl] = useState("");
   const [avatarType, setAvatarType] = useState<"dicebear" | "custom">("dicebear");
-  const [editWalletAddress, setEditWalletAddress] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editMoodEmoji, setEditMoodEmoji] = useState("");
   const [editGithubUrl, setEditGithubUrl] = useState("");
   const [editTwitterUrl, setEditTwitterUrl] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [changingWallet, setChangingWallet] = useState(false);
 
   // New Preferences & Payment States
   const [notificationSounds, setNotificationSounds] = useState(() => {
@@ -419,6 +446,9 @@ export default function ChatDashboard() {
   const [isPaying, setIsPaying] = useState(false);
   const [paymentStep, setPaymentStep] = useState(0);
   const [paymentTxId, setPaymentTxId] = useState("");
+
+  // Arc USDC "Send USDC" payment popup (Chat Profile Details -> Pay)
+  const [showUsdcPaymentModal, setShowUsdcPaymentModal] = useState(false);
 
   // Inbox-style UI state (contact search, notes, block/transfer session controls)
   const [inboxSearchQuery, setInboxSearchQuery] = useState("");
@@ -873,7 +903,6 @@ export default function ChatDashboard() {
     if (tab === "settings") {
       if (userProfile) {
         setEditDisplayName(userProfile.displayName || "");
-        setEditWalletAddress(userProfile.walletAddress || "");
         setEditBio(userProfile.bio || "");
         setEditGithubUrl(userProfile.githubUrl || "");
         setEditTwitterUrl(userProfile.twitterUrl || "");
@@ -971,7 +1000,6 @@ export default function ChatDashboard() {
   const handleOpenSettings = () => {
     if (userProfile) {
       setEditDisplayName(userProfile.displayName || "");
-      setEditWalletAddress(userProfile.walletAddress || "");
       setEditBio(userProfile.bio || "");
       setEditMoodEmoji(userProfile.moodEmoji || "🚀");
       setEditGithubUrl(userProfile.githubUrl || "");
@@ -1131,7 +1159,6 @@ export default function ChatDashboard() {
       await updateProfile({
         displayName: editDisplayName.trim(),
         avatarUrl: finalAvatarUrl,
-        walletAddress: editWalletAddress ? editWalletAddress.trim() : undefined,
         bio: editBio.trim() ? editBio.trim() : undefined,
         moodEmoji: editMoodEmoji.trim() ? editMoodEmoji.trim() : undefined,
         githubUrl: editGithubUrl.trim() ? editGithubUrl.trim() : undefined,
@@ -1146,6 +1173,57 @@ export default function ChatDashboard() {
       showToast("Failed to save changes: " + (err.message || err), "error");
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  // Replace the primary wallet via Privy (verifies ownership before swapping).
+  const handleChangeWallet = async () => {
+    if (changingWallet) return;
+    setChangingWallet(true);
+    try {
+      const linked = await connectWallet();
+      if (linked) {
+        await updatePrimaryWallet(linked, privyUserId || undefined);
+        showToast("Primary wallet updated successfully!", "success");
+      } else {
+        showToast("Wallet change cancelled — no new wallet linked.", "info");
+      }
+    } catch (err: any) {
+      console.error("Change wallet failed:", err);
+      showToast("Failed to change wallet: " + (err.message || err), "error");
+    } finally {
+      setChangingWallet(false);
+    }
+  };
+
+  // After a successful Arc USDC transfer: insert a payment system message in
+  // the chat and persist the payment record (for future Wallet/Payment/Deal
+  // history). Both are best-effort — never block the success screen.
+  const handleUsdcPaymentSuccess = async (receipt: ArcPaymentReceipt) => {
+    if (!activeChatId || !currentUser || !userProfile) return;
+    const recipientUser = activeChatFriend;
+    try {
+      await logPaymentMessage({
+        chatId: activeChatId,
+        amount: receipt.amount,
+        recipientUsername: recipientUser?.username || "",
+        transactionHash: receipt.transactionHash,
+      });
+      await recordArcPayment({
+        chatId: activeChatId,
+        senderId: currentUser.uid,
+        senderUsername: userProfile.username,
+        senderWallet: receipt.senderWallet,
+        recipientId: recipientUser?.uid || "",
+        recipientUsername: recipientUser?.username || "",
+        recipientWallet: receipt.recipientWallet,
+        amount: receipt.amount,
+        fee: receipt.fee,
+        transactionHash: receipt.transactionHash,
+        status: "succeeded",
+      });
+    } catch (err) {
+      console.error("Failed to persist payment message/history:", err);
     }
   };
 
@@ -1231,8 +1309,11 @@ export default function ChatDashboard() {
     (r) => r.status === "pending" && r.senderId === currentUser?.uid
   );
 
-  // If the user profile is missing or needs onboarding completed, display custom onboarding setup form
-  if (!userProfile || userProfile.onboardingCompleted === false) {
+  // If the user profile is missing, hasn't completed onboarding, or has no
+  // verified primary wallet yet, display the onboarding setup form. The
+  // dashboard stays locked until onboarding is complete AND a verified wallet
+  // (from Privy) exists.
+  if (!userProfile || userProfile.onboardingCompleted !== true || userProfile.walletVerified !== true) {
     const onboardPreviewUrl = onboardAvatarType === "custom" && onboardCustomAvatarUrl
       ? onboardCustomAvatarUrl
       : `https://api.dicebear.com/7.x/${onboardAvatarStyle}/svg?seed=${onboardAvatarSeed || "default"}`;
@@ -1378,39 +1459,70 @@ export default function ChatDashboard() {
                 />
               </div>
 
-              {/* Wallet Address (Optional) */}
+              {/* Primary Wallet (Required — verified via Privy) */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[12px] text-white/50 font-medium tracking-wide">
-                    Wallet Address
+                    Primary Wallet
                   </label>
-                  <span className="text-[10px] text-white/20 font-medium tracking-widest uppercase">Optional</span>
+                  <span className="text-[10px] text-emerald-400/80 font-medium tracking-widest uppercase">Required</span>
                 </div>
-                <div className="relative">
-                  <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
-                  <input
-                    type="text"
-                    value={onboardWallet}
-                    onChange={(e) => setOnboardWallet(e.target.value)}
-                    placeholder="0x... or crypto wallet pubkey"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] focus:border-[#6366F1]/50 focus:bg-white/[0.06] rounded-full pl-11 pr-5 py-3 text-[14px] text-white placeholder-white/20 focus:outline-none transition-all duration-300 font-mono"
-                  />
-                </div>
+
+                {privyPrimaryWallet ? (
+                  <div className="w-full bg-white/[0.04] border border-emerald-400/25 rounded-2xl px-4 py-3 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center shrink-0">
+                      <Wallet className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] text-white font-mono truncate">
+                        {privyPrimaryWallet.address.substring(0, 6)}...{privyPrimaryWallet.address.substring(privyPrimaryWallet.address.length - 4)}
+                      </p>
+                      <p className="text-[11px] text-white/35 font-medium truncate">
+                        {privyPrimaryWallet.provider || "External wallet"} · verified
+                      </p>
+                    </div>
+                    <span className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
+                      <ShieldCheck className="w-3.5 h-3.5" /> VERIFIED
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleConnectOnboardWallet}
+                    disabled={walletConnecting}
+                    className="w-full bg-white/[0.04] border border-white/[0.08] hover:border-[#6366F1]/50 rounded-2xl px-4 py-3.5 flex items-center justify-center gap-2.5 text-[13px] font-semibold text-white cursor-pointer transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {walletConnecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-[#818CF8]" />
+                        Waiting for wallet confirmation...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="w-4 h-4 text-[#818CF8]" />
+                        Connect Wallet via Privy
+                      </>
+                    )}
+                  </button>
+                )}
+                <p className="text-[11px] text-white/25 mt-1.5 pl-2">
+                  Your wallet is verified by Privy and can only be linked by signing from your wallet — no manual addresses are accepted.
+                </p>
               </div>
 
               {/* Buttons */}
               <div className="flex flex-col gap-3 pt-2">
                 <button
                   type="submit"
-                  disabled={onboardLoading}
-                  className="w-full bg-gradient-to-r from-[#6366F1] via-[#7C3AED] to-[#8B5CF6] text-white hover:brightness-110 font-semibold py-3.5 px-6 rounded-full text-[14px] flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_30px_rgba(99,102,241,0.35)] hover:scale-[1.01] transition-all duration-200"
+                  disabled={onboardLoading || !privyPrimaryWallet}
+                  className="w-full bg-gradient-to-r from-[#6366F1] via-[#7C3AED] to-[#8B5CF6] text-white hover:brightness-110 font-semibold py-3.5 px-6 rounded-full text-[14px] flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_30px_rgba(99,102,241,0.35)] hover:scale-[1.01] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   {onboardLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
                   ) : (
                     <>
                       <Check className="w-4 h-4 text-white" />
-                      Complete Setup & Enter Chats
+                      {privyPrimaryWallet ? "Complete Setup & Enter Chats" : "Connect a wallet to continue"}
                     </>
                   )}
                 </button>
@@ -2438,10 +2550,10 @@ export default function ChatDashboard() {
                             <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[9px] text-[#94A3B8]">
                               <div className="p-2 bg-[#0B0F17] rounded-lg border border-white/[0.06]">
                                 <span className="text-[7px] uppercase tracking-wider text-[#6C5CE0] font-bold block">
-                                  EVM Wallet Linked
+                                  Primary Wallet
                                 </span>
                                 <span className="truncate block mt-0.5 text-[#94A3B8] font-mono text-[8px]">
-                                  {editWalletAddress ? editWalletAddress : "None configured"}
+                                  {userProfile?.walletAddress ? `${userProfile.walletAddress.substring(0, 6)}...${userProfile.walletAddress.substring(userProfile.walletAddress.length - 4)}` : "None configured"}
                                 </span>
                               </div>
                               <div className="p-2 bg-[#0B0F17] rounded-lg border border-white/[0.06]">
@@ -2721,7 +2833,6 @@ export default function ChatDashboard() {
                                   updateProfile({
                                     displayName: editDisplayName.trim() || userProfile?.displayName || "",
                                     avatarUrl: customAvatarUrl || userProfile?.avatarUrl || "",
-                                    walletAddress: editWalletAddress ? editWalletAddress.trim() : undefined,
                                     bio: editBio.trim() ? editBio.trim() : undefined,
                                     moodEmoji: editMoodEmoji.trim() ? editMoodEmoji.trim() : undefined,
                                     githubUrl: editGithubUrl.trim() ? editGithubUrl.trim() : undefined,
@@ -2794,18 +2905,49 @@ export default function ChatDashboard() {
 
                           <div>
                             <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
-                              Web3 Cryptographic Wallet Link
+                              Primary Wallet (Privy Verified)
                             </label>
-                            <div className="relative">
-                              <Wallet className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-[#6C5CE0]" />
-                              <input
-                                type="text"
-                                value={editWalletAddress}
-                                onChange={(e) => setEditWalletAddress(e.target.value)}
-                                placeholder="Solana/Ethereum wallet public address"
-                                className="w-full bg-[#0B0F17]/70 border border-white/[0.06] focus:border-[#6C5CE0]/40 focus:ring-1 focus:ring-[#6C5CE0]/20 rounded-xl pl-8 pr-3 py-2 text-[10px] text-[#94A3B8] focus:outline-none font-mono shadow-inner transition duration-150"
-                              />
+                            <div className="bg-[#0B0F17]/70 border border-emerald-500/15 rounded-xl px-3 py-2.5 flex items-center gap-2.5">
+                              <Wallet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                {userProfile?.walletAddress ? (
+                                  <>
+                                    <p className="text-[10px] text-[#94A3B8] font-mono truncate">
+                                      {userProfile.walletAddress.substring(0, 8)}...{userProfile.walletAddress.substring(userProfile.walletAddress.length - 6)}
+                                    </p>
+                                    <p className="text-[8px] text-emerald-400/70 font-medium truncate mt-0.5 flex items-center gap-1">
+                                      <ShieldCheck className="w-2.5 h-2.5" />
+                                      {userProfile.walletProvider || "External wallet"} · verified by Privy
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="text-[10px] text-[#94A3B8] font-mono">No wallet linked</p>
+                                )}
+                              </div>
                             </div>
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={handleChangeWallet}
+                                disabled={changingWallet || walletConnecting}
+                                className="bg-[#12172A]/80 hover:bg-[#6C5CE0]/10 border border-white/10 hover:border-[#6C5CE0]/40 text-sky-100 py-1.5 px-3 rounded-lg text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {changingWallet || walletConnecting ? (
+                                  <Loader2 className="w-3 h-3 animate-spin text-sky-300" />
+                                ) : (
+                                  <RefreshCw className="w-3 h-3 text-sky-300" />
+                                )}
+                                CHANGE WALLET
+                              </button>
+                              {userProfile?.walletLinkedAt && (
+                                <span className="text-[8px] text-[#6C5CE0] font-mono truncate">
+                                  linked {new Date(userProfile.walletLinkedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[8px] text-[#6C5CE0]/80 mt-1.5 leading-relaxed pl-0.5">
+                              The primary wallet is set by Privy after signing a connection — addresses are never entered manually.
+                            </p>
                           </div>
                         </div>
 
@@ -3103,6 +3245,20 @@ export default function ChatDashboard() {
                                 <CallIcon className="w-3.5 h-3.5 shrink-0" />
                                 <span>{msg.text.replace(/^[📞📹]\s*/, "")}</span>
                                 {displayTime && <span className="text-[#6C5CE0]/60">· {displayTime}</span>}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // PAYMENT SYSTEM MESSAGE: centered pill (Messenger/WhatsApp
+                        // style) — never rendered as a normal chat bubble.
+                        if (msg.payment) {
+                          return (
+                            <div key={msg.id || index} className="flex justify-center my-1.5">
+                              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-200/90">
+                                <Coins className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                                <span>{msg.text}</span>
+                                {displayTime && <span className="text-emerald-400/50">· {displayTime}</span>}
                               </div>
                             </div>
                           );
@@ -4124,17 +4280,17 @@ export default function ChatDashboard() {
                             </span>
                           </div>
 
-                          {/* Pay */}
+                          {/* Pay — opens the Arc USDC payment popup */}
                           <div className="relative group">
                             <button
                               type="button"
-                              onClick={() => showToast("Payments are coming soon.", "info")}
+                              onClick={() => setShowUsdcPaymentModal(true)}
                               className="w-11 h-11 rounded-xl flex items-center justify-center border border-white/[0.08] bg-[#0B0F17]/60 text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80 hover:border-white/[0.14] hover:scale-[1.05] active:scale-95 transition-all duration-200 cursor-pointer"
                             >
                               <Coins className="w-[18px] h-[18px]" strokeWidth={2} />
                             </button>
                             <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
-                              Payments (Coming Soon)
+                              Send USDC
                             </span>
                           </div>
 
@@ -4672,6 +4828,17 @@ export default function ChatDashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Arc USDC Send USDC payment popup (Chat Profile Details -> Pay) */}
+      <SendUsdcModal
+        open={showUsdcPaymentModal}
+        senderProfile={userProfile}
+        senderWallet={privyPrimaryWallet?.address ?? null}
+        recipient={activeChatFriend}
+        chatId={activeChatId}
+        onClose={() => setShowUsdcPaymentModal(false)}
+        onPaymentSuccess={handleUsdcPaymentSuccess}
+      />
 
       {/* Web3 Secure Payment Modal overlay */}
       <AnimatePresence>
