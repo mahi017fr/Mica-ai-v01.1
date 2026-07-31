@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { UserProfile, FriendRequest, ChatSession, ChatMessage, AppNotification, AuthProvider } from "../types";
 import { VerifiedWallet } from "../hooks/usePrimaryWallet";
+import { isUserBlocked, getBlockMessage } from "../utils/blocking";
 import { usePrivy } from "@privy-io/react-auth";
 
 interface ChatContextType {
@@ -219,7 +220,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Collect both sent & received requests
     const unsubscribeRequestsSelfIn = onSnapshot(q2, (snapshot) => {
-      const received = snapshot.docs.map(d => ({ ...d.data(), id: d.id }) as FriendRequest);
+      const received = snapshot.docs
+        .map(d => ({ ...d.data(), id: d.id }) as FriendRequest)
+        // Never surface friend requests from users the current user has blocked.
+        .filter((req) => !isUserBlocked(req.senderId));
       
       // Look for new incoming requests and trigger dynamic local notifications
       received.forEach((req) => {
@@ -731,6 +735,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Send a Friend Request
   const sendFriendRequest = async (receiverId: string) => {
     if (!currentUser || !userProfile) return;
+    // Defensive gate: never send a friend request to a blocked user (either direction).
+    if (isUserBlocked(receiverId)) {
+      throw new Error(getBlockMessage(receiverId) || "Friend requests are disabled for this user.");
+    }
     const id = `${currentUser.uid}_${receiverId}`;
     const path = `friend_requests/${id}`;
     
@@ -812,6 +820,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isSticker?: boolean
   ) => {
     if (!currentUser || !activeChatId || !userProfile) return;
+
+    // Defensive gate at the DB boundary: never write into a chat whose peer is
+    // blocked in EITHER direction. Server rules enforce this too.
+    const peerId = activeChatId.split("_").find((id) => id !== currentUser.uid);
+    if (peerId && isUserBlocked(peerId)) {
+      throw new Error(getBlockMessage(peerId) || "Messages are disabled for this conversation.");
+    }
     
     const messagesCollection = `chats/${activeChatId}/messages`;
     const chatDoc = `chats/${activeChatId}`;

@@ -17,6 +17,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { DealRoomDoc, DealRoomMessage, DealRoomInvitation, UserProfile } from "../types";
+import { isUserBlocked } from "../utils/blocking";
 import { motion, AnimatePresence } from "motion/react";
 import { Live2DCharacter } from "./Live2DCharacter";
 import {
@@ -150,7 +151,10 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     const unsubInv = onSnapshot(invQuery, (snap) => {
       const invList: DealRoomInvitation[] = [];
       snap.forEach((d) => {
-        invList.push({ ...(d.data() as DealRoomInvitation), id: d.id });
+        const inv = d.data() as DealRoomInvitation;
+        // Never surface invitations from users you have blocked.
+        if (isUserBlocked(inv.invitedBy)) return;
+        invList.push({ ...inv, id: d.id });
       });
       setInvitations(invList);
     });
@@ -300,9 +304,14 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   // Create room
   const handleCreateRoom = async () => {
     if (!newRoomTitle.trim() || !currentUser || !userProfile) return;
+    // Defensive: never invite users you have blocked.
+    const allowedInvitees = selectedInvitees.filter((u) => !isUserBlocked(u.uid));
+    if (allowedInvitees.length !== selectedInvitees.length) {
+      setSelectedInvitees(allowedInvitees);
+    }
     setCreatingRoom(true);
     try {
-      const participantUids = selectedInvitees.map((u) => u.uid);
+      const participantUids = allowedInvitees.map((u) => u.uid);
       const now = new Date();
       const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -319,7 +328,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
       await setDoc(roomRef, roomData);
 
       // Send invitations to each invitee
-      for (const invitee of selectedInvitees) {
+      for (const invitee of allowedInvitees) {
         const invRef = doc(collection(db, "deal_room_invitations"));
         await setDoc(invRef, {
           id: invRef.id,
@@ -353,6 +362,11 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   // Accept invitation — grant access, add as participant, enter room
   const handleAcceptInvite = async (inv: DealRoomInvitation) => {
     if (!currentUser) return;
+    // Never accept an invitation from a user you cannot interact with.
+    if (isUserBlocked(inv.invitedBy)) {
+      console.warn("Refusing Deal Room invitation from a blocked user:", inv.invitedBy);
+      return;
+    }
     setAcceptingInvite(inv.id);
     try {
       // Update invitation status
@@ -473,7 +487,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     try {
       const results = await searchUsers(inviteSearch.trim());
       const filtered = results.filter(
-        (u) => !selectedInvitees.some((s) => s.uid === u.uid)
+        (u) => !selectedInvitees.some((s) => s.uid === u.uid) && !isUserBlocked(u.uid)
       );
       setInviteResults(filtered);
     } catch {
@@ -495,6 +509,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   };
 
   const toggleInvitee = (user: UserProfile) => {
+    if (isUserBlocked(user.uid)) return;
     if (selectedInvitees.some((s) => s.uid === user.uid)) {
       setSelectedInvitees((prev) => prev.filter((s) => s.uid !== user.uid));
     } else if (selectedInvitees.length < 3) {
@@ -508,6 +523,11 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   const openRoom = (room: DealRoomDoc) => {
     if (!currentUser) return;
     if (!room.participants.includes(currentUser.uid)) {
+      return;
+    }
+    // Never enter a room created by a user you cannot interact with.
+    if (isUserBlocked(room.createdBy)) {
+      console.warn("Refusing to join Deal Room created by a blocked user:", room.createdBy);
       return;
     }
     setActiveRoomId(room.id);

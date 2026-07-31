@@ -7,6 +7,9 @@ import { compressImage } from "../utils/image";
 import CallHistory from "./CallHistory";
 import DealRoom from "./DealRoom";
 import SendUsdcModal from "./SendUsdcModal";
+import BlockUserModal, { BlockModalMode } from "./BlockUserModal";
+import { useBlock } from "../context/BlockContext";
+import { getBlockMessage } from "../utils/blocking";
 import { ArcPaymentReceipt, recordArcPayment } from "../payments";
 // @ts-ignore
 import micaLogo from "../assets/images/micalogo.png";
@@ -33,6 +36,7 @@ import {
   MoreVertical,
   Shield,
   ShieldCheck,
+  ShieldOff,
   RefreshCw,
   Info,
   Copy,
@@ -255,6 +259,17 @@ export default function ChatDashboard() {
 
   const { startCall } = useCall();
 
+  // Two-way Firestore-backed block state (who I blocked, and who blocked me).
+  const {
+    blockedUids,
+    blockedByUids,
+    iBlocked,
+    blockedBy,
+    canInteractWith,
+    blockUser,
+    unblockUser,
+  } = useBlock();
+
   // Privy-verified primary wallet. This is the ONLY source of truth for wallet
   // addresses — manual wallet input is never accepted.
   const {
@@ -462,14 +477,11 @@ export default function ChatDashboard() {
   });
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [newNoteText, setNewNoteText] = useState("");
-  const [blockedUids, setBlockedUids] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("mica_blocked_uids");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+
+  // Block / Unblock confirmation modal state
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  const [blockConfirmMode, setConfirmBlockMode] = useState<BlockModalMode>("block");
+  const [blockConfirmTarget, setBlockConfirmTarget] = useState<{ uid: string; displayName: string } | null>(null);
   const [mutedChatIds, setMutedChatIds] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("mica_muted_chat_ids");
@@ -478,24 +490,12 @@ export default function ChatDashboard() {
       return [];
     }
   });
-  // Mirrors the AIBuddy floating panel's open/closed state (synced via window
-  // events below) purely so the sidebar "AI" quick-action icon can match its glow.
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [showTransferPicker, setShowTransferPicker] = useState(false);
 
   const persistNotes = (updated: { [chatId: string]: { id: string; label: string; text: string }[] }) => {
     setNotesByChatId(updated);
     try {
       localStorage.setItem("mica_chat_notes", JSON.stringify(updated));
-    } catch {
-      // ignore storage errors
-    }
-  };
-
-  const persistBlockedUids = (updated: string[]) => {
-    setBlockedUids(updated);
-    try {
-      localStorage.setItem("mica_blocked_uids", JSON.stringify(updated));
     } catch {
       // ignore storage errors
     }
@@ -541,9 +541,51 @@ export default function ChatDashboard() {
 
   const handleToggleBlockUser = (uid: string, displayName: string) => {
     const isBlocked = blockedUids.includes(uid);
-    const updated = isBlocked ? blockedUids.filter((id) => id !== uid) : [...blockedUids, uid];
-    persistBlockedUids(updated);
-    showToast(isBlocked ? `Unblocked ${displayName}` : `Blocked ${displayName}`, isBlocked ? "success" : "error");
+    setConfirmBlockMode(isBlocked ? "unblock" : "block");
+    setBlockConfirmTarget({ uid, displayName });
+    setBlockConfirmOpen(true);
+  };
+
+  const handleConfirmBlockAction = async () => {
+    if (!blockConfirmTarget) return;
+    const { uid, displayName } = blockConfirmTarget;
+    if (blockConfirmMode === "block") {
+      await blockUser(uid);
+      showToast(`${displayName} has been blocked`, "error");
+    } else {
+      await unblockUser(uid);
+      showToast(`${displayName} has been unblocked`, "success");
+    }
+    setBlockConfirmOpen(false);
+    setBlockConfirmTarget(null);
+  };
+
+  // Guarded wrappers that refuse communication with a blocked user (either
+  // direction) while keeping the underlying features (calls, payments) fully
+  // intact otherwise.
+  const isFriendBlocked = (friend: UserProfile | null | undefined) =>
+    !!friend && !canInteractWith(friend.uid);
+
+  const handleStartCall = (friend: UserProfile, type: "audio" | "video") => {
+    if (isFriendBlocked(friend)) {
+      showToast(
+        getBlockMessage(friend.uid) || "Calls are disabled for this conversation.",
+        "error"
+      );
+      return;
+    }
+    startCall(friend, type);
+  };
+
+  const handleOpenUsdcPayment = () => {
+    if (isFriendBlocked(activeChatFriend)) {
+      showToast(
+        getBlockMessage(activeChatFriend?.uid) || "Payment requests are disabled for this conversation.",
+        "error"
+      );
+      return;
+    }
+    setShowUsdcPaymentModal(true);
   };
 
   const handleTransferChat = (targetFriendId: string, targetName: string) => {
@@ -720,19 +762,6 @@ export default function ChatDashboard() {
         clearInterval(recordingTimerRef.current);
       }
     };
-  }, []);
-
-  // Keep the sidebar "AI" quick-action icon in sync with the AIBuddy floating
-  // panel's own open/closed state, so its glow behaves consistently everywhere.
-  useEffect(() => {
-    const handleAiPanelState = (e: Event) => {
-      const detail = (e as CustomEvent<{ isOpen: boolean }>).detail;
-      if (detail && typeof detail.isOpen === "boolean") {
-        setAiPanelOpen(detail.isOpen);
-      }
-    };
-    window.addEventListener("mica-ai-panel-state", handleAiPanelState);
-    return () => window.removeEventListener("mica-ai-panel-state", handleAiPanelState);
   }, []);
 
   // Sync DND mode from database
@@ -1137,6 +1166,11 @@ export default function ChatDashboard() {
 
   // Dispatch friend requests inside lookup results
   const handleSendInvite = async (receiverId: string) => {
+    if (!canInteractWith(receiverId)) {
+      setInviteStatus(prev => ({ ...prev, [receiverId]: "failed" }));
+      showToast(getBlockMessage(receiverId) || "Friend requests are disabled for this user.", "error");
+      return;
+    }
     setInviteStatus(prev => ({ ...prev, [receiverId]: "sending" }));
     try {
       await sendFriendRequest(receiverId);
@@ -1247,6 +1281,13 @@ export default function ChatDashboard() {
       return;
     }
 
+    // Refuse sending new messages to a blocked user (the composer is also
+    // swapped out for a blocked banner, this is a defensive second gate).
+    if (isFriendBlocked(activeChatFriend)) {
+      showToast(getBlockMessage(activeChatFriend?.uid) || "Messages are disabled for this conversation.", "error");
+      return;
+    }
+
     const snapshotText = msgText.trim();
     const replyPayload = replyingToMessage ? {
       id: replyingToMessage.id,
@@ -1280,6 +1321,12 @@ export default function ChatDashboard() {
   const handleImageAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (isFriendBlocked(activeChatFriend)) {
+      showToast(getBlockMessage(activeChatFriend?.uid) || "Media sharing is disabled for this conversation.", "error");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     setIsUploadingImage(true);
     try {
@@ -1781,7 +1828,7 @@ export default function ChatDashboard() {
                 ) : (
                   <div className="space-y-1">
                     {[...friends]
-                      .filter((f) => !blockedUids.includes(f.uid))
+                      .filter((f) => !blockedUids.includes(f.uid) && !blockedByUids.includes(f.uid))
                       .filter((f) =>
                         inboxSearchQuery.trim()
                           ? f.displayName.toLowerCase().includes(inboxSearchQuery.trim().toLowerCase()) ||
@@ -1964,6 +2011,10 @@ export default function ChatDashboard() {
                             ) : isReceivedPending ? (
                               <button
                                 onClick={async () => {
+                                  if (!canInteractWith(user.uid)) {
+                                    showToast(getBlockMessage(user.uid) || "You cannot accept a friend request from this user.", "error");
+                                    return;
+                                  }
                                   const req = pendingReceived.find(r => r.senderId === user.uid);
                                   if (req) await acceptFriendRequest(req.id);
                                 }}
@@ -1974,8 +2025,12 @@ export default function ChatDashboard() {
                             ) : (
                               <button
                                 onClick={() => handleSendInvite(user.uid)}
-                                disabled={statusOfInvite === "sending"}
-                                className="bg-[#0D111D] border border-white/[0.06] hover:border-neutral-400 text-[#94A3B8] hover:text-white font-semibold px-2 py-1.5 rounded-lg text-[10px] flex items-center gap-1"
+                                disabled={statusOfInvite === "sending" || !canInteractWith(user.uid)}
+                                className={`px-2 py-1.5 rounded-lg text-[10px] flex items-center gap-1 ${
+                                  canInteractWith(user.uid)
+                                    ? "bg-[#0D111D] border border-white/[0.06] hover:border-neutral-400 text-[#94A3B8] hover:text-white font-semibold cursor-pointer"
+                                    : "bg-[#0B0F17]/50 border border-white/[0.04] text-[#334155] opacity-50 pointer-events-none"
+                                }`}
                               >
                                 {statusOfInvite === "sending" ? (
                                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -3172,10 +3227,15 @@ export default function ChatDashboard() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        startCall(activeChatFriend, "audio");
+                        handleStartCall(activeChatFriend, "audio");
                       }}
                       title="Voice call"
-                      className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-xl text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all cursor-pointer"
+                      disabled={!canInteractWith(activeChatFriend.uid)}
+                      className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                        !canInteractWith(activeChatFriend.uid)
+                          ? "text-[#334155] opacity-40 pointer-events-none"
+                          : "text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10"
+                      }`}
                     >
                       <Phone className="w-4 h-4" />
                       <span className="hidden sm:block text-[8px] font-bold uppercase tracking-wider">Call</span>
@@ -3183,10 +3243,15 @@ export default function ChatDashboard() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        startCall(activeChatFriend, "video");
+                        handleStartCall(activeChatFriend, "video");
                       }}
                       title="Video call"
-                      className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-xl text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all cursor-pointer"
+                      disabled={!canInteractWith(activeChatFriend.uid)}
+                      className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                        !canInteractWith(activeChatFriend.uid)
+                          ? "text-[#334155] opacity-40 pointer-events-none"
+                          : "text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10"
+                      }`}
                     >
                       <Video className="w-4 h-4" />
                       <span className="hidden sm:block text-[8px] font-bold uppercase tracking-wider">Video Call</span>
@@ -3872,10 +3937,14 @@ export default function ChatDashboard() {
                     )}
                   </AnimatePresence>
 
-                  {blockedUids.includes(activeChatFriend.uid) ? (
+                  {!canInteractWith(activeChatFriend.uid) ? (
                     <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-semibold">
-                      <Shield className="w-4 h-4" />
-                      You have blocked {activeChatFriend.displayName}. Messages are disabled while blocked.
+                      <Shield className="w-4 h-4 shrink-0" />
+                      <span>
+                        {blockedBy(activeChatFriend.uid)
+                          ? `You have been blocked by ${activeChatFriend.displayName}. You cannot interact with this user because they have blocked you.`
+                          : `You blocked ${activeChatFriend.displayName}. You cannot interact with this user while blocked.`}
+                      </span>
                     </div>
                   ) : (
                   <div className="relative rounded-[36px] p-[5px] pointer-events-none">
@@ -4250,9 +4319,18 @@ export default function ChatDashboard() {
                           <span className={`w-1.5 h-1.5 rounded-full ${activeChatFriend.status === "online" ? "bg-emerald-500" : "bg-gray-500"}`} />
                           {activeChatFriend.status === "online" ? "Active" : "Offline"}
                         </span>
+
+                        {!canInteractWith(activeChatFriend.uid) && (
+                          <span className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-[9px] font-semibold text-red-300 font-mono uppercase tracking-wider">
+                            <ShieldOff className="w-3 h-3" />
+                            {blockedBy(activeChatFriend.uid)
+                              ? "You have been blocked by this user."
+                              : "You blocked this user."}
+                          </span>
+                        )}
                       </div>
 
-                      {/* Quick Actions (Mute / Pay / AI) */}
+                      {/* Quick Actions (Mute / Pay / Block) */}
                       <div className="space-y-2">
                         <span className="text-[9px] text-[#6C5CE0] font-bold uppercase tracking-wider block">
                           Quick Actions
@@ -4284,8 +4362,13 @@ export default function ChatDashboard() {
                           <div className="relative group">
                             <button
                               type="button"
-                              onClick={() => setShowUsdcPaymentModal(true)}
-                              className="w-11 h-11 rounded-xl flex items-center justify-center border border-white/[0.08] bg-[#0B0F17]/60 text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80 hover:border-white/[0.14] hover:scale-[1.05] active:scale-95 transition-all duration-200 cursor-pointer"
+                              onClick={() => handleOpenUsdcPayment()}
+                              disabled={!canInteractWith(activeChatFriend.uid)}
+                              className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-200 ${
+                                canInteractWith(activeChatFriend.uid)
+                                  ? "border-white/[0.08] bg-[#0B0F17]/60 text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80 hover:border-white/[0.14] hover:scale-[1.05] active:scale-95 cursor-pointer"
+                                  : "border-white/[0.04] bg-[#0B0F17]/40 text-[#334155] opacity-40 pointer-events-none"
+                              }`}
                             >
                               <Coins className="w-[18px] h-[18px]" strokeWidth={2} />
                             </button>
@@ -4294,49 +4377,25 @@ export default function ChatDashboard() {
                             </span>
                           </div>
 
-                          {/* AI — mirrors the AIBuddy floating panel's open/closed state */}
+                          {/* Block / Unblock — toggles the blocked state for this user */}
                           <div className="relative group">
-                            <motion.button
+                            <button
                               type="button"
-                              onClick={() => window.dispatchEvent(new CustomEvent("mica-ai-toggle-panel"))}
-                              animate={
-                                aiPanelOpen
-                                  ? { boxShadow: "0 0 0px rgba(124,58,237,0)" }
-                                  : {
-                                      boxShadow: [
-                                        "0 0 0px rgba(124,58,237,0)",
-                                        "0 0 18px rgba(124,58,237,0.45)",
-                                        "0 0 0px rgba(124,58,237,0)",
-                                      ],
-                                    }
-                              }
-                              transition={
-                                aiPanelOpen
-                                  ? { duration: 0.3 }
-                                  : { duration: 3.6, repeat: Infinity, ease: "easeInOut" }
-                              }
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              className={`relative w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden transition-colors duration-200 cursor-pointer ${
-                                aiPanelOpen
-                                  ? "bg-[#0B0F17]/60 border border-white/[0.08] text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80"
-                                  : "bg-gradient-to-br from-[#7C3AED] via-[#6C5CE0] to-[#4F46E5] text-white border border-white/[0.14]"
+                              onClick={() => handleToggleBlockUser(activeChatFriend.uid, activeChatFriend.displayName)}
+                              className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-200 cursor-pointer hover:scale-[1.05] active:scale-95 ${
+                                blockedUids.includes(activeChatFriend.uid)
+                                  ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40"
+                                  : "bg-[#0B0F17]/60 border-white/[0.08] text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80 hover:border-white/[0.14]"
                               }`}
                             >
-                              {!aiPanelOpen && (
-                                <motion.span
-                                  aria-hidden
-                                  className="absolute inset-y-0 bg-gradient-to-r from-transparent via-white/35 to-transparent"
-                                  style={{ width: "45%", skewX: -20 }}
-                                  initial={{ x: "-140%" }}
-                                  animate={{ x: "260%" }}
-                                  transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 2.4, ease: "easeInOut" }}
-                                />
+                              {blockedUids.includes(activeChatFriend.uid) ? (
+                                <ShieldCheck className="w-[18px] h-[18px]" strokeWidth={2} />
+                              ) : (
+                                <ShieldOff className="w-[18px] h-[18px]" strokeWidth={2} />
                               )}
-                              <Sparkles className="w-[18px] h-[18px] relative z-10" strokeWidth={2} />
-                            </motion.button>
+                            </button>
                             <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
-                              Mica AI
+                              {blockedUids.includes(activeChatFriend.uid) ? "Unblock User" : "Block User"}
                             </span>
                           </div>
                         </div>
@@ -4838,6 +4897,18 @@ export default function ChatDashboard() {
         chatId={activeChatId}
         onClose={() => setShowUsdcPaymentModal(false)}
         onPaymentSuccess={handleUsdcPaymentSuccess}
+      />
+
+      {/* Block / Unblock confirmation modal (Chat Profile Details -> Block) */}
+      <BlockUserModal
+        open={blockConfirmOpen}
+        mode={blockConfirmMode}
+        displayName={blockConfirmTarget?.displayName || ""}
+        onCancel={() => {
+          setBlockConfirmOpen(false);
+          setBlockConfirmTarget(null);
+        }}
+        onConfirm={handleConfirmBlockAction}
       />
 
       {/* Web3 Secure Payment Modal overlay */}

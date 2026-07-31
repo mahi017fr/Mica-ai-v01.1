@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { useChat } from "./ChatContext";
 import { UserProfile } from "../types";
+import { isUserBlocked, getBlockMessage } from "../utils/blocking";
 
 export type CallType = "audio" | "video";
 export type CallStatus =
@@ -440,6 +441,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Refuse to call someone you cannot interact with (blocked either direction).
+    if (isUserBlocked(friend.uid)) {
+      setCallError(getBlockMessage(friend.uid) || "Calls are disabled for this user.");
+      setTimeout(() => setCallError(null), 4000);
+      return;
+    }
+
     setCallError(null);
 
     let stream: MediaStream;
@@ -614,6 +622,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (data.status !== "ringing") return;
         if (incomingHandledRef.current.has(callId)) return;
+
+        // Never surface calls from users you have blocked — auto-decline.
+        if (isUserBlocked(data.callerId)) {
+          incomingHandledRef.current.add(callId);
+          updateDoc(change.doc.ref, { status: "declined" }).catch(() => {});
+          return;
+        }
 
         if (callStatusRef.current !== "idle") {
           // Busy on another call — auto reject

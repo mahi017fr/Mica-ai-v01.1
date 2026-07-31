@@ -85,6 +85,13 @@ export interface ChatMessage {
   };
 }
 
+export interface BlockRecord {
+  id: string; // blockerUid_blockedUid (canonical, deterministic for rules)
+  blockerUid: string;
+  blockedUid: string;
+  blockedAt: any; // Firestore Timestamp
+}
+
 export interface AppNotification {
   id: string;
   title: string;

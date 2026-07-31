@@ -20,6 +20,25 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    // True when a block relationship exists between the two users in EITHER
+    // direction. Block documents use the deterministic id
+    // `blockerUid_blockedUid`, which lets rules resolve them with exists()
+    // (no collection queries allowed inside rules).
+    function isBlockedBetween(uidA, uidB) {
+      return uidA is string
+        && uidB is string
+        && (
+          exists(/databases/$(database)/documents/blocks/$(uidA + '_' + uidB)) ||
+          exists(/databases/$(database)/documents/blocks/$(uidB + '_' + uidA))
+        );
+    }
+
+    // Resolves the peer of a 1:1 chat id (uid1_uid2) for the signed-in user.
+    function chatPeer(chatId) {
+      let parts = chatId.split('_');
+      return parts[0] == request.auth.uid ? parts[1] : parts[0];
+    }
+
     // Users collection
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -36,6 +55,27 @@ service cloud.firestore {
         ]));
     }
 
+    // Blocks collection — the persistent, shared record of a block relationship.
+    // Only the blocker may create (id = blockerUid_blockedUid) or delete it;
+    // both parties may read it so the relationship is visible on both accounts.
+    match /blocks/{blockId} {
+      allow read: if isSignedIn() && (
+        resource.data.blockerUid == request.auth.uid ||
+        resource.data.blockedUid == request.auth.uid
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.blockerUid == request.auth.uid
+        && request.resource.data.blockedUid is string
+        && request.resource.data.blockerUid != request.resource.data.blockedUid
+        && isValidId(request.resource.data.blockerUid)
+        && isValidId(request.resource.data.blockedUid)
+        && blockId == request.resource.data.blockerUid + '_' + request.resource.data.blockedUid
+        && !exists(/databases/$(database)/documents/blocks/$(blockId));
+      allow update: if false;
+      allow delete: if isSignedIn()
+        && resource.data.blockerUid == request.auth.uid;
+    }
+
     // Friend Requests collection
     match /friend_requests/{requestId} {
       allow read: if isSignedIn() && (
@@ -45,10 +85,11 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.senderId == request.auth.uid
         && request.resource.data.status == 'pending'
-        && request.resource.data.receiverId != request.auth.uid;
+        && request.resource.data.receiverId != request.auth.uid
+        && !isBlockedBetween(request.resource.data.senderId, request.resource.data.receiverId);
       allow update: if isSignedIn() && (
         // Receiver accepting or declining
-        (request.auth.uid == resource.data.receiverId && (request.resource.data.status == 'accepted' || request.resource.data.status == 'declined') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        (request.auth.uid == resource.data.receiverId && (request.resource.data.status == 'accepted' || request.resource.data.status == 'declined') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && !isBlockedBetween(resource.data.senderId, resource.data.receiverId)) ||
         // Sender cancelling
         (request.auth.uid == resource.data.senderId && request.resource.data.status == 'declined' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
       );
@@ -74,7 +115,8 @@ service cloud.firestore {
         && request.resource.data.amount is number
         && request.resource.data.amount > 0
         && request.resource.data.status == 'succeeded'
-        && request.resource.data.transactionHash is string;
+        && request.resource.data.transactionHash is string
+        && !isBlockedBetween(request.resource.data.senderId, request.resource.data.recipientId);
       allow update, delete: if false;
     }
 
@@ -104,7 +146,8 @@ service cloud.firestore {
         && request.resource.data.callerId == request.auth.uid
         && request.resource.data.calleeId != request.auth.uid
         && request.resource.data.status == 'ringing'
-        && request.resource.data.type in ['audio', 'video'];
+        && request.resource.data.type in ['audio', 'video']
+        && !isBlockedBetween(request.resource.data.callerId, request.resource.data.calleeId);
       allow update: if isSignedIn() && (
         resource.data.callerId == request.auth.uid ||
         resource.data.calleeId == request.auth.uid
@@ -128,6 +171,55 @@ service cloud.firestore {
       }
     }
 
+    // Deal Rooms — temporary collaborative workspaces.
+    // Only approved participants can read/enter; block relationships with the
+    // room creator prevent joining, messaging, and role updates.
+    match /deal_rooms/{roomId} {
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 120;
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && !isBlockedBetween(request.auth.uid, resource.data.createdBy);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read, list: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants;
+        allow create: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants
+          && request.resource.data.senderId == request.auth.uid
+          && !isBlockedBetween(request.auth.uid, get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.createdBy);
+        allow update, delete: if false;
+      }
+    }
+
+    // Deal Room Invitations
+    match /deal_room_invitations/{invId} {
+      allow read: if isSignedIn() && (
+        resource.data.invitedUserId == request.auth.uid ||
+        resource.data.invitedBy == request.auth.uid
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.invitedBy == request.auth.uid
+        && request.resource.data.invitedUserId != request.auth.uid
+        && request.resource.data.status == 'pending'
+        && !isBlockedBetween(request.resource.data.invitedBy, request.resource.data.invitedUserId);
+      allow update: if isSignedIn()
+        && request.auth.uid == resource.data.invitedUserId
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && !isBlockedBetween(resource.data.invitedBy, request.auth.uid);
+      allow delete: if isSignedIn() && (
+        resource.data.invitedUserId == request.auth.uid ||
+        resource.data.invitedBy == request.auth.uid
+      );
+    }
+
     // Messages inside chats (guarded by participants in the chat document)
     match /chats/{chatId}/messages/{messageId} {
       allow read, list: if isSignedIn() && (
@@ -137,9 +229,16 @@ service cloud.firestore {
         && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
         && request.resource.data.senderId == request.auth.uid
         && request.resource.data.text is string
-        && request.resource.data.text.size() <= 4096;
+        && request.resource.data.text.size() <= 4096
+        && !isBlockedBetween(request.auth.uid, chatPeer(chatId));
       allow update: if isSignedIn()
-        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+        && (
+          // Marking messages as read is always allowed so history stays synced
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']) ||
+          // All other edits require an unblocked relationship with the peer
+          !isBlockedBetween(request.auth.uid, chatPeer(chatId))
+        );
       allow delete: if false;
     }
   }

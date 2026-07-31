@@ -5,6 +5,7 @@
 
 import { ChatProvider, useChat } from "./context/ChatContext";
 import { CallProvider } from "./context/CallContext";
+import { BlockProvider } from "./context/BlockContext";
 import { PrivyProvider } from "@privy-io/react-auth";
 import AuthPage from "./components/AuthPage";
 import ChatDashboard from "./components/ChatDashboard";
@@ -57,9 +58,11 @@ export default function App() {
       }}
     >
       <ChatProvider>
-        <CallProvider>
-          <MainAppContent />
-        </CallProvider>
+        <BlockProvider>
+          <CallProvider>
+            <MainAppContent />
+          </CallProvider>
+        </BlockProvider>
       </ChatProvider>
     </PrivyProvider>
   );

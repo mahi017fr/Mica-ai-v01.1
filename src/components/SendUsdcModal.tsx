@@ -17,6 +17,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { UserProfile } from "../types";
+import { isUserBlocked, getBlockMessage } from "../utils/blocking";
 import {
   ArcPaymentReceipt,
   ArcPaymentRequest,
@@ -225,6 +226,13 @@ export default function SendUsdcModal({
   const handleConfirm = async () => {
     const n = validateAmount();
     if (n === null) return;
+
+    // Safety gate: never pay a user you have blocked (either direction).
+    if (isUserBlocked(recipient?.uid)) {
+      setError(getBlockMessage(recipient?.uid) || "Payments are disabled for this user.");
+      setStage("form");
+      return;
+    }
 
     // Requirement 4: a real wallet signature is mandatory. If there is no
     // connected wallet that can sign, DO NOT continue the payment flow.
