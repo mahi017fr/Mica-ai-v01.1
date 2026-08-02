@@ -91,6 +91,9 @@ export default function SendUsdcModal({
   // current provider to show its confirmation popup.
   const {
     session,
+    ready: privyReady,
+    authenticated,
+    refresh: refreshSession,
     reconnect: reconnectWallet,
     reconnecting: walletReconnecting,
     ensureArcChain,
@@ -130,6 +133,16 @@ export default function SendUsdcModal({
       refreshBalance();
     }
   }, [open, refreshBalance, retryKey]);
+
+  // Re-hydrate the active Privy/external wallet connection every time the modal
+  // opens (login, page refresh, browser restart). If the external wallet has
+  // been reconnected meanwhile, this re-promotes it and refreshes the session
+  // so sending can sign through the real provider.
+  useEffect(() => {
+    if (open) {
+      refreshSession();
+    }
+  }, [open, refreshSession]);
 
   const handleSwitchToArc = async () => {
     setError("");
@@ -242,6 +255,14 @@ export default function SendUsdcModal({
     const n = validateAmount();
     if (n === null) return;
     setAmount(fmtAmount(n));
+    // Wallet signing not ready yet? Re-attempt session rehydration now so the
+    // signature prompt can fire at Confirm. We never block the amount field or
+    // the Send action on the wallet state — getSigningContext() re-establishes
+    // the real provider at send time and shows "Reconnect your wallet to
+    // continue." if explicit reconnection is required.
+    if (session.status !== "connected") {
+      refreshSession();
+    }
     setStage("confirm");
   };
 
@@ -335,7 +356,83 @@ export default function SendUsdcModal({
     }
   };
 
-  const lockForm = !walletAddress || !recipientWallet || !canSign;
+  // Independent readiness flags — never one generic lock for the whole form.
+  const balanceLoading = balanceState.status === "checking";
+  const walletReady = canSign;
+  const transactionPending = stage === "processing";
+  const providerAvailable = canSign;
+
+  // Amount field: editable at ALL times EXCEPT while a transaction is actually
+  // being submitted. Wallet signing readiness, balance loading, and network
+  // state NEVER disable typing — an external wallet that needs reconnection
+  // after a browser restart must NOT block the user from entering an amount.
+  // Wallet reconnection is handled at Send/Confirm time via getSigningContext()
+  // (fresh provider + eth_requestAccounts + address/chain verification), or
+  // through the "Reconnect Wallet" panel.
+  const amountLocked = transactionPending;
+
+  // Send button: requires a valid amount, verified sender + recipient wallets,
+  // and a loaded balance. It is NEVER disabled merely because the live wallet
+  // session is not "connected" — clicking Send re-attempts rehydration and the
+  // Confirm step re-establishes the real signing provider.
+  const sendLocked = !parsedAmount || !walletAddress || !recipientWallet || !balanceReady;
+
+  // MAX button: only needs a loaded, non-zero balance and verified wallets.
+  const maxLocked = !walletAddress || !recipientWallet || !balanceReady || balance <= 0;
+
+  // DEVELOPMENT TRACE — why the Amount field is (or isn't) disabled. Logs on
+  // every modal open and on every relevant state change so the persistent-state
+  // (browser-restart) bug is visible in the console instead of guessed at.
+  useEffect(() => {
+    if (!open) return;
+    const reasons: string[] = [];
+    if (transactionPending) reasons.push("transaction in progress (stage === 'processing')");
+    if (!walletAddress)
+      reasons.push(
+        "no sender wallet address (session not connected && senderWallet && profile.walletAddress all empty)"
+      );
+    if (!recipientWallet) reasons.push("recipient has no verified wallet (walletVerified === true required)");
+
+    console.log("USDC SEND DEBUG", {
+      authenticated,
+      privyReady,
+      walletReady,
+      walletConnected: session.status === "connected",
+      providerAvailable,
+      signerAvailable: canSign,
+      walletClientAvailable: session.status === "connected" ? !!session.wallet.walletClientType : false,
+      connectedAddress: session.status === "connected" ? session.connectedAddress : null,
+      primaryWalletAddress: senderWallet,
+      chainId: session.status === "connected" ? session.chainId : null,
+      sessionStatus: session.status,
+      balance,
+      balanceLoading,
+      isSending: transactionPending,
+      transactionPending,
+      recipientAddress: recipientWallet,
+      amountDisabled: amountLocked,
+    });
+    console.log(
+      "AMOUNT INPUT DISABLED REASON",
+      amountLocked ? reasons.join(" | ") || "unknown" : "enabled"
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    open,
+    amountLocked,
+    transactionPending,
+    walletAddress,
+    recipientWallet,
+    balance,
+    balanceLoading,
+    walletReady,
+    canSign,
+    providerAvailable,
+    session,
+    senderWallet,
+    authenticated,
+    privyReady,
+  ]);
 
   const renderBalanceCard = () => {
     switch (balanceState.status) {
@@ -530,7 +627,7 @@ export default function SendUsdcModal({
                           inputMode="decimal"
                           placeholder="0.00"
                           value={amount}
-                          disabled={lockForm}
+                          disabled={amountLocked}
                           onChange={handleAmountChange}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleSendClick();
@@ -540,7 +637,7 @@ export default function SendUsdcModal({
                         <button
                           type="button"
                           onClick={handleMax}
-                          disabled={lockForm || !balanceReady || balance <= 0}
+                          disabled={maxLocked}
                           className="absolute right-2.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-[#6366F1]/15 border border-[#6366F1]/30 text-[10px] font-black text-[#A5B4FC] hover:bg-[#6366F1]/30 hover:text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           MAX
@@ -629,7 +726,7 @@ export default function SendUsdcModal({
                       <button
                         type="button"
                         onClick={handleSendClick}
-                        disabled={lockForm || !balanceReady}
+                        disabled={sendLocked}
                         className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-[#6366F1] via-[#6C5CE0] to-[#8B5CF6] text-white hover:brightness-110 shadow-[0_6px_24px_rgba(99,102,241,0.3)] text-[13px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:brightness-100"
                       >
                         <ArrowUpRight className="w-4 h-4" />
@@ -694,8 +791,7 @@ export default function SendUsdcModal({
                       <button
                         type="button"
                         onClick={handleConfirm}
-                        disabled={!canSign}
-                        className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-[0_6px_24px_rgba(16,185,129,0.3)] text-[13px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                        className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-[0_6px_24px_rgba(16,185,129,0.3)] text-[13px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
                       >
                         <Check className="w-4 h-4" />
                         Confirm

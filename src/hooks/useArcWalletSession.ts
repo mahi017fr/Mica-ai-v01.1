@@ -354,6 +354,11 @@ export function useArcWalletSession() {
   return {
     session,
     primaryAddress,
+    // Exposed so consumers (e.g. the Send USDC debug trace) can log the exact
+    // Privy lifecycle: `ready` is true once Privy has finished restoring the
+    // session, `authenticated` once the restored user is signed in.
+    ready,
+    authenticated,
     refresh,
     reconnect,
     reconnecting,
