@@ -11,6 +11,9 @@
 // NOTE: Arc's public endpoints currently point at Testnet (5042002). When Arc
 // publishes Mainnet endpoints, update ONLY this object — nothing else reads
 // chain constants directly.
+
+import type { EIP1193Provider } from "@privy-io/react-auth";
+
 export const ARC_NETWORK = {
   chainId: 5042002,
   chainIdHex: "0x4cef52",
@@ -56,4 +59,69 @@ export function getTxExplorerUrl(hash?: string | null): string | null {
   if (!hash || !/^0x[0-9a-fA-F]{64}$/.test(hash)) return null;
   if (!ARC_NETWORK.blockExplorerUrl) return null;
   return `${ARC_NETWORK.blockExplorerUrl}/tx/${hash.toLowerCase()}`;
+}
+
+/**
+ * Request the wallet provider to switch the connected chain to Arc Network.
+ *
+ * Uses the standard EIP-1193 `wallet_switchEthereumChain` flow. If Arc is not
+ * yet present in the wallet's chain list (error 4902 / "unrecognized chain"),
+ * it requests the network to be ADDED first via `wallet_addEthereumChain`
+ * using the canonical `ARC_NETWORK` configuration.
+ *
+ * Returns `true` if the wallet ends up on Arc, `false` if the switch was
+ * declined, failed, or the provider is unreachable. The caller decides whether
+ * to abort (a transaction must NEVER be sent on a non-Arc chain).
+ */
+export async function ensureWalletArcChain(provider: EIP1193Provider): Promise<boolean> {
+  if (!provider || typeof provider.request !== "function") return false;
+
+  // 1) Read the wallet's current chain (authoritative).
+  let chainId: number | null = null;
+  try {
+    const hex = await provider.request({ method: "eth_chainId", params: [] });
+    chainId = typeof hex === "string" ? parseInt(hex, 16) : Number(hex);
+  } catch (err: any) {
+    console.error("[Arc] eth_chainId failed while ensuring Arc chain:", err?.message || err);
+    return false;
+  }
+
+  if (chainId === ARC_NETWORK.chainId) return true;
+
+  // 2) Request the switch (shows the wallet's network prompt).
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: ARC_NETWORK.chainIdHex }],
+    });
+    return true;
+  } catch (err: any) {
+    const code = err?.code;
+    const message = String(err?.message || "");
+    const missing = code === 4902 || /unrecognized chain id|chain id.*not|not found|not added|add.*chain/i.test(message);
+    if (!missing) {
+      console.error("[Arc] wallet_switchEthereumChain failed:", err?.message || err);
+      return false;
+    }
+  }
+
+  // 3) Chain not installed — request the wallet to add the Arc network.
+  try {
+    await provider.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: ARC_NETWORK.chainIdHex,
+          chainName: ARC_NETWORK.name,
+          nativeCurrency: ARC_NETWORK.nativeCurrency,
+          rpcUrls: [ARC_NETWORK.rpcUrl],
+          blockExplorerUrls: [ARC_NETWORK.blockExplorerUrl],
+        },
+      ],
+    });
+    return true;
+  } catch (err: any) {
+    console.error("[Arc] wallet_addEthereumChain failed:", err?.message || err);
+    return false;
+  }
 }

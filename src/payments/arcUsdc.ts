@@ -35,7 +35,7 @@ export function classifySendError(err: any): { userMessage: string; detail: stri
   const message = String(err?.message || err || "Unknown wallet error");
   if (code === 4001 || /user rejected|user denied|reject/i.test(message)) {
     return {
-      userMessage: "Transaction was rejected in your wallet.",
+      userMessage: "Transaction cancelled by user.",
       detail: message,
     };
   }

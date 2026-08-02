@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useActiveWallet } from "@privy-io/react-auth";
 import { motion, AnimatePresence } from "motion/react";
+import { useArcWalletSession } from "../hooks/useArcWalletSession";
 import {
   X,
   Coins,
@@ -27,7 +27,6 @@ import {
   getTxExplorerUrl,
   ArcBalanceStatus,
   fetchArcUsdcBalance,
-  getWalletChainId,
 } from "../payments";
 
 type Stage = "form" | "confirm" | "processing" | "success";
@@ -87,34 +86,44 @@ export default function SendUsdcModal({
     console.info(`[Arc] [${new Date().toISOString()}] ${step}${detail ? " — " + detail : ""}`);
   }, []);
 
-  // Connected Privy wallet — the source of truth for the sender's address and
-  // current chain (never a manually typed value).
-  const { wallet: activeWallet } = useActiveWallet();
-  const connectedWallet = activeWallet && activeWallet.type === "ethereum" ? activeWallet : null;
+  // Live Privy wallet session — rehydrated on every modal open and re-checked
+  // at send time via getSigningContext() so MetaMask/Rabby always has a real,
+  // current provider to show its confirmation popup.
+  const {
+    session,
+    reconnect: reconnectWallet,
+    reconnecting: walletReconnecting,
+    ensureArcChain,
+    getSigningContext,
+  } = useArcWalletSession();
 
   const [balanceState, setBalanceState] = useState<ArcBalanceStatus>({ status: "checking" });
   const [retryKey, setRetryKey] = useState(0);
 
-  // Verified sender wallet address: prefer the live connected Privy wallet,
-  // fall back to the verified profile primary wallet.
+  // Verified sender wallet address: prefer the live rehydrated connected
+  // wallet, fall back to the saved verified primary wallet for display and
+  // balance purposes. A stored address alone never authorizes a transaction.
   const walletAddress =
-    connectedWallet?.address?.toLowerCase() ||
+    (session.status === "connected" ? session.connectedAddress : null) ||
     senderWallet?.toLowerCase() ||
     senderProfile?.walletAddress?.toLowerCase() ||
     null;
+
+  // Sending USDC requires a live, matched wallet session.
+  const canSign = session.status === "connected";
 
   const refreshBalance = useCallback(async () => {
     if (!open) return;
     setBalanceState({ status: "checking" });
     try {
-      const chainId = await getWalletChainId(connectedWallet);
+      const chainId = session.status === "connected" ? session.chainId : null;
       const result = await fetchArcUsdcBalance(walletAddress, chainId);
       setBalanceState(result);
     } catch (err: any) {
       console.error("[Arc] Balance check failed:", err);
       setBalanceState({ status: "error", message: err?.message || String(err) });
     }
-  }, [open, connectedWallet, walletAddress]);
+  }, [open, session, walletAddress]);
 
   useEffect(() => {
     if (open) {
@@ -123,14 +132,27 @@ export default function SendUsdcModal({
   }, [open, refreshBalance, retryKey]);
 
   const handleSwitchToArc = async () => {
-    if (!connectedWallet || typeof connectedWallet.switchChain !== "function") return;
+    setError("");
     try {
-      await connectedWallet.switchChain(ARC_NETWORK.chainId);
-      // Re-read the balance once the wallet reports the new chain.
-      setRetryKey((k) => k + 1);
+      const ok = await ensureArcChain();
+      if (ok) {
+        setRetryKey((k) => k + 1);
+      } else {
+        setError("Could not switch your wallet to Arc Network. Please switch manually.");
+      }
     } catch (err: any) {
       console.error(`[Arc] Failed to switch wallet to ${ARC_NETWORK.name}:`, err);
       setError("Could not switch your wallet to Arc Network. Please switch manually.");
+    }
+  };
+
+  const handleReconnect = async () => {
+    setError("");
+    try {
+      await reconnectWallet();
+    } catch (err: any) {
+      console.error("[Arc] Wallet reconnect failed:", err);
+      setError("Could not reconnect your wallet. Please try again.");
     }
   };
 
@@ -236,12 +258,6 @@ export default function SendUsdcModal({
 
     // Requirement 4: a real wallet signature is mandatory. If there is no
     // connected wallet that can sign, DO NOT continue the payment flow.
-    if (!connectedWallet) {
-      console.error("[Arc] No connected wallet to sign with.");
-      setError("Wallet signature required.");
-      setStage("form");
-      return;
-    }
     if (!walletAddress || !recipientWallet || !senderProfile || !recipient) {
       setError("Verified wallets are required to send USDC.");
       setStage("form");
@@ -254,11 +270,11 @@ export default function SendUsdcModal({
     logStep("Wallet Connected", walletAddress);
 
     try {
-      // Obtain the real signing provider from the connected Privy wallet.
-      const provider = await connectedWallet.getEthereumProvider();
-      if (!provider) {
-        throw new Error("Wallet signature required.");
-      }
+      // Re-establish a REAL wallet session before signing: active wallet ->
+      // fresh provider -> eth_requestAccounts -> address matches primary MICA
+      // wallet -> Arc Network chain. This is what makes MetaMask/Rabby show
+      // its confirmation popup instead of silently failing on a stale session.
+      const { provider, from } = await getSigningContext();
       logStep("Preparing Transaction", `${n} USDC → @${recipient.username}`);
 
       const request: ArcPaymentRequest = {
@@ -278,7 +294,7 @@ export default function SendUsdcModal({
       // on-chain confirmation. Never simulated.
       const res = await arcUsdcAdapter.sendUsdc(request, {
         provider,
-        from: walletAddress,
+        from,
         log: logStep,
       });
 
@@ -319,7 +335,7 @@ export default function SendUsdcModal({
     }
   };
 
-  const lockForm = !walletAddress || !recipientWallet;
+  const lockForm = !walletAddress || !recipientWallet || !canSign;
 
   const renderBalanceCard = () => {
     switch (balanceState.status) {
@@ -367,7 +383,7 @@ export default function SendUsdcModal({
               Your wallet is connected to a different chain. Switch it to Arc Network to view
               and send USDC.
             </p>
-            {connectedWallet && typeof connectedWallet.switchChain === "function" && (
+            {session.status === "connected" && (
               <button
                 type="button"
                 onClick={handleSwitchToArc}
@@ -561,6 +577,29 @@ export default function SendUsdcModal({
                             : "Unable to fetch your USDC balance."}
                         </p>
                       )}
+                    {walletAddress && recipientWallet && session.status === "disconnected" && (
+                      <div className="p-3.5 bg-amber-500/[0.06] border border-amber-500/20 rounded-2xl space-y-2.5">
+                        <p className="text-[11px] text-amber-200/90 font-medium flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          Reconnect your wallet to continue.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleReconnect}
+                          disabled={walletReconnecting}
+                          className="w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-100 hover:bg-amber-500/25 text-[11px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                          {walletReconnecting ? "Reconnecting…" : "Reconnect Wallet"}
+                        </button>
+                      </div>
+                    )}
+                    {walletAddress && recipientWallet && session.status === "mismatch" && (
+                      <p className="text-[11px] text-rose-400/90 font-medium flex items-center gap-1.5 px-1">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        Connected wallet does not match your primary MICA wallet.
+                      </p>
+                    )}
 
                     {/* Summary */}
                     <div className="space-y-2 p-4 bg-black/30 border border-white/[0.06] rounded-2xl">
@@ -655,7 +694,8 @@ export default function SendUsdcModal({
                       <button
                         type="button"
                         onClick={handleConfirm}
-                        className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-[0_6px_24px_rgba(16,185,129,0.3)] text-[13px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        disabled={!canSign}
+                        className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-[0_6px_24px_rgba(16,185,129,0.3)] text-[13px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:brightness-100"
                       >
                         <Check className="w-4 h-4" />
                         Confirm
