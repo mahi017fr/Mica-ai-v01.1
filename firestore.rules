@@ -192,9 +192,66 @@ service cloud.firestore {
           && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants;
         allow create: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants
-          && request.resource.data.senderId == request.auth.uid
-          && !isBlockedBetween(request.auth.uid, get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.createdBy);
+          && (
+            // Human message from the sender
+            (request.resource.data.senderId == request.auth.uid
+              && !isBlockedBetween(request.auth.uid, get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.createdBy)) ||
+            // Machine system message from the deal workflow (no user writes these)
+            (request.resource.data.senderId == 'system'
+              && request.resource.data.isSystem == true)
+          );
         allow update, delete: if false;
+      }
+
+      // AI-Guided Deal Agreement + escrow state, per room.
+      // Participants may read; both deal parties drive the state machine; the
+      // identity fields (buyerUid / sellerUid / wallets) are immutable after
+      // creation and no one can delete a deal.
+      match /deals/{dealId} {
+        allow read: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants;
+
+        allow create: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.state == 'SETUP'
+          && request.resource.data.buyerUid is string
+          && request.resource.data.sellerUid is string
+          && request.resource.data.buyerUid != request.resource.data.sellerUid
+          && request.resource.data.buyerUid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants
+          && request.resource.data.sellerUid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants;
+
+        allow update: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants
+          && !isBlockedBetween(request.auth.uid, get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.createdBy)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'state', 'terms', 'termsConfirm', 'ai', 'agreement', 'consent', 'escrow',
+            'delivery', 'result', 'cancelNote', 'reanalysis', 'updatedAt'
+          ]);
+
+        allow delete: if false;
+
+        // Immutable per-version agreement snapshots. A version may only be
+        // created as `proposed`, then flipped to `locked` with the same
+        // contentHash — it can never be rewritten or deleted.
+        match /agreements/{version} {
+          allow read: if isSignedIn()
+            && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants;
+
+          allow create: if isSignedIn()
+            && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants
+            && request.resource.data.version is int
+            && request.resource.data.version == int(version)
+            && request.resource.data.state == 'proposed';
+
+          allow update: if isSignedIn()
+            && request.auth.uid in get(/databases/$(database)/documents/deal_rooms/$(roomId)).data.participants
+            && resource.data.state == 'proposed'
+            && request.resource.data.state == 'locked'
+            && request.resource.data.contentHash == resource.data.contentHash;
+
+          allow delete: if false;
+        }
       }
     }
 

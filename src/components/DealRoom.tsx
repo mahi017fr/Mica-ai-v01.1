@@ -17,6 +17,9 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { DealRoomDoc, DealRoomMessage, DealRoomInvitation, UserProfile } from "../types";
+import DealGuidePanel from "./deals/guide/DealGuide";
+import { ReadyDealGate } from "./deals/guide/ReadyDealCard";
+import { DealGuideProvider } from "../deals/DealGuideContext";
 import { isUserBlocked } from "../utils/blocking";
 import { motion, AnimatePresence } from "motion/react";
 import { Live2DCharacter } from "./Live2DCharacter";
@@ -38,8 +41,6 @@ import {
   AlertTriangle,
   Lock,
   Hash,
-  Sparkles,
-  FileText,
   Camera,
   Mic,
   MapPin,
@@ -935,6 +936,16 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     const isCreator = activeRoom.createdBy === currentUser?.uid;
 
     return (
+      <DealGuideProvider
+        roomId={activeRoomId}
+        currentUid={currentUser?.uid}
+        buyerUid={buyerUid}
+        sellerUid={sellerUid}
+        buyerWallet={buyerProfile?.walletAddress}
+        sellerWallet={sellerProfile?.walletAddress}
+        buyerName={buyerProfile?.displayName}
+        sellerName={sellerProfile?.displayName}
+      >
       <div className="flex-1 flex flex-col h-full bg-[#0D111D]/70 overflow-hidden">
         {/* Room Header */}
         <div className="p-3 sm:px-5 bg-[#12172A]/95 backdrop-blur-md border-b border-white/5 flex items-center gap-3 z-10 shrink-0 select-none">
@@ -1129,6 +1140,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   </div>
                 );
               })}
+              <ReadyDealGate />
               <div ref={messagesEndRef} />
             </div>
 
@@ -1312,6 +1324,10 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                 </p>
               )}
             </div>
+            {/* AI Deal Guide */}
+            {rolesComplete && buyerProfile && sellerProfile && (
+              <DealGuidePanel />
+            )}
             {/* Spacer for future AI features */}
             <div className="flex-1" />
           </div>
@@ -1398,7 +1414,11 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             </motion.div>
           </div>
         )}
+
+        {/* AI-Guided Deal workflow is now driven progressively by DealGuidePanel
+            inside the room view (popups + chat cards + sidebar progress). */}
       </div>
+      </DealGuideProvider>
     );
   }
 

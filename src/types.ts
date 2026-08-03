@@ -125,6 +125,8 @@ export interface DealRoomMessage {
   imageUrl?: string;
   timestamp: any;
   isSystem?: boolean;
+  /** Interactive Mica system-card type rendered with inline actions. */
+  prompt?: string;
 }
 
 export interface DealRoomInvitation {

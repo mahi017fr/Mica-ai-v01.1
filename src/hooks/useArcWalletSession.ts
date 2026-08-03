@@ -101,9 +101,11 @@ export function useArcWalletSession() {
   const primaryAddressRef = useRef(primaryAddress);
   primaryAddressRef.current = primaryAddress;
 
-  const resolveWallet = useCallback((): ConnectedWallet | null => {
+  const resolveWallet = useCallback((requiredAddress?: string | null): ConnectedWallet | null => {
     const eth = wallets.filter((w) => w.type === "ethereum");
     if (eth.length === 0) return null;
+    const required = requiredAddress?.toLowerCase();
+    if (required) return eth.find((w) => w.address.toLowerCase() === required) ?? null;
     // Prefer the active ethereum wallet.
     const active =
       activeWallet && activeWallet.type === "ethereum" ? (activeWallet as ConnectedWallet) : null;
@@ -281,24 +283,25 @@ export function useArcWalletSession() {
    * cases. This is the ONLY path that produces a signing provider for a
    * transaction.
    */
-  const getSigningContext = useCallback(async (): Promise<{ provider: EIP1193Provider; from: string }> => {
+  const getSigningContext = useCallback(async (expectedAddress?: string): Promise<{ provider: EIP1193Provider; from: string }> => {
     const primary = primaryAddressRef.current;
+    const expected = expectedAddress?.toLowerCase() || primary;
     debug("building signing context", { authenticated, ready, primaryAddress: primary });
 
     if (!authenticated || !ready) {
       throw new Error("You must be signed in to send USDC.");
     }
-    if (!primary) {
+    if (!expected) {
       throw new Error("Link a verified primary wallet to send USDC.");
     }
 
     // 1) Live wallet (never a cached/stale one).
-    const wallet = resolveWallet();
+    const wallet = resolveWallet(expected);
     if (!wallet) {
-      throw new Error("Reconnect your wallet to continue.");
+      throw new Error("Connect the verified wallet for your deal role to continue.");
     }
-    if (wallet.address.toLowerCase() !== primary) {
-      throw new Error("Connected wallet does not match your primary MICA wallet.");
+    if (wallet.address.toLowerCase() !== expected) {
+      throw new Error("Connected wallet does not match the verified wallet for your deal role.");
     }
 
     // 2) Fresh provider for THIS send.
@@ -324,8 +327,8 @@ export function useArcWalletSession() {
     if (!account) {
       throw new Error("Reconnect your wallet to continue.");
     }
-    if (String(account).toLowerCase() !== primary) {
-      throw new Error("Connected wallet does not match your primary MICA wallet.");
+    if (String(account).toLowerCase() !== expected) {
+      throw new Error("Connected wallet does not match the verified wallet for your deal role.");
     }
 
     // 4) Never send on a non-Arc chain.
@@ -345,10 +348,15 @@ export function useArcWalletSession() {
           `Please switch to Arc Network (chain ${ARC_NETWORK.chainId}) in your wallet to send USDC.`
         );
       }
+      const switchedHex = await provider.request({ method: "eth_chainId", params: [] });
+      const switchedChainId = typeof switchedHex === "string" ? parseInt(switchedHex, 16) : Number(switchedHex);
+      if (switchedChainId !== ARC_NETWORK.chainId) {
+        throw new Error(`Wallet must be on Arc Testnet (chain ${ARC_NETWORK.chainId}).`);
+      }
     }
 
-    debug("signing context ready", { from: primary, chainId: ARC_NETWORK.chainId });
-    return { provider, from: primary };
+    debug("signing context ready", { from: expected, chainId: ARC_NETWORK.chainId });
+    return { provider, from: expected };
   }, [authenticated, ready, resolveWallet]);
 
   return {
