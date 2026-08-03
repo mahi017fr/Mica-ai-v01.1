@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useArcWalletSession } from "../hooks/useArcWalletSession";
 import {
@@ -102,6 +102,7 @@ export default function SendUsdcModal({
 
   const [balanceState, setBalanceState] = useState<ArcBalanceStatus>({ status: "checking" });
   const [retryKey, setRetryKey] = useState(0);
+  const balanceRequestRef = useRef(0);
 
   // Verified sender wallet address: prefer the live rehydrated connected
   // wallet, fall back to the saved verified primary wallet for display and
@@ -114,19 +115,21 @@ export default function SendUsdcModal({
 
   // Sending USDC requires a live, matched wallet session.
   const canSign = session.status === "connected";
+  const balanceChainId = session.status === "connected" ? session.chainId : null;
 
   const refreshBalance = useCallback(async () => {
     if (!open) return;
+    const requestId = ++balanceRequestRef.current;
+    const requestWallet = walletAddress?.toLowerCase() || "";
     setBalanceState({ status: "checking" });
     try {
-      const chainId = session.status === "connected" ? session.chainId : null;
-      const result = await fetchArcUsdcBalance(walletAddress, chainId);
-      setBalanceState(result);
+      const result = await fetchArcUsdcBalance(walletAddress, balanceChainId);
+      if (requestId === balanceRequestRef.current && requestWallet === (walletAddress?.toLowerCase() || "")) setBalanceState(result);
     } catch (err: any) {
       console.error("[Arc] Balance check failed:", err);
-      setBalanceState({ status: "error", message: err?.message || String(err) });
+      if (requestId === balanceRequestRef.current) setBalanceState({ status: "error", message: err?.message || String(err) });
     }
-  }, [open, session, walletAddress]);
+  }, [open, walletAddress, balanceChainId]);
 
   useEffect(() => {
     if (open) {
@@ -507,10 +510,11 @@ export default function SendUsdcModal({
             <button
               type="button"
               onClick={refreshBalance}
+              disabled={balanceLoading}
               className="w-full py-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-100 hover:bg-rose-500/25 text-[11px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              Retry
+              {balanceLoading ? "Retrying…" : "Retry"}
             </button>
           </div>
         );

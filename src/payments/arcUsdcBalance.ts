@@ -1,7 +1,7 @@
 import { Contract, formatUnits } from "ethers";
 import type { EIP1193Provider } from "@privy-io/react-auth";
 import { ARC_NETWORK, chainLabel, isArcChainId } from "./arcNetwork";
-import { getFreshArcProvider, sleep } from "./arcRpc";
+import { getSharedArcReadProvider, sleep } from "./arcRpc";
 
 /**
  * Result of an Arc USDC balance lookup.
@@ -27,12 +27,12 @@ const USDC_ABI = [
 
 // Cached decimals so repeated balance reads only need ONE `eth_call` (the Arc
 // public RPC is flaky — fewer requests per read reduces failures).
-let cachedDecimals: number | null = null;
+let cachedDecimals: number | null = ARC_NETWORK.usdc.decimals;
 
 async function readDecimals(): Promise<number> {
   if (cachedDecimals != null) return cachedDecimals;
   try {
-    const provider = getFreshArcProvider();
+    const provider = getSharedArcReadProvider();
     const contract = new Contract(ARC_NETWORK.usdc.address, USDC_ABI, provider);
     const raw = await contract.decimals();
     const n = Number(raw);
@@ -104,7 +104,7 @@ export async function getWalletChainId(
 export async function fetchArcUsdcBalance(
   walletAddress: string | null | undefined,
   walletChainId: number | null,
-  attempts = 3
+  attempts = 4
 ): Promise<ArcBalanceStatus> {
   if (!walletAddress) {
     return { status: "no_wallet" };
@@ -118,12 +118,25 @@ export async function fetchArcUsdcBalance(
     return { status: "wrong_network", walletChainId };
   }
 
-  // 2) Read the real on-chain USDC balance from Arc RPC, retrying each time
-  //    with a BRAND-NEW provider.
+  const key = walletAddress.toLowerCase();
+  const existing = inFlightBalances.get(key);
+  if (existing) return existing;
+  const request = fetchBalanceWithRetry(walletAddress, attempts);
+  inFlightBalances.set(key, request);
+  try {
+    return await request;
+  } finally {
+    if (inFlightBalances.get(key) === request) inFlightBalances.delete(key);
+  }
+}
+
+const inFlightBalances = new Map<string, Promise<ArcBalanceStatus>>();
+
+async function fetchBalanceWithRetry(walletAddress: string, attempts: number): Promise<ArcBalanceStatus> {
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const provider = getFreshArcProvider();
+      const provider = getSharedArcReadProvider();
       const contract = new Contract(ARC_NETWORK.usdc.address, USDC_ABI, provider);
 
       const raw = await contract.balanceOf(walletAddress);
@@ -148,7 +161,7 @@ export async function fetchArcUsdcBalance(
         err?.message || err
       );
       if (attempt < attempts) {
-        await sleep(600 * attempt);
+        await sleep(Math.min(2000, 500 * 2 ** (attempt - 1)));
       }
     }
   }

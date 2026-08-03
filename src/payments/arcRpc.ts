@@ -21,6 +21,14 @@ export function getFreshArcProvider(): JsonRpcProvider {
   });
 }
 
+let sharedArcReadProvider: JsonRpcProvider | null = null;
+
+/** Shared provider for ordinary read-only calls such as ERC-20 balanceOf. */
+export function getSharedArcReadProvider(): JsonRpcProvider {
+  if (!sharedArcReadProvider) sharedArcReadProvider = getFreshArcProvider();
+  return sharedArcReadProvider;
+}
+
 export interface ArcReceiptStatus {
   confirmed: boolean;
   status: number | null;
