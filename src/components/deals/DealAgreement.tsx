@@ -50,22 +50,22 @@ export function DealAgreement({
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div className="p-2 rounded-xl bg-black/30 border border-white/[0.05]">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
           <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Price</p>
           <p className="text-[12px] font-mono font-bold text-white mt-0.5">{fmtUsdc(terms.amount)} USDC</p>
         </div>
-        <div className="p-2 rounded-xl bg-black/30 border border-white/[0.05]">
+        <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
           <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Collateral</p>
           <p className="text-[12px] font-mono font-bold text-white mt-0.5">{terms.collateralPercent}%</p>
         </div>
-        <div className="p-2 rounded-xl bg-black/30 border border-white/[0.05]">
+        <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
           <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Network</p>
           <p className="text-[12px] font-mono font-bold text-white mt-0.5">Arc · USDC</p>
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="rounded-2xl border border-white/[0.05] bg-[#0A0F1E]/35 p-3.5 space-y-2">
         <p className="text-[9px] font-mono text-[#6C5CE0] uppercase tracking-wider font-bold">Clauses</p>
         {agreement.clauses.map((c, i) => (
           <div key={i} className="flex gap-2 text-[11px] text-[#F8FAFC] leading-relaxed">

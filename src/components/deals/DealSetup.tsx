@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { DealDoc, DealTerms } from "../../deals/types";
 import { DEAL_TYPE_SUGGESTIONS } from "../../deals/micaDealService";
 import { ActionButton, FieldLabel, Section, WarnBanner, inputCls } from "./dealUi";
@@ -70,18 +70,18 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
         </WarnBanner>
       )}
 
-      <div>
+      <div className="space-y-2">
         <FieldLabel>Deal Type</FieldLabel>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {DEAL_TYPE_SUGGESTIONS.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setDealType(t)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+              className={`px-3 py-2 rounded-xl text-[10px] font-semibold tracking-[-0.01em] border transition-all cursor-pointer ${
                 dealType === t
-                  ? "bg-[#6C5CE0]/20 border-[#6C5CE0]/50 text-white"
-                  : "bg-[#12172A] border-white/[0.08] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/30"
+                ? "bg-[#6C5CE0]/20 border-[#8B7CF6]/60 text-white shadow-sm shadow-[#6C5CE0]/20"
+                  : "bg-[#12172A]/80 border-white/[0.09] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/40"
               }`}
             >
               {t}
@@ -93,21 +93,21 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
           value={dealType}
           onChange={(e) => setDealType(e.target.value)}
           placeholder="e.g. Custom agreement…"
-          className={`${inputCls} mt-1.5 text-xs`}
+          className={`${inputCls} mt-1 text-xs !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3 focus:!border-[#7C6AEE]/60`}
         />
       </div>
 
-      <div>
+      <div className="space-y-2">
         <FieldLabel>Description</FieldLabel>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe the deliverables, scope, and any deadlines…"
-          className={`${inputCls} resize-none h-24 text-xs`}
+          className={`${inputCls} resize-none h-28 text-xs !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3 !leading-relaxed focus:!border-[#7C6AEE]/60`}
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <FieldLabel>Amount (USDC)</FieldLabel>
           <input
@@ -122,15 +122,15 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
               }
             }}
             placeholder="0.00"
-            className={`${inputCls} font-mono font-bold`}
+            className={`${inputCls} !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3 font-mono text-sm font-semibold focus:!border-[#7C6AEE]/60`}
           />
         </div>
         <div>
           <FieldLabel>Mutual Collateral</FieldLabel>
-          <div className="px-3.5 py-2.5 rounded-xl bg-emerald-500/[0.05] border border-emerald-500/15 text-[11px] text-emerald-300 font-mono font-bold">
+          <div className="px-4 py-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-400/20 text-[11px] text-emerald-300 font-semibold tracking-[-0.01em]">
             100% of deal amount
           </div>
-          <p className="text-[9px] text-[#94A3B8] mt-1">
+          <p className="text-[9px] leading-relaxed text-[#7F8BA3] mt-1.5">
             Both buyer and seller post the same collateral into the escrow.
           </p>
         </div>
@@ -139,8 +139,8 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
       {error && <p className="text-[11px] text-rose-400 font-medium">{error}</p>}
 
       <ActionButton onClick={handleSave} disabled={busy} busy={busy}>
-        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-        {busy ? "Mica is analyzing…" : deal?.terms ? "Re-analyze with Mica" : "Analyze with Mica"}
+        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+        {busy ? "Processing…" : "NEXT"}
       </ActionButton>
     </Section>
   );

@@ -9,6 +9,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  runTransaction,
   onSnapshot,
   query,
   where,
@@ -213,7 +214,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     return () => unsub();
   }, [activeRoomId]);
 
-  // Listen for selectedRoles on active room doc
+  // Keep the active room and role state in sync from the same realtime snapshot.
   useEffect(() => {
     if (!activeRoomId) {
       setSelectedRoles({});
@@ -221,7 +222,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
     }
     const unsub = onSnapshot(doc(db, "deal_rooms", activeRoomId), (snap) => {
       if (snap.exists()) {
-        const data = snap.data();
+        const data = snap.data() as DealRoomDoc;
+        setActiveRoom((prev) => prev ? { ...prev, ...data, id: activeRoomId } : { ...data, id: activeRoomId });
         setSelectedRoles(data.selectedRoles || {});
       }
     });
@@ -273,10 +275,10 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   }, [activeRoom?.id, activeRoom?.participants?.length]);
 
   // Role-derived data (declared early so all effects and JSX below can reference them)
-  const rolesComplete = Object.keys(selectedRoles).length === 2;
   const currentUserRole = currentUser ? selectedRoles[currentUser.uid] : undefined;
   const buyerUid = Object.entries(selectedRoles).find(([, r]) => r === "buyer")?.[0];
   const sellerUid = Object.entries(selectedRoles).find(([, r]) => r === "seller")?.[0];
+  const rolesComplete = !!buyerUid && !!sellerUid;
   const buyerProfile = buyerUid ? roomParticipants.find((p) => p.uid === buyerUid) : undefined;
   const sellerProfile = sellerUid ? roomParticipants.find((p) => p.uid === sellerUid) : undefined;
   const initializationSent = roomMessages.some(
@@ -501,8 +503,13 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   const handleSelectRole = async (role: "buyer" | "seller") => {
     if (!currentUser || !activeRoomId) return;
     try {
-      await updateDoc(doc(db, "deal_rooms", activeRoomId), {
-        [`selectedRoles.${currentUser.uid}`]: role,
+      await runTransaction(db, async (tx) => {
+        const ref = doc(db, "deal_rooms", activeRoomId);
+        const snap = await tx.get(ref);
+        const roles = (snap.data()?.selectedRoles || {}) as Record<string, string>;
+        const occupied = Object.entries(roles).some(([uid, selected]) => uid !== currentUser.uid && selected === role);
+        if (occupied) throw new Error(`The ${role} role is already selected.`);
+        tx.update(ref, { [`selectedRoles.${currentUser.uid}`]: role });
       });
     } catch (err) {
       console.error("Failed to select role:", err);

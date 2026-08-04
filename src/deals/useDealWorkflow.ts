@@ -12,6 +12,8 @@ import {
   writeAgreementSnapshot,
   computeContentHash,
   nowIso,
+  claimEscrowCreation,
+  releaseEscrowCreation,
 } from "./dealFirestore";
 import {
   canFund,
@@ -35,6 +37,7 @@ import {
   depositEscrowLeg,
   disputeEscrow,
   refundEscrowLeg,
+  fetchEscrowOnChainStatus,
   startReviewPeriod,
   triggerAutoRelease as execAutoRelease,
 } from "./dealEscrowService";
@@ -88,6 +91,45 @@ export function useDealWorkflow(params: DealWorkflowParams) {
   const derivedState = useMemo(() => deriveDealStatus(deal) ?? null, [deal]);
   const reviewRemaining = useMemo(() => reviewRemainingMs(deal), [deal]);
   const reviewElapsed = useMemo(() => isReviewElapsed(deal), [deal]);
+
+  // Reconcile Firestore funding labels with the read-only on-chain source of
+  // truth. This runs when the realtime deal snapshot changes; it does not poll
+  // and never submits a transaction. Existing deposit hashes are preserved.
+  useEffect(() => {
+    const current = deal;
+    const address = current?.escrow?.escrowAddress;
+    if (
+      !current ||
+      !address ||
+      !current.buyerWallet ||
+      !current.sellerWallet ||
+      current.escrow?.custodyMode !== "contract"
+    ) return;
+
+    const buyerStatus = current.escrow.funding.buyer?.status;
+    const sellerStatus = current.escrow.funding.seller?.status;
+    if (buyerStatus === "confirmed" && sellerStatus === "confirmed" && current.state === "FUNDED") return;
+
+    let active = true;
+    fetchEscrowOnChainStatus(address, current.buyerWallet, current.sellerWallet).then(async (status) => {
+      if (!active || !status?.funded) return;
+      await patchDeal(roomId, current.dealId, {
+        "escrow.funding.buyer.status": "confirmed",
+        "escrow.funding.seller.status": "confirmed",
+        state: "FUNDED",
+      });
+    });
+    return () => { active = false; };
+  }, [
+    roomId,
+    deal?.dealId,
+    deal?.escrow?.escrowAddress,
+    deal?.escrow?.funding?.buyer?.status,
+    deal?.escrow?.funding?.seller?.status,
+    deal?.state,
+    deal?.buyerWallet,
+    deal?.sellerWallet,
+  ]);
 
   const amountFor = useCallback(
     (role: DealRole): number => {
@@ -324,7 +366,10 @@ export function useDealWorkflow(params: DealWorkflowParams) {
   }, [runAction, roomId, currentUid, params.buyerName, params.sellerName]);
 
   const acceptAgreement = useCallback(async () => {
-    const current = dealRef.current;
+    // Always accept against the latest persisted agreement. This matters when
+    // the agreement was just generated or the other participant accepted at
+    // nearly the same time on another client.
+    const current = await getLatestDeal(roomId);
     if (!current?.agreement || !myRole) return;
     await runAction("accept", async () => {
       const version = current.agreement!.version;
@@ -344,6 +389,20 @@ export function useDealWorkflow(params: DealWorkflowParams) {
         await postDealSystemMessage(roomId, "🔒 Agreement locked. Both parties accepted. Escrow funding can now begin.");
       } else {
         await patchDeal(roomId, current.dealId, patch);
+        // Re-read after persisting this participant's consent. If the other
+        // participant accepted concurrently, only advance once both persisted
+        // consent records are present.
+        const latest = await getLatestDeal(roomId);
+        if (latest && latest.state === "AWAITING_ACCEPTANCE" && consentComplete(latest)) {
+          const locked: DealAgreementSnapshot = { ...latest.agreement!, state: "locked", lockedAt: nowIso() };
+          await writeAgreementSnapshot(roomId, latest.dealId, locked);
+          await transitionDeal(roomId, latest.dealId, "AWAITING_ACCEPTANCE", "LOCKED", {
+            "agreement.lockedAt": locked.lockedAt,
+            "agreement.state": "locked",
+          });
+          await postDealSystemMessage(roomId, "🔒 Agreement locked. Both parties accepted. Escrow funding can now begin.");
+          return;
+        }
         await postDealSystemMessage(
           roomId,
           `${myRole === "buyer" ? "Buyer" : "Seller"} accepted agreement v${version}. Waiting for the other party…`
@@ -357,6 +416,10 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     if (!current?.terms) return;
     await runAction("beginFunding", async () => {
       if (!myRole) throw new Error("Only a deal participant can create the escrow contract.");
+      if (!currentUid) return;
+      const claimed = await claimEscrowCreation(roomId, current.dealId, currentUid);
+      if (!claimed) throw new Error("Escrow creation has already been started by the other participant.");
+      try {
       const expectedWallet = (myRole === "buyer" ? current.buyerWallet : current.sellerWallet)?.toLowerCase();
       if (!expectedWallet) throw new Error(`The ${myRole} verified wallet is missing from this deal.`);
       const { provider, from } = await wallet.getSigningContext(expectedWallet);
@@ -389,8 +452,11 @@ export function useDealWorkflow(params: DealWorkflowParams) {
       } else {
         await postDealSystemMessage(roomId, `💰 Escrow contract created at ${res.escrowAddress}. Both parties must now fund their legs.`);
       }
+      } finally {
+        await releaseEscrowCreation(roomId, current.dealId, currentUid);
+      }
     });
-  }, [runAction, roomId, wallet, amountFor, myRole]);
+  }, [runAction, roomId, wallet, amountFor, myRole, currentUid]);
 
   const fundLeg = useCallback(
     async (role: DealRole) => {
@@ -420,10 +486,7 @@ export function useDealWorkflow(params: DealWorkflowParams) {
           throw new Error("On-chain funding unavailable (escrow contract not deployed).");
         }
 
-        const other = role === "buyer" ? "seller" : "buyer";
-        const otherLeg = current.escrow!.funding[other];
-        const bothNow = otherLeg?.status === "confirmed";
-        const toState = bothNow ? "FUNDED" : "FUNDING";
+        const toState = "FUNDING" as const;
         const fromState = current.state === "FUNDED" ? "FUNDED" : current.state;
 
         await transitionFundingLeg({
@@ -444,7 +507,16 @@ export function useDealWorkflow(params: DealWorkflowParams) {
           roomId,
           `${role === "buyer" ? "🛒 Buyer" : "🛍 Seller"} funded ${fmtUsdc(amount)} USDC (tx ${res.mainTxHash.slice(0, 10)}…).`
         );
-        if (bothNow) {
+        const latest = await getLatestDeal(roomId);
+        const chainStatus = latest?.escrow?.escrowAddress
+          ? await fetchEscrowOnChainStatus(
+              latest.escrow.escrowAddress,
+              latest.buyerWallet || "",
+              latest.sellerWallet || ""
+            )
+          : null;
+        if (chainStatus?.funded) {
+          await patchDeal(roomId, current.dealId, { state: "FUNDED" });
           await postDealSystemMessage(
             roomId,
             "🔐 Funds secured. Both deposits are locked in the escrow. The deal is now active."
@@ -488,6 +560,16 @@ export function useDealWorkflow(params: DealWorkflowParams) {
       );
     });
   }, [runAction, roomId, wallet, myRole]);
+
+  const continueToReview = useCallback(async () => {
+    const current = dealRef.current;
+    if (!current?.escrow || myRole !== "seller") return;
+    const bothConfirmed =
+      current.escrow.funding.buyer?.status === "confirmed" &&
+      current.escrow.funding.seller?.status === "confirmed";
+    if (!bothConfirmed) return;
+    await markDeliveredAndStartReview();
+  }, [markDeliveredAndStartReview, myRole]);
 
   const release = useCallback(async () => {
     const current = dealRef.current;
@@ -653,6 +735,7 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     beginFunding,
     fundLeg,
     markDeliveredAndStartReview,
+    continueToReview,
     release,
     triggerAutoRelease,
     disputeDeal,

@@ -196,6 +196,7 @@ export default function DealWorkflow({
                         onFund={wf.fundLeg}
                         onRefundMyLeg={wf.refundMyLeg}
                         onCancel={wf.cancelDeal}
+                        onNext={wf.continueToReview}
                         wallet={wf.wallet}
                       />
                     )}

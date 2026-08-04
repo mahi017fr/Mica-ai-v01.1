@@ -2,8 +2,6 @@ import React, { useMemo } from "react";
 import { motion } from "motion/react";
 import { CheckCircle2, Loader2, X, XCircle } from "lucide-react";
 import { useDealGuideContext } from "../../../deals/DealGuideContext";
-import { TIMELINE, timelineIndex } from "../../../deals/dealStatusMachine";
-import DealTimeline from "../DealTimeline";
 import DealAIRecommendation from "../DealAIRecommendation";
 import { DealAgreement, DealConsent } from "../DealAgreement";
 import DealFunding from "../DealFunding";
@@ -17,7 +15,7 @@ const TERMINAL = ["CANCELLED", "EXPIRED", "COMPLETED", "RESOLVED"];
 
 export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
   const guide = useDealGuideContext();
-  const { deal, derivedState, busy, busyMessage, error, clearError, myRole, reviewRemaining, wallet, regenerateAnalysis, generateAgreement, acceptAgreement, beginFunding, fundLeg, refundMyLeg, cancelDeal, markDeliveredAndStartReview, release, triggerAutoRelease, disputeDeal, askMica } = guide;
+  const { deal, derivedState, busy, busyMessage, error, clearError, myRole, reviewRemaining, wallet, regenerateAnalysis, generateAgreement, acceptAgreement, beginFunding, fundLeg, refundMyLeg, cancelDeal, continueToReview, markDeliveredAndStartReview, release, triggerAutoRelease, disputeDeal, askMica } = guide;
 
   const state = derivedState;
   const showFunding = LOCKED_ONWARD.includes(state || "");
@@ -43,13 +41,14 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
         exit={{ y: 16, scale: 0.98, opacity: 0 }}
         transition={{ type: "spring", damping: 26, stiffness: 260 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-white/10 bg-[#0B0F1E]/95 shadow-2xl shadow-black/50 backdrop-blur-xl"
+        className="relative w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden rounded-[28px] border border-[#29324B] bg-[#0A0F1E]/[0.98] font-sans shadow-[0_28px_100px_rgba(0,0,0,0.62)] backdrop-blur-xl"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-white/[0.07] shrink-0 bg-gradient-to-b from-[#12172A]/65 to-transparent">
           <div className="flex items-center gap-3">
             <div>
-              <h2 className="text-[14px] font-black text-white tracking-wide">Live Deal Panel</h2>
-              <p className="text-[10px] text-[#94A3B8]">
+              <span className="inline-block mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#9B8AFB]">Arc escrow workspace</span>
+              <h2 className="text-[18px] font-extrabold leading-tight text-[#F8FAFC] tracking-[-0.025em]">Live Deal Panel</h2>
+              <p className="mt-1 text-[11px] text-[#8F9BB2]">
                 {guide.buyerName || "Buyer"} ↔ {guide.sellerName || "Seller"} · Arc USDC Escrow
               </p>
             </div>
@@ -66,7 +65,7 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 space-y-4">
           {guide.loading && !deal ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-[#6C5CE0]" />
@@ -74,10 +73,6 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <>
-              <div className="px-2">
-                <DealTimeline status={state} />
-              </div>
-
               {deal && (
                 <>
                   {state && !TERMINAL.includes(state) && (
@@ -140,6 +135,7 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
                       onFund={fundLeg}
                       onRefundMyLeg={refundMyLeg}
                       onCancel={cancelDeal}
+                      onNext={continueToReview}
                       wallet={wallet}
                     />
                   )}
@@ -185,10 +181,7 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <div className="flex items-center justify-between px-5 py-3 border-t border-white/[0.06] shrink-0">
-          <p className="text-[9px] font-mono text-[#94A3B8]">
-            {TIMELINE[Math.max(0, timelineIndex(state))]?.label}
-          </p>
+        <div className="flex items-center justify-end px-6 py-3.5 border-t border-white/[0.07] bg-[#0B1020]/95 shrink-0">
           <button
             type="button"
             onClick={onClose}

@@ -39,6 +39,7 @@ interface Props {
   onFund: (role: DealRole) => void;
   onRefundMyLeg: () => void;
   onCancel: (note: string) => void;
+  onNext: () => void;
   wallet: {
     session: ArcWalletSession;
     primaryAddress: string | null;
@@ -55,9 +56,11 @@ export default function DealFunding({
   onFund,
   onRefundMyLeg,
   onCancel,
+  onNext,
   wallet,
 }: Props) {
   const escrow = deal?.escrow;
+  const escrowCreation = (deal as (DealDoc & { escrowCreation?: { claimedBy?: string } }) | null)?.escrowCreation;
   const terms = deal?.terms;
   const [cancelNote, setCancelNote] = useState("");
 
@@ -66,6 +69,9 @@ export default function DealFunding({
   const balance = useUsdcBalance(connectedAddress || wallet.primaryAddress, wallet.session.status === "connected" ? wallet.session.chainId : null);
 
   const canCancel = ["SETUP", "AI_ANALYSIS", "NEGOTIATING", "AWAITING_ACCEPTANCE", "LOCKED", "AWAITING_FUNDING"].includes(deal?.state || "");
+  const bothDepositsConfirmed =
+    escrow?.funding?.buyer?.status === "confirmed" &&
+    escrow?.funding?.seller?.status === "confirmed";
 
   const LegRow = ({ role, amount }: { role: DealRole; amount: number }) => {
     const leg = escrow?.funding?.[role];
@@ -108,9 +114,9 @@ export default function DealFunding({
             Fund {fmtUsdc(amount)} USDC
           </ActionButton>
         )}
-        {isMyLeg && leg?.status === "confirmed" && !escrow?.reviewStartedAt && !isDisputed(deal) && (
+        {isMyLeg && leg?.status === "confirmed" && deal?.state !== "FUNDED" && deal?.state !== "ACTIVE" && !escrow?.reviewStartedAt && !isDisputed(deal) && (
           <ActionButton onClick={onRefundMyLeg} disabled={!!busy} busy={busy === "refundLeg"} variant="ghost" className="w-full">
-            Claw back my deposit
+            REFUND YOUR FUND
           </ActionButton>
         )}
       </div>
@@ -140,9 +146,9 @@ export default function DealFunding({
       )}
 
       {!escrow && terms && (
-        <ActionButton onClick={onBeginFunding} disabled={!!busy} busy={busy === "beginFunding"}>
+        <ActionButton onClick={onBeginFunding} disabled={!!busy || !!escrowCreation?.claimedBy} busy={busy === "beginFunding"}>
           <ShieldCheck className="w-3.5 h-3.5" />
-          Create Escrow Contract
+          {escrowCreation?.claimedBy ? "Escrow Creation In Progress" : "Create Escrow Contract"}
         </ActionButton>
       )}
 
@@ -151,6 +157,24 @@ export default function DealFunding({
           <LegRow role="buyer" amount={terms.amount} />
           <LegRow role="seller" amount={(terms.amount * terms.collateralPercent) / 100} />
         </div>
+      )}
+
+      {bothDepositsConfirmed && myRole === "seller" && !escrow?.reviewStartedAt && (
+        <ActionButton
+          onClick={onNext}
+          disabled={!!busy}
+          busy={busy === "continueToReview"}
+          variant="success"
+          className="w-full"
+        >
+          NEXT
+        </ActionButton>
+      )}
+
+      {bothDepositsConfirmed && myRole === "buyer" && !escrow?.reviewStartedAt && (
+        <InfoBanner>
+          Both payments are complete. Waiting for the seller to continue and start the 24-hour buyer review.
+        </InfoBanner>
       )}
 
       {escrow && escrow.custodyMode === "contract" && (

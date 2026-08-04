@@ -6,6 +6,22 @@ import { ethers } from "ethers";
 import { v2 as cloudinary } from "cloudinary";
 import formidable from "formidable";
 
+const arcReadProvider = new ethers.JsonRpcProvider(process.env.ARC_RPC_URL || "https://rpc.testnet.arc.io", 5042002, { staticNetwork: true });
+const arcBalanceInflight = new Map<string, Promise<any>>();
+const arcSleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+async function readArcUsdcBalance(address: string) {
+  let last: any;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      return await new ethers.Contract("0x3600000000000000000000000000000000000000", ["function balanceOf(address) view returns (uint256)"], arcReadProvider).balanceOf(address);
+    } catch (err) {
+      last = err;
+      if (attempt < 3) await arcSleep(Math.min(2000, 500 * 2 ** attempt));
+    }
+  }
+  throw last;
+}
+
 // Ensure upload directory exists
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -32,6 +48,22 @@ async function startServer() {
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  app.get("/api/arc-usdc-balance", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const address = ethers.getAddress(String(req.query.address || ""));
+      const key = address.toLowerCase();
+      let request = arcBalanceInflight.get(key);
+      if (!request) { request = readArcUsdcBalance(address); arcBalanceInflight.set(key, request); }
+      let raw;
+      try { raw = await request; }
+      finally { if (arcBalanceInflight.get(key) === request) arcBalanceInflight.delete(key); }
+      const formatted = ethers.formatUnits(raw, 6);
+      res.json({ ok: true, wallet: address, chainId: 5042002, contract: "0x3600000000000000000000000000000000000000", rawBalance: raw.toString(), balance: formatted, decimals: 6 });
+    } catch (err: any) { res.status(400).json({ ok: false, error: err?.message || "Unable to fetch balance" }); }
   });
 
   // Groq AI Chat Proxy Route

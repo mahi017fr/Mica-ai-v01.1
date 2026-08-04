@@ -121,13 +121,27 @@ export async function fetchArcUsdcBalance(
   const key = walletAddress.toLowerCase();
   const existing = inFlightBalances.get(key);
   if (existing) return existing;
-  const request = fetchBalanceWithRetry(walletAddress, attempts);
+  const request = fetchBalanceFromServer(walletAddress);
   inFlightBalances.set(key, request);
   try {
     return await request;
   } finally {
     if (inFlightBalances.get(key) === request) inFlightBalances.delete(key);
   }
+}
+
+async function fetchBalanceFromServer(walletAddress: string): Promise<ArcBalanceStatus> {
+  const response = await fetch(`/api/arc-usdc-balance?address=${encodeURIComponent(walletAddress)}`, { cache: "no-store" });
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("application/json")) return { status: "error", message: `Balance endpoint returned ${contentType || "non-JSON content"} (${response.status}).` };
+  const body = await response.json();
+  if (!response.ok || body?.ok !== true) return { status: "error", message: body?.error || `Balance request failed (${response.status})` };
+  if (typeof body.rawBalance !== "string" || typeof body.balance !== "string" || !/^\d+$/.test(body.rawBalance) || !/^\d+(\.\d+)?$/.test(body.balance)) return { status: "error", message: "Arc balance response was invalid." };
+  if (String(body.wallet).toLowerCase() !== walletAddress.toLowerCase() || body.chainId !== ARC_NETWORK.chainId) return { status: "error", message: "Arc balance response did not match the requested wallet or network." };
+  const balance = Number(body.balance);
+  if (!Number.isFinite(balance) || balance < 0) return { status: "error", message: "Arc balance response was invalid." };
+  console.info("[Arc] USDC balance response", { walletAddress: walletAddress.toLowerCase(), raw: body.rawBalance, formatted: body.balance, decimals: 6 });
+  return { status: "success", balance, formatted: body.balance, decimals: 6 };
 }
 
 const inFlightBalances = new Map<string, Promise<ArcBalanceStatus>>();

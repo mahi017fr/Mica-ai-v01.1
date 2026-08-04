@@ -43,25 +43,26 @@ export default function RecommendationPopup({
         exit={{ y: 16, scale: 0.98, opacity: 0 }}
         transition={{ type: "spring", damping: 26, stiffness: 260 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl border border-white/10 bg-[#0B0F1E]/95 shadow-2xl shadow-black/50 backdrop-blur-xl"
+        className="relative w-full max-w-2xl max-h-[84vh] flex flex-col overflow-hidden rounded-[28px] border border-[#29324B] bg-[#0A0F1E]/[0.98] font-sans shadow-[0_28px_100px_rgba(0,0,0,0.62)] backdrop-blur-xl"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
-          <div>
-            <h2 className="text-[14px] font-black text-white tracking-wide">Mica&apos;s protection plan</h2>
-            <p className="text-[10px] text-[#94A3B8]">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-white/[0.07] shrink-0 bg-gradient-to-b from-[#12172A]/65 to-transparent">
+          <div className="pr-4">
+            <span className="inline-block mb-2 text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#9B8AFB]">Mica advisory</span>
+            <h2 className="text-[18px] font-extrabold leading-tight text-[#F8FAFC] tracking-[-0.025em]">Mica&apos;s protection plan</h2>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-[#8F9BB2]">
               Advisory only — Mica never touches your funds.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-xl border border-transparent flex items-center justify-center text-[#7F8BA3] hover:text-white hover:bg-white/[0.05] hover:border-white/[0.07] transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-7 py-4 space-y-3">
           {ai ? (
             <div className="space-y-3">
               <MicaBubble
@@ -75,7 +76,7 @@ export default function RecommendationPopup({
               )}
 
               {ai.protection.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="rounded-2xl border border-emerald-400/10 bg-emerald-500/[0.025] p-3 space-y-1.5">
                   <p className="text-[9px] font-mono text-emerald-300/80 uppercase tracking-wider font-bold">
                     Protection
                   </p>
@@ -88,7 +89,7 @@ export default function RecommendationPopup({
               )}
 
               {ai.milestones.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="rounded-2xl border border-sky-400/10 bg-sky-500/[0.025] p-3 space-y-1.5">
                   <p className="text-[9px] font-mono text-sky-300/80 uppercase tracking-wider font-bold">
                     Milestones
                   </p>
@@ -101,7 +102,7 @@ export default function RecommendationPopup({
               )}
 
               {ai.risks.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="rounded-2xl border border-amber-400/10 bg-amber-500/[0.025] p-3 space-y-1.5">
                   <p className="text-[9px] font-mono text-amber-300/80 uppercase tracking-wider font-bold">
                     Risks
                   </p>
@@ -114,7 +115,7 @@ export default function RecommendationPopup({
               )}
 
               {ai.collateralNote && (
-                <div className="p-2.5 rounded-xl bg-emerald-500/[0.05] border border-emerald-500/15 text-[11px] text-emerald-200 leading-relaxed">
+                <div className="p-3 rounded-2xl bg-emerald-500/[0.06] border border-emerald-400/20 text-[11px] text-emerald-200 leading-relaxed">
                   {ai.collateralNote}
                 </div>
               )}
@@ -136,7 +137,7 @@ export default function RecommendationPopup({
                 </ActionButton>
               </div>
 
-              <div className="space-y-2 pt-1 border-t border-white/[0.05]">
+              <div className="space-y-2.5 pt-3 border-t border-white/[0.06]">
                 <p className="text-[9px] font-mono text-[#6C5CE0] uppercase tracking-wider font-bold">
                   Ask Mica about this deal
                 </p>
@@ -149,7 +150,7 @@ export default function RecommendationPopup({
                       if (e.key === "Enter") handleAsk();
                     }}
                     placeholder={`Ask as ${myRole}… e.g. what happens if the seller never delivers?`}
-                    className={`${inputCls} text-xs`}
+                    className={`${inputCls} text-xs !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3`}
                   />
                   <ActionButton onClick={handleAsk} busy={asking}>
                     {asking ? undefined : <Send className="w-3.5 h-3.5" />}

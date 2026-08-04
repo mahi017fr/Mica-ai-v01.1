@@ -6,6 +6,7 @@ import DealProgress from "./DealProgress";
 import DealInfoPopup from "./DealInfoPopup";
 import RecommendationPopup from "./RecommendationPopup";
 import DealPanelPopup from "./DealPanelPopup";
+import micaLogo from "../../../assets/images/micalogo.png";
 
 const LOCKED_ONWARD = ["LOCKED", "AWAITING_FUNDING", "FUNDING", "FUNDED", "ACTIVE", "DELIVERED", "BUYER_REVIEW", "AUTO_RELEASE_DUE", "RELEASE_PENDING", "DISPUTED", "RESOLVED"];
 const TERMINAL = ["CANCELLED", "EXPIRED", "COMPLETED", "RESOLVED"];
@@ -24,9 +25,7 @@ function AnalyzingPopup({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0B0F1E]/95 shadow-2xl shadow-black/50 backdrop-blur-xl p-6 flex flex-col items-center gap-3"
       >
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#6C5CE0] to-[#8B5CF6] flex items-center justify-center">
-          <Sparkles className="w-5 h-5 text-white" />
-        </div>
+        <img src={micaLogo} alt="Mica" className="w-10 h-10 rounded-2xl object-cover" />
         <div className="flex items-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin text-[#A78BFA]" />
           <p className="text-[13px] font-black text-white">Mica is analyzing your deal…</p>

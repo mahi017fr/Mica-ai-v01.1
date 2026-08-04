@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Check, Handshake, Loader2 } from "lucide-react";
 import { useDealGuideContext } from "../../../deals/DealGuideContext";
 import { RoleTag } from "../dealUi";
+import micaLogo from "../../../assets/images/micalogo.png";
 
 export function ReadyDealGate() {
   const guide = useDealGuideContext();
@@ -35,17 +36,15 @@ export default function ReadyDealCard() {
   );
 
   return (
-    <div className="flex justify-center px-2">
+    <div className="flex justify-center px-3 py-2">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", damping: 26, stiffness: 260 }}
-        className="w-full max-w-md rounded-2xl border border-[#6C5CE0]/25 bg-gradient-to-br from-[#6C5CE0]/[0.10] to-[#8B5CF6]/[0.05] p-4 space-y-3"
+        className="relative w-full max-w-[470px] overflow-hidden rounded-[22px] border border-[#8B5CF6]/30 bg-[#111528]/95 p-5 space-y-4 shadow-[0_18px_60px_rgba(0,0,0,0.32),0_0_30px_rgba(108,92,224,0.08)] backdrop-blur-xl"
       >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6C5CE0] to-[#8B5CF6] flex items-center justify-center shrink-0 text-[12px] font-black text-white">
-            M
-          </div>
+        <div className="relative flex items-center gap-3">
+          <img src={micaLogo} alt="Mica" className="w-10 h-10 object-contain shrink-0" />
           <div className="min-w-0">
             <p className="text-[12px] font-black text-white">Mica AI · Deal Guide</p>
             <p className="text-[9px] font-mono text-[#94A3B8]">
@@ -56,22 +55,22 @@ export default function ReadyDealCard() {
           </div>
         </div>
 
-        <p className="text-[11px] text-[#E0DAFF] leading-relaxed">
+        <p className="relative text-[11px] text-[#D8DDF0] leading-[1.7]">
           I&apos;ll mediate this deal live — draft a dual-signed agreement, hold the USDC in an Arc
           escrow, and release it only when both sides are happy. Are you both ready to deal?
         </p>
 
-        <div className="space-y-1.5">
+        <div className="relative space-y-2">
           <Row role="buyer" name={buyerName} ready={buyerReady} />
           <Row role="seller" name={sellerName} ready={sellerReady} />
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
+        <div className="relative flex items-center gap-2 pt-0.5">
           <button
             type="button"
             onClick={() => (myReady ? unready() : confirmReady())}
             disabled={bothReady || !myRole}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`flex-1 min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               myReady
                 ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
                 : "bg-gradient-to-br from-[#6C5CE0] to-[#8B5CF6] text-white hover:opacity-90 shadow-lg shadow-[#6C5CE0]/20"

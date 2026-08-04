@@ -11,6 +11,8 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  runTransaction,
+  deleteField,
   serverTimestamp,
   Timestamp,
   type Unsubscribe,
@@ -99,10 +101,11 @@ export interface CreateDealInput {
  * is returned instead of duplicated.
  */
 export async function createDeal(input: CreateDealInput): Promise<DealDoc> {
+  // Preserve rooms created before the deterministic document id was introduced.
   const existing = await getLatestDeal(input.roomId);
   if (existing) return existing;
 
-  const ref = doc(dealCollectionRef(input.roomId));
+  const ref = doc(dealCollectionRef(input.roomId), "primary");
   const dealId = ref.id;
   const docData: DealDoc = {
     dealId,
@@ -116,8 +119,12 @@ export async function createDeal(input: CreateDealInput): Promise<DealDoc> {
     buyerWallet: input.buyerWallet?.toLowerCase(),
     sellerWallet: input.sellerWallet?.toLowerCase(),
   };
-  await setDoc(ref, docData as any);
-  return { ...docData, dealId };
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists()) return { ...(snap.data() as DealDoc), dealId };
+    tx.set(ref, docData as any);
+    return { ...docData, dealId };
+  });
 }
 
 /**
@@ -153,6 +160,42 @@ export async function patchDeal(
   patch: Record<string, unknown>
 ): Promise<void> {
   await updateDoc(dealDocRef(roomId, dealId), { ...patch, updatedAt: serverTimestamp() } as any);
+}
+
+/** Allow only one participant to start escrow creation at a time. */
+export async function claimEscrowCreation(
+  roomId: string,
+  dealId: string,
+  uid: string
+): Promise<boolean> {
+  const ref = dealDocRef(roomId, dealId);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return false;
+    const data = snap.data() as DealDoc & { escrowCreation?: { claimedBy?: string } };
+    if (data.escrow || data.state !== "LOCKED" || data.escrowCreation?.claimedBy) return false;
+    tx.update(ref, {
+      escrowCreation: { claimedBy: uid, claimedAt: nowIso() },
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  });
+}
+
+export async function releaseEscrowCreation(
+  roomId: string,
+  dealId: string,
+  uid: string
+): Promise<void> {
+  const ref = dealDocRef(roomId, dealId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const data = snap.data() as DealDoc & { escrowCreation?: { claimedBy?: string } };
+    if (!data.escrow && data.escrowCreation?.claimedBy === uid) {
+      tx.update(ref, { escrowCreation: deleteField(), updatedAt: serverTimestamp() });
+    }
+  });
 }
 
 export async function setState(roomId: string, dealId: string, to: DealStatus): Promise<void> {
