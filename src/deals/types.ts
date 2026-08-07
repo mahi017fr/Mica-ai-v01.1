@@ -98,6 +98,7 @@ export interface DealEscrowInfo {
   };
   reviewStartedAt?: string;
   reviewDeadlineAt?: any;
+  reviewTxHash?: string;
   releaseTxHash?: string;
   releaseMethod?: "buyer_release" | "auto_release";
   releasedAt?: string;

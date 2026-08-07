@@ -81,6 +81,9 @@ export function deriveDealStatus(doc: DealDoc | undefined | null, now = Date.now
   if (deadline != null && !released && !disputed && now >= deadline) {
     return "AUTO_RELEASE_DUE";
   }
+  if (deadline != null && !released && !disputed && now < deadline) {
+    return "BUYER_REVIEW";
+  }
   return s;
 }
 

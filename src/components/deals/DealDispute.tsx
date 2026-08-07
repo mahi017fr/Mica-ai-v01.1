@@ -22,6 +22,9 @@ export default function DealDispute({
   const state = deal?.state || "";
   const canOpen = !disputed && DISPUTABLE.includes(state) && !!myRole;
 
+  const bothFunded = deal?.escrow?.funding?.buyer?.status === "confirmed" && deal?.escrow?.funding?.seller?.status === "confirmed";
+  if (!disputed && (bothFunded || state === "BUYER_REVIEW" || state === "AUTO_RELEASE_DUE" || state === "RELEASE_PENDING")) return null;
+
   const [reason, setReason] = useState("");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);

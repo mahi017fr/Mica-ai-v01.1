@@ -10,10 +10,9 @@
 // Keys are NEVER stored in this repo or the frontend — a deployer key is only
 // used once by scripts/deploy-escrow.mjs on the machine that deploys.
 
-const ENV_FACTORY =
-  typeof import.meta !== "undefined"
-    ? ((import.meta as any).env as any)?.VITE_ESCROW_FACTORY_ADDRESS
-    : undefined;
+// Keep this as a direct Vite env access. Vite replaces direct `import.meta.env.*`
+// references at build time; dynamic access can be omitted from production bundles.
+const ENV_FACTORY = import.meta.env.VITE_ESCROW_FACTORY_ADDRESS;
 
 export const ARC_ESCROW_FACTORY_ADDRESS: string | null = (ENV_FACTORY as string | undefined)
   ? String(ENV_FACTORY).trim().toLowerCase()

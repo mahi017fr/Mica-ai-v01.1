@@ -35,12 +35,12 @@ export function classifySendError(err: any): { userMessage: string; detail: stri
   const message = String(err?.message || err || "Unknown wallet error");
   if (code === 4001 || /user rejected|user denied|reject/i.test(message)) {
     return {
-      userMessage: "Transaction cancelled by user.",
+      userMessage: "Transaction cancelled.",
       detail: message,
     };
   }
   if (/method not supported|not supported|disconnected|wallet.*sign/i.test(message)) {
-    return { userMessage: "Wallet signature required.", detail: message };
+    return { userMessage: "Reconnect your wallet to continue.", detail: message };
   }
   if (/insufficient/i.test(message)) {
     return {

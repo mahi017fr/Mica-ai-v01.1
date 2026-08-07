@@ -73,6 +73,16 @@ export default function DealFunding({
     escrow?.funding?.buyer?.status === "confirmed" &&
     escrow?.funding?.seller?.status === "confirmed";
 
+  if (bothDepositsConfirmed && (deal?.state === "FUNDED" || deal?.state === "ACTIVE" || deal?.state === "DELIVERED")) {
+    return (
+      <Section title="Funding Complete" subtitle="Both escrow deposits are confirmed.">
+        <ActionButton onClick={onNext} disabled={!!busy || myRole !== "seller"} busy={busy === "deliver"} variant="success" className="w-full">
+          {myRole === "seller" ? "NEXT" : "WAITING FOR SELLER TO CONTINUE"}
+        </ActionButton>
+      </Section>
+    );
+  }
+
   const LegRow = ({ role, amount }: { role: DealRole; amount: number }) => {
     const leg = escrow?.funding?.[role];
     const status = leg?.status || "pending";
@@ -114,7 +124,7 @@ export default function DealFunding({
             Fund {fmtUsdc(amount)} USDC
           </ActionButton>
         )}
-        {isMyLeg && leg?.status === "confirmed" && deal?.state !== "FUNDED" && deal?.state !== "ACTIVE" && !escrow?.reviewStartedAt && !isDisputed(deal) && (
+        {isMyLeg && leg?.status === "confirmed" && !bothDepositsConfirmed && deal?.state !== "FUNDED" && deal?.state !== "ACTIVE" && !escrow?.reviewStartedAt && !isDisputed(deal) && (
           <ActionButton onClick={onRefundMyLeg} disabled={!!busy} busy={busy === "refundLeg"} variant="ghost" className="w-full">
             REFUND YOUR FUND
           </ActionButton>
@@ -139,6 +149,10 @@ export default function DealFunding({
           Escrow contract: <span className="font-mono">{escrow.escrowAddress}</span>
           {escrow.factoryTxHash ? ` · created tx ${escrow.factoryTxHash.slice(0, 12)}…` : ""}
         </InfoBanner>
+      ) : escrow?.factoryTxHash ? (
+        <InfoBanner>
+          Escrow creation submitted. Verifying on Arcâ€¦ <span className="font-mono">tx {escrow.factoryTxHash.slice(0, 12)}â€¦</span>
+        </InfoBanner>
       ) : (
         <InfoBanner>
           No escrow yet. Once both parties accept, create the on-chain escrow to begin funding.
@@ -152,7 +166,7 @@ export default function DealFunding({
         </ActionButton>
       )}
 
-      {escrow && terms && (
+      {escrow?.escrowAddress && terms && (
         <div className="grid gap-2.5">
           <LegRow role="buyer" amount={terms.amount} />
           <LegRow role="seller" amount={(terms.amount * terms.collateralPercent) / 100} />

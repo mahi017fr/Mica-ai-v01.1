@@ -18,7 +18,7 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
   const { deal, derivedState, busy, busyMessage, error, clearError, myRole, reviewRemaining, wallet, regenerateAnalysis, generateAgreement, acceptAgreement, beginFunding, fundLeg, refundMyLeg, cancelDeal, continueToReview, markDeliveredAndStartReview, release, triggerAutoRelease, disputeDeal, askMica } = guide;
 
   const state = derivedState;
-  const showFunding = LOCKED_ONWARD.includes(state || "");
+  const showFunding = ["LOCKED", "AWAITING_FUNDING", "FUNDING", "FUNDED", "ACTIVE", "DELIVERED"].includes(state || "");
 
   const termination = useMemo(() => {
     if (state === "CANCELLED")
@@ -140,10 +140,6 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
                     />
                   )}
 
-                  {deal && (state === "FUNDED" || state === "ACTIVE" || state === "DELIVERED" || state === "BUYER_REVIEW") && (
-                    <DealDelivery deal={deal} busy={busy} myRole={myRole} onDeliver={markDeliveredAndStartReview} />
-                  )}
-
                   {deal && (state === "BUYER_REVIEW" || state === "AUTO_RELEASE_DUE" || state === "RELEASE_PENDING" || state === "COMPLETED") && (
                     <DealReview
                       deal={deal}
@@ -152,6 +148,7 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
                       reviewRemaining={reviewRemaining}
                       onRelease={release}
                       onAutoRelease={triggerAutoRelease}
+                      onReport={disputeDeal}
                     />
                   )}
 

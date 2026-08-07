@@ -63,6 +63,12 @@ function isEmbeddedWallet(w: ConnectedWallet): boolean {
   return client === "privy" || client === "privy-v2";
 }
 
+function isUserRejectedWalletRequest(err: any): boolean {
+  const code = err?.code ?? err?.cause?.code;
+  const message = String(err?.message || err?.cause?.message || "");
+  return code === 4001 || /user rejected|user denied|request rejected/i.test(message);
+}
+
 /**
  * Classify the live connected wallets against the saved primary wallet:
  * - `connected`    -> a connected wallet matches the primary (signing capable).
@@ -250,16 +256,40 @@ export function useArcWalletSession() {
   const reconnect = useCallback(async () => {
     if (reconnecting) return;
     setReconnecting(true);
-    debug("opening wallet connect modal for reconnect");
+    debug("recovering signing wallet");
     try {
-      await openWalletConnectModal();
+      const expected = primaryAddressRef.current;
+      const existing = resolveWallet(expected);
+      if (existing) {
+        try {
+          const provider = await existing.getEthereumProvider();
+          await provider.request({ method: "eth_requestAccounts", params: [] });
+          await refresh();
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          if (sessionRef.current.status === "connected") return;
+        } catch (err) {
+          debug("existing wallet provider could not be restored", err);
+        }
+      }
+
+      debug("opening wallet connect modal for reconnect");
+      // `reset: true` tells Privy to re-run the real wallet connection flow
+      // instead of resolving immediately against a stale connector.
+      await openWalletConnectModal({ reset: true });
+      // The hook's wallet list updates asynchronously after the modal closes;
+      // give Privy a short window to publish the fresh wallet/provider before
+      // declaring recovery unsuccessful.
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await refresh();
+        if (sessionRef.current.status === "connected") return;
+      }
     } catch (err) {
       console.error("[ArcWallet] wallet reconnect flow failed:", err);
     } finally {
       setReconnecting(false);
-      await refresh();
     }
-  }, [reconnecting, openWalletConnectModal, refresh]);
+  }, [reconnecting, openWalletConnectModal, refresh, resolveWallet]);
 
   /**
    * Ensure the wallet is connected to Arc Network, requesting a switch / add
@@ -321,6 +351,9 @@ export function useArcWalletSession() {
       accounts = await provider.request({ method: "eth_accounts", params: [] });
     } catch (err: any) {
       console.error("[ArcWallet] eth_requestAccounts failed at send time:", err?.message || err);
+      if (isUserRejectedWalletRequest(err)) {
+        throw new Error("Transaction cancelled.");
+      }
       throw new Error("Reconnect your wallet to continue.");
     }
     const account = Array.isArray(accounts) ? accounts[0] : null;

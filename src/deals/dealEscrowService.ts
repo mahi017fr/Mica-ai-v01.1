@@ -1,7 +1,7 @@
 import { Interface, parseUnits, keccak256, toUtf8Bytes, getAddress, isAddress } from "ethers";
 import type { EIP1193Provider } from "@privy-io/react-auth";
 import { ARC_NETWORK } from "../payments/arcNetwork";
-import { getFreshArcProvider, waitForArcTransaction, sleep } from "../payments/arcRpc";
+import { getSharedArcReadProvider, waitForArcTransaction, sleep, withArcReadCache, isRateLimited } from "../payments/arcRpc";
 import { classifySendError } from "../payments/arcUsdc";
 import {
   ARC_ESCROW_FACTORY_ADDRESS,
@@ -43,8 +43,15 @@ async function estimateGasForCall(
   tx: Record<string, unknown>
 ): Promise<string | undefined> {
   try {
-    const hex = await provider.request({ method: "eth_estimateGas", params: [tx] });
-    return typeof hex === "string" ? hex : undefined;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const hex = await provider.request({ method: "eth_estimateGas", params: [tx] });
+        return typeof hex === "string" ? hex : undefined;
+      } catch (err) {
+        if (!isRateLimited(err) || attempt === 3) throw err;
+        await sleep(Math.min(4000, 400 * 2 ** attempt));
+      }
+    }
   } catch (err: any) {
     console.warn("[DealEscrow] gas estimate failed; sending without a limit:", err?.message || err);
     return undefined;
@@ -62,17 +69,25 @@ export async function sendContractCall(
   iface: Interface,
   fn: string,
   args: unknown[],
-  log?: EscrowStepLogger
+  log?: EscrowStepLogger,
+  requireConfirmation = false,
+  onSubmitted?: (hash: string) => Promise<void>
 ): Promise<string> {
   const data = iface.encodeFunctionData(fn, args as any);
   const tx: Record<string, unknown> = { from: from.toLowerCase(), to, value: "0x0", data };
   const gas = await estimateGasForCall(provider, tx);
   let hash: string;
   try {
-    const result = await provider.request({
-      method: "eth_sendTransaction",
-      params: [(gas ? { ...tx, gas } : tx) as any],
-    });
+    let result: unknown;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        result = await provider.request({ method: "eth_sendTransaction", params: [(gas ? { ...tx, gas } : tx) as any] });
+        break;
+      } catch (err) {
+        if (!isRateLimited(err) || attempt === 3) throw err;
+        await sleep(Math.min(8000, 500 * 2 ** attempt));
+      }
+    }
     if (typeof result !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(result)) {
       throw new DealEscrowError("Wallet returned an invalid transaction hash.");
     }
@@ -82,16 +97,20 @@ export async function sendContractCall(
     throw new DealEscrowError(userMessage);
   }
   log?.("Transaction Hash", hash);
+  await onSubmitted?.(hash);
   const receipt = await waitForArcTransaction(hash, 60_000, (s, d) => log?.(s, d));
   if (receipt.confirmed && receipt.status === 0) {
     throw new DealEscrowError(`Transaction reverted on-chain (status 0). Hash: ${hash}`);
+  }
+  if (requireConfirmation && (!receipt.confirmed || receipt.status !== 1)) {
+    throw new DealEscrowError(`Transaction submitted. Waiting for Arc confirmation. Hash: ${hash}`);
   }
   return hash;
 }
 
 /** Decode the escrow address from the factory's `DealCreated` event. */
 export async function decodeEscrowAddressFromReceipt(txHash: string): Promise<string | null> {
-  const provider = getFreshArcProvider();
+  const provider = getSharedArcReadProvider();
   const receipt = await provider.getTransactionReceipt(txHash);
   if (!receipt) return null;
   const iface = new Interface([...DEAL_ESCROW_FACTORY_ABI, ...DEAL_ESCROW_ABI]);
@@ -118,6 +137,7 @@ export interface DepositResult {
   mode: "contract" | "seam";
   mainTxHash: string | null;
   txHashes: string[];
+  alreadyDeposited?: boolean;
 }
 
 /**
@@ -134,6 +154,7 @@ export async function createEscrowForDeal(params: {
   provider: EIP1193Provider;
   from: string;
   log?: EscrowStepLogger;
+  onSubmitted?: (hash: string) => Promise<void>;
 }): Promise<CreateEscrowResult> {
   const mode = escrowCustodyMode();
   if (mode !== "contract" || !ARC_ESCROW_FACTORY_ADDRESS) {
@@ -179,11 +200,20 @@ export async function createEscrowForDeal(params: {
       usdcAmountWei(params.collateralAmount),
       ARBITER_ZERO,
     ],
-    params.log
+    params.log,
+    false,
+    params.onSubmitted
   );
-  const escrowAddress = await decodeEscrowAddressFromReceipt(hash);
+  let escrowAddress: string | null = null;
+  for (const delay of [0, 500, 1000, 2000, 4000]) {
+    if (delay) await sleep(delay);
+    try {
+      escrowAddress = await decodeEscrowAddressFromReceipt(hash);
+      if (escrowAddress) break;
+    } catch { /* retry read-only verification */ }
+  }
   if (!escrowAddress) {
-    throw new DealEscrowError("Escrow created but its address could not be decoded.");
+    throw new DealEscrowError(`Escrow creation submitted. Verifying on Arc… Hash: ${hash}`);
   }
   return { mode: "contract", escrowAddress, factoryTxHash: hash };
 }
@@ -208,16 +238,30 @@ export async function depositEscrowLeg(params: {
   const amountWei = usdcAmountWei(params.amount);
   const amountLabel = `${params.amount} USDC`;
 
-  params.log?.("Approving Escrow", amountLabel);
-  const approveHash = await sendContractCall(
-    params.provider,
-    params.from,
-    ARC_NETWORK.usdc.address,
-    usdcIface,
-    "approve",
-    [params.escrowAddress, amountWei],
-    params.log
-  );
+  const readUint = async (to: string, iface: Interface, fn: string, args: unknown[]) => {
+    const data = iface.encodeFunctionData(fn, args as any);
+    const readProvider = getSharedArcReadProvider();
+    const raw = await readProvider.call({ to, data });
+    return iface.decodeFunctionResult(fn, String(raw))[0] as bigint;
+  };
+
+  const existingDeposit = await readUint(params.escrowAddress, escrowIface, "deposited", [params.from]);
+  if (existingDeposit === amountWei) {
+    return { mode: "contract", mainTxHash: null, txHashes: [], alreadyDeposited: true };
+  }
+  if (existingDeposit !== 0n) {
+    throw new DealEscrowError("The escrow already records a different deposit amount for this wallet.");
+  }
+
+  const allowance = await readUint(ARC_NETWORK.usdc.address, usdcIface, "allowance", [params.from, params.escrowAddress]);
+  let approveHash: string | null = null;
+  if (allowance < amountWei) {
+    params.log?.("Approving Escrow", amountLabel);
+    approveHash = await sendContractCall(
+      params.provider, params.from, ARC_NETWORK.usdc.address, usdcIface,
+      "approve", [params.escrowAddress, amountWei], params.log, true
+    );
+  }
 
   params.log?.("Depositing", amountLabel);
   const depositHash = await sendContractCall(
@@ -227,10 +271,25 @@ export async function depositEscrowLeg(params: {
     escrowIface,
     "deposit",
     [],
-    params.log
+    params.log,
+    true
   );
 
-  return { mode: "contract", mainTxHash: depositHash, txHashes: [approveHash, depositHash] };
+  // Arc can briefly lag between receipt availability and contract-state reads.
+  // Keep the submitted hash, and retry only this read-side verification.
+  let verifiedDeposit = 0n;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      verifiedDeposit = await readUint(params.escrowAddress, escrowIface, "deposited", [params.from]);
+      if (verifiedDeposit === amountWei) break;
+    } catch { /* transient read propagation/rate-limit */ }
+    if (attempt < 4) await sleep(Math.min(8000, 750 * 2 ** attempt));
+  }
+  if (verifiedDeposit !== amountWei) {
+    throw new DealEscrowError("Deposit transaction confirmed, but the escrow deposit could not be verified on-chain.");
+  }
+
+  return { mode: "contract", mainTxHash: depositHash, txHashes: approveHash ? [approveHash, depositHash] : [depositHash] };
 }
 
 /** Seller confirms delivery and starts the 24h review window on-chain. */
@@ -261,6 +320,7 @@ export async function buyerReleaseEscrow(params: {
   provider: EIP1193Provider;
   from: string;
   log?: EscrowStepLogger;
+  onSubmitted?: (hash: string) => Promise<void>;
 }): Promise<{ mode: "contract" | "seam"; txHash: string | null }> {
   const mode = escrowCustodyMode();
   if (mode !== "contract") return { mode: "seam", txHash: null };
@@ -272,7 +332,9 @@ export async function buyerReleaseEscrow(params: {
     iface,
     "buyerRelease",
     [],
-    params.log
+    params.log,
+    true,
+    params.onSubmitted
   );
   return { mode: "contract", txHash };
 }
@@ -354,6 +416,40 @@ export interface OnChainEscrowStatus {
   sellerDeposited: string;
 }
 
+async function retryEscrowRead<T>(read: () => Promise<T>): Promise<T> {
+  const waits = [0, 500, 1000, 2000];
+  let last: unknown;
+  for (const wait of waits) {
+    if (wait) await sleep(wait);
+    try { return await read(); } catch (err) { last = err; }
+  }
+  throw last;
+}
+
+export async function fetchEscrowDeposit(
+  escrowAddress: string,
+  participant: string
+): Promise<bigint> {
+  return retryEscrowRead(async () => {
+    const provider = getSharedArcReadProvider();
+    const iface = new Interface([...DEAL_ESCROW_ABI]);
+    const data = await provider.call({
+      to: escrowAddress,
+      data: iface.encodeFunctionData("deposited", [participant]),
+    });
+    return iface.decodeFunctionResult("deposited", data)[0] as bigint;
+  });
+}
+
+export async function fetchEscrowFunded(escrowAddress: string): Promise<boolean> {
+  return retryEscrowRead(async () => {
+    const provider = getSharedArcReadProvider();
+    const iface = new Interface([...DEAL_ESCROW_ABI]);
+    const data = await provider.call({ to: escrowAddress, data: iface.encodeFunctionData("funded") });
+    return iface.decodeFunctionResult("funded", data)[0] as boolean;
+  });
+}
+
 /** Read the on-chain escrow state via Arc RPC (read-only, no wallet needed). */
 export async function fetchEscrowOnChainStatus(
   escrowAddress: string,
@@ -361,22 +457,21 @@ export async function fetchEscrowOnChainStatus(
   sellerWallet: string
 ): Promise<OnChainEscrowStatus | null> {
   try {
-    const provider = getFreshArcProvider();
+    return await withArcReadCache(`escrow-status:${escrowAddress.toLowerCase()}:${buyerWallet.toLowerCase()}:${sellerWallet.toLowerCase()}`, async () => {
+    const provider = getSharedArcReadProvider();
     const iface = new Interface([...DEAL_ESCROW_ABI]);
     const call = async (fn: string, args: unknown[] = []) =>
       provider.call({ to: escrowAddress, data: iface.encodeFunctionData(fn, args as any) });
-    const [funded, released, disputed, reviewStarted, deadline, total, buyerDep, sellerDep] =
-      await Promise.all([
-        call("funded").then((d) => iface.decodeFunctionResult("funded", d)[0] as boolean),
-        call("released").then((d) => iface.decodeFunctionResult("released", d)[0] as boolean),
-        call("disputed").then((d) => iface.decodeFunctionResult("disputed", d)[0] as boolean),
-        call("reviewStarted").then((d) => iface.decodeFunctionResult("reviewStarted", d)[0] as boolean),
-        call("deadline").then((d) => Number(iface.decodeFunctionResult("deadline", d)[0])),
-        call("totalDeposited").then((d) => iface.decodeFunctionResult("totalDeposited", d)[0].toString()),
-        call("deposited", [buyerWallet]).then((d) => iface.decodeFunctionResult("deposited", d)[0].toString()),
-        call("deposited", [sellerWallet]).then((d) => iface.decodeFunctionResult("deposited", d)[0].toString()),
-      ]);
+    const funded = iface.decodeFunctionResult("funded", await call("funded"))[0] as boolean;
+    const released = iface.decodeFunctionResult("released", await call("released"))[0] as boolean;
+    const disputed = iface.decodeFunctionResult("disputed", await call("disputed"))[0] as boolean;
+    const reviewStarted = iface.decodeFunctionResult("reviewStarted", await call("reviewStarted"))[0] as boolean;
+    const deadline = Number(iface.decodeFunctionResult("deadline", await call("deadline"))[0]);
+    const total = iface.decodeFunctionResult("totalDeposited", await call("totalDeposited"))[0].toString();
+    const buyerDep = iface.decodeFunctionResult("deposited", await call("deposited", [buyerWallet]))[0].toString();
+    const sellerDep = iface.decodeFunctionResult("deposited", await call("deposited", [sellerWallet]))[0].toString();
     return { funded, released, disputed, reviewStarted, deadline, totalDeposited: total, buyerDeposited: buyerDep, sellerDeposited: sellerDep };
+    }, 1200);
   } catch (err) {
     console.error("[DealEscrow] on-chain status read failed:", err);
     return null;

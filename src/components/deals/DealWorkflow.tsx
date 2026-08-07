@@ -59,7 +59,7 @@ export default function DealWorkflow({
 
   const inNegotiation =
     derivedState === "NEGOTIATING" || derivedState === "AWAITING_ACCEPTANCE" || derivedState === "AI_ANALYSIS";
-  const showFunding = LOCKED_ONWARD.includes(derivedState || "");
+  const showFunding = ["LOCKED", "AWAITING_FUNDING", "FUNDING", "FUNDED", "ACTIVE", "DELIVERED"].includes(derivedState || "");
 
   const termination = useMemo(() => {
     if (derivedState === "CANCELLED")
@@ -201,10 +201,6 @@ export default function DealWorkflow({
                       />
                     )}
 
-                    {deal && (derivedState === "FUNDED" || derivedState === "ACTIVE" || derivedState === "DELIVERED" || derivedState === "BUYER_REVIEW") && (
-                      <DealDelivery deal={deal} busy={busy} myRole={myRole} onDeliver={wf.markDeliveredAndStartReview} />
-                    )}
-
                     {deal && (derivedState === "BUYER_REVIEW" || derivedState === "AUTO_RELEASE_DUE" || derivedState === "RELEASE_PENDING" || derivedState === "COMPLETED") && (
                       <DealReview
                         deal={deal}
@@ -213,6 +209,7 @@ export default function DealWorkflow({
                         reviewRemaining={wf.reviewRemaining}
                         onRelease={wf.release}
                         onAutoRelease={wf.triggerAutoRelease}
+                        onReport={wf.disputeDeal}
                       />
                     )}
 

@@ -1,7 +1,7 @@
 import { Contract, formatUnits } from "ethers";
 import type { EIP1193Provider } from "@privy-io/react-auth";
 import { ARC_NETWORK, chainLabel, isArcChainId } from "./arcNetwork";
-import { getSharedArcReadProvider, sleep } from "./arcRpc";
+import { getSharedArcReadProvider, sleep, withArcReadCache } from "./arcRpc";
 
 /**
  * Result of an Arc USDC balance lookup.
@@ -121,7 +121,7 @@ export async function fetchArcUsdcBalance(
   const key = walletAddress.toLowerCase();
   const existing = inFlightBalances.get(key);
   if (existing) return existing;
-  const request = fetchBalanceFromServer(walletAddress);
+  const request = withArcReadCache(`usdc-balance:${key}`, () => fetchBalanceFromServer(walletAddress), 3000);
   inFlightBalances.set(key, request);
   try {
     return await request;

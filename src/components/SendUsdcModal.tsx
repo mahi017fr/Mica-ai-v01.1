@@ -344,7 +344,13 @@ export default function SendUsdcModal({
       logStep("Payment Failed", message);
       console.error("[Arc] Arc USDC transfer failed:", err);
       setError(message);
+      // A stale/disconnected signing provider is recoverable in-place. Keep
+      // the entered amount and return to the form where the user can invoke
+      // Privy's reconnect flow with a direct button click.
       setStage("form");
+      if (message === "Reconnect your wallet to continue.") {
+        await refreshSession();
+      }
     }
   };
 

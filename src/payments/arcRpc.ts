@@ -7,14 +7,6 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * A brand-new Arc RPC provider.
- *
- * Every balance read / receipt wait / transaction lookup MUST create a fresh
- * provider through this helper so a previous (possibly stale, rate-limited, or
- * closed) connection is never reused. Requirement: "Ensure balance refresh does
- * not reuse stale provider instances."
- */
 export function getFreshArcProvider(): JsonRpcProvider {
   return new JsonRpcProvider(ARC_NETWORK.rpcUrl, ARC_NETWORK.chainId, {
     staticNetwork: true,
@@ -28,6 +20,36 @@ export function getSharedArcReadProvider(): JsonRpcProvider {
   if (!sharedArcReadProvider) sharedArcReadProvider = getFreshArcProvider();
   return sharedArcReadProvider;
 }
+
+const readInflight = new Map<string, Promise<unknown>>();
+const readCache = new Map<string, { value: unknown; expires: number }>();
+const isRateLimited = (err: any) => /rate.?limit|429|too many requests|eth_gasPrice/i.test(String(err?.message || err));
+
+export async function withArcReadCache<T>(key: string, read: () => Promise<T>, ttlMs = 1500): Promise<T> {
+  const cached = readCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.value as T;
+  const pending = readInflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const request = (async () => {
+    let last: unknown;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const value = await read();
+        readCache.set(key, { value, expires: Date.now() + ttlMs });
+        return value;
+      } catch (err) {
+        last = err;
+        if (!isRateLimited(err) || attempt === 4) throw err;
+        await sleep(Math.min(8000, 400 * 2 ** attempt));
+      }
+    }
+    throw last;
+  })();
+  readInflight.set(key, request);
+  try { return await request; } finally { if (readInflight.get(key) === request) readInflight.delete(key); }
+}
+
+export { isRateLimited };
 
 export interface ArcReceiptStatus {
   confirmed: boolean;
@@ -54,8 +76,7 @@ export async function waitForArcTransaction(
   let lastError: unknown = null;
 
   while (Date.now() - start < timeoutMs) {
-    // Fresh provider on EVERY poll so we never reuse a stale connection.
-    const provider = getFreshArcProvider();
+    const provider = getSharedArcReadProvider();
     try {
       const receipt = await provider.getTransactionReceipt(hash);
       if (receipt) {

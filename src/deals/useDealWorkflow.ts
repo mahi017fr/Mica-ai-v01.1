@@ -38,6 +38,9 @@ import {
   disputeEscrow,
   refundEscrowLeg,
   fetchEscrowOnChainStatus,
+  fetchEscrowDeposit,
+  fetchEscrowFunded,
+  decodeEscrowAddressFromReceipt,
   startReviewPeriod,
   triggerAutoRelease as execAutoRelease,
 } from "./dealEscrowService";
@@ -63,8 +66,10 @@ export function useDealWorkflow(params: DealWorkflowParams) {
   const [busyMessage, setBusyMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [reviewNow, setReviewNow] = useState(() => Date.now());
 
   const dealRef = useRef<DealDoc | null>(null);
+  const escrowCreationInFlightRef = useRef(false);
   dealRef.current = deal;
 
   useEffect(() => {
@@ -82,15 +87,29 @@ export function useDealWorkflow(params: DealWorkflowParams) {
   }, [roomId]);
 
   const myRole: DealRole | null = useMemo(() => {
-    if (!currentUid) return null;
-    if (currentUid === buyerUid) return "buyer";
-    if (currentUid === sellerUid) return "seller";
+    const effectiveBuyerUid = deal?.buyerUid || buyerUid;
+    const effectiveSellerUid = deal?.sellerUid || sellerUid;
+    if (currentUid === effectiveBuyerUid) return "buyer";
+    if (currentUid === effectiveSellerUid) return "seller";
+
+    // Realtime chat props can briefly carry a stale participant UID. Fall back
+    // to the verified Privy wallet stored on the deal so the correct controls
+    // still render, while transaction signing remains wallet-verified.
+    const connected = wallet.primaryAddress?.toLowerCase();
+    if (connected && connected === deal?.buyerWallet?.toLowerCase()) return "buyer";
+    if (connected && connected === deal?.sellerWallet?.toLowerCase()) return "seller";
     return null;
-  }, [currentUid, buyerUid, sellerUid]);
+  }, [currentUid, buyerUid, sellerUid, deal?.buyerUid, deal?.sellerUid, deal?.buyerWallet, deal?.sellerWallet, wallet.primaryAddress]);
 
   const derivedState = useMemo(() => deriveDealStatus(deal) ?? null, [deal]);
-  const reviewRemaining = useMemo(() => reviewRemainingMs(deal), [deal]);
-  const reviewElapsed = useMemo(() => isReviewElapsed(deal), [deal]);
+  useEffect(() => {
+    if (!deal?.escrow?.reviewDeadlineAt) return;
+    setReviewNow(Date.now());
+    const timer = window.setInterval(() => setReviewNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [deal?.escrow?.reviewDeadlineAt]);
+  const reviewRemaining = useMemo(() => reviewRemainingMs(deal, reviewNow), [deal, reviewNow]);
+  const reviewElapsed = useMemo(() => isReviewElapsed(deal, reviewNow), [deal, reviewNow]);
 
   // Reconcile Firestore funding labels with the read-only on-chain source of
   // truth. This runs when the realtime deal snapshot changes; it does not poll
@@ -111,14 +130,22 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     if (buyerStatus === "confirmed" && sellerStatus === "confirmed" && current.state === "FUNDED") return;
 
     let active = true;
-    fetchEscrowOnChainStatus(address, current.buyerWallet, current.sellerWallet).then(async (status) => {
-      if (!active || !status?.funded) return;
-      await patchDeal(roomId, current.dealId, {
-        "escrow.funding.buyer.status": "confirmed",
-        "escrow.funding.seller.status": "confirmed",
-        state: "FUNDED",
-      });
-    });
+    (async () => {
+      try {
+        const buyer = await fetchEscrowDeposit(address, current.buyerWallet!);
+        const seller = await fetchEscrowDeposit(address, current.sellerWallet!);
+        const buyerExpected = BigInt(Math.round((current.terms?.amount || 0) * 1_000_000));
+        const sellerExpected = BigInt(Math.round(((current.terms?.amount || 0) * (current.terms?.collateralPercent || 0) / 100) * 1_000_000));
+        if (!active) return;
+        const patch: Record<string, unknown> = {};
+        if (buyer === buyerExpected) patch["escrow.funding.buyer.status"] = "confirmed";
+        if (seller === sellerExpected) patch["escrow.funding.seller.status"] = "confirmed";
+        if (await fetchEscrowFunded(address)) patch.state = "FUNDED";
+        if (Object.keys(patch).length) await patchDeal(roomId, current.dealId, patch);
+      } catch (err) {
+        console.warn("[DealEscrow] funding verification pending; RPC read failed", err);
+      }
+    })();
     return () => { active = false; };
   }, [
     roomId,
@@ -130,6 +157,26 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     deal?.buyerWallet,
     deal?.sellerWallet,
   ]);
+
+  useEffect(() => {
+    const current = deal;
+    const txHash = current?.escrow?.factoryTxHash;
+    if (!current || current.escrow?.escrowAddress || !txHash || current.escrow.custodyMode !== "contract") return;
+    let active = true;
+    (async () => {
+      for (const delay of [0, 500, 1000, 2000, 4000]) {
+        if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+        try {
+          const address = await decodeEscrowAddressFromReceipt(txHash);
+          if (active && address) {
+            await patchDeal(roomId, current.dealId, { "escrow.escrowAddress": address, state: "AWAITING_FUNDING" });
+            return;
+          }
+        } catch (err) { console.warn("[DealEscrow] creation verification pending", err); }
+      }
+    })();
+    return () => { active = false; };
+  }, [roomId, deal?.dealId, deal?.escrow?.factoryTxHash, deal?.escrow?.escrowAddress, deal?.escrow?.custodyMode]);
 
   const amountFor = useCallback(
     (role: DealRole): number => {
@@ -412,8 +459,10 @@ export function useDealWorkflow(params: DealWorkflowParams) {
   }, [runAction, roomId, myRole]);
 
   const beginFunding = useCallback(async () => {
+    if (escrowCreationInFlightRef.current) return;
     const current = dealRef.current;
     if (!current?.terms) return;
+    escrowCreationInFlightRef.current = true;
     await runAction("beginFunding", async () => {
       if (!myRole) throw new Error("Only a deal participant can create the escrow contract.");
       if (!currentUid) return;
@@ -432,6 +481,16 @@ export function useDealWorkflow(params: DealWorkflowParams) {
         collateralAmount: amountFor("seller"),
         provider,
         from,
+        onSubmitted: async (hash) => {
+          await patchDeal(roomId, current.dealId, {
+            escrow: {
+              custodyMode: "contract",
+              factoryTxHash: hash,
+              funding: { buyer: { status: "pending" }, seller: { status: "pending" } },
+            },
+          });
+          setInfo("Escrow creation submitted. Verifying on Arc…");
+        },
       });
       const escrow = {
         custodyMode: res.mode,
@@ -455,7 +514,7 @@ export function useDealWorkflow(params: DealWorkflowParams) {
       } finally {
         await releaseEscrowCreation(roomId, current.dealId, currentUid);
       }
-    });
+    }).finally(() => { escrowCreationInFlightRef.current = false; });
   }, [runAction, roomId, wallet, amountFor, myRole, currentUid]);
 
   const fundLeg = useCallback(
@@ -475,16 +534,24 @@ export function useDealWorkflow(params: DealWorkflowParams) {
           throw new Error(`Connect the ${role === "buyer" ? "buyer" : "seller"} wallet (${expectedWallet.slice(0, 6)}…) to fund this leg.`);
         }
         setBusyMessage(`${role === "buyer" ? "Buyer" : "Seller"} depositing ${fmtUsdc(amount)} USDC…`);
-
         const res = await depositEscrowLeg({
           escrowAddress: current.escrow!.escrowAddress,
           amount,
           provider,
           from,
         });
-        if (res.mode === "seam" || !res.mainTxHash) {
+        if (res.mode === "seam" || (!res.mainTxHash && !res.alreadyDeposited)) {
           throw new Error("On-chain funding unavailable (escrow contract not deployed).");
         }
+
+        const expectedWei = BigInt(Math.round(amount * 1_000_000));
+        let recordedWei: bigint;
+        try {
+          recordedWei = await fetchEscrowDeposit(current.escrow!.escrowAddress, from);
+        } catch {
+          throw new Error("Transaction confirmed. Verifying escrow state…");
+        }
+        if (recordedWei !== expectedWei) throw new Error("The confirmed escrow deposit amount does not match the expected obligation.");
 
         const toState = "FUNDING" as const;
         const fromState = current.state === "FUNDED" ? "FUNDED" : current.state;
@@ -497,25 +564,21 @@ export function useDealWorkflow(params: DealWorkflowParams) {
           to: toState,
           patch: {
             status: "confirmed",
-            txHash: res.mainTxHash,
+            txHash: res.mainTxHash || current.escrow!.funding[role]?.txHash || null,
             amount,
             at: nowIso(),
             error: null,
           },
         });
+        if (!res.mainTxHash) {
+          await postDealSystemMessage(roomId, `${role === "buyer" ? "Buyer" : "Seller"} funding was recovered and verified on-chain.`);
+        } else {
         await postDealSystemMessage(
           roomId,
           `${role === "buyer" ? "🛒 Buyer" : "🛍 Seller"} funded ${fmtUsdc(amount)} USDC (tx ${res.mainTxHash.slice(0, 10)}…).`
         );
-        const latest = await getLatestDeal(roomId);
-        const chainStatus = latest?.escrow?.escrowAddress
-          ? await fetchEscrowOnChainStatus(
-              latest.escrow.escrowAddress,
-              latest.buyerWallet || "",
-              latest.sellerWallet || ""
-            )
-          : null;
-        if (chainStatus?.funded) {
+        }
+        if (await fetchEscrowFunded(current.escrow!.escrowAddress)) {
           await patchDeal(roomId, current.dealId, { state: "FUNDED" });
           await postDealSystemMessage(
             roomId,
@@ -531,14 +594,15 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     const current = dealRef.current;
     if (!current?.escrow || myRole !== "seller") return;
     await runAction("deliver", async () => {
-      await transitionDeal(roomId, current.dealId, current.state === "ACTIVE" ? "ACTIVE" : "FUNDED", "DELIVERED", {
-        delivery: { markedBy: "seller", at: nowIso() },
-      });
-
       let reviewTxHash: string | null = null;
+      let deadline: number | null = null;
       if (current.escrow!.custodyMode === "contract" && current.escrow!.escrowAddress) {
         setBusyMessage("Starting the 24h review window on-chain…");
-        const { provider, from } = await wallet.getSigningContext();
+        const chain = await fetchEscrowOnChainStatus(current.escrow!.escrowAddress, current.buyerWallet || "", current.sellerWallet || "");
+        if (!chain?.funded) throw new Error("Escrow is not fully funded on Arc Testnet yet.");
+        deadline = chain.deadline || null;
+        if (!deadline) {
+        const { provider, from } = await wallet.getSigningContext(current.sellerWallet);
         if (from.toLowerCase() !== (current.sellerWallet || "").toLowerCase()) {
           throw new Error("Connect the seller wallet to start the review window.");
         }
@@ -548,10 +612,17 @@ export function useDealWorkflow(params: DealWorkflowParams) {
           from,
         });
         reviewTxHash = res.txHash;
+        const after = await fetchEscrowOnChainStatus(current.escrow!.escrowAddress, current.buyerWallet || "", current.sellerWallet || "");
+        deadline = after?.deadline || null;
+        if (!deadline) throw new Error("Review started, but the on-chain deadline could not be verified.");
+        }
       }
 
-      await transitionDeal(roomId, current.dealId, "DELIVERED", "BUYER_REVIEW", {
-        "escrow.reviewStartedAt": serverTimestamp(),
+      const fromState = current.state === "DELIVERED" ? "DELIVERED" : "FUNDED";
+      await transitionDeal(roomId, current.dealId, fromState, "BUYER_REVIEW", {
+        delivery: current.delivery || { markedBy: "seller", at: nowIso() },
+        "escrow.reviewStartedAt": deadline ? new Date(deadline * 1000).toISOString() : serverTimestamp(),
+        "escrow.reviewDeadlineAt": deadline ? new Date(deadline * 1000).toISOString() : null,
         "escrow.reviewTxHash": reviewTxHash,
       });
       await postDealSystemMessage(
@@ -574,23 +645,47 @@ export function useDealWorkflow(params: DealWorkflowParams) {
   const release = useCallback(async () => {
     const current = dealRef.current;
     if (!current?.escrow || myRole !== "buyer") return;
-    const state = current.state;
-    if (state !== "BUYER_REVIEW" && state !== "AUTO_RELEASE_DUE") return;
+    let state = current.state;
+    const hasReviewDeadline = !!current.escrow.reviewDeadlineAt;
+    if (state !== "BUYER_REVIEW" && state !== "AUTO_RELEASE_DUE" && !hasReviewDeadline) return;
     await runAction("release", async () => {
+      if (state !== "BUYER_REVIEW" && state !== "AUTO_RELEASE_DUE") {
+        await transitionDeal(roomId, current.dealId, state, "BUYER_REVIEW");
+        state = "BUYER_REVIEW";
+      }
       if (current.escrow!.custodyMode === "seam" || !current.escrow!.escrowAddress) {
         throw new Error("On-chain release unavailable (escrow contract not deployed).");
       }
       setBusyMessage("Releasing funds to the seller…");
-      const { provider, from } = await wallet.getSigningContext();
+      const { provider, from } = await wallet.getSigningContext(current.buyerWallet);
+      if (from.toLowerCase() !== (current.buyerWallet || "").toLowerCase()) {
+        throw new Error("Connect the buyer wallet to release the escrow.");
+      }
       const res = await buyerReleaseEscrow({
         escrowAddress: current.escrow!.escrowAddress,
         provider,
         from,
+        onSubmitted: async (hash) => {
+          await transitionDeal(roomId, current.dealId, state, "RELEASE_PENDING", {
+            "escrow.releaseTxHash": hash,
+          });
+          state = "RELEASE_PENDING";
+        },
       });
       if (res.mode === "seam" || !res.txHash) throw new Error("On-chain release unavailable.");
-      await transitionDeal(roomId, current.dealId, state, "RELEASE_PENDING", {
-        "escrow.releaseTxHash": res.txHash,
-      });
+      let releasedState = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        releasedState = await fetchEscrowOnChainStatus(
+          current.escrow!.escrowAddress,
+          current.buyerWallet || "",
+          current.sellerWallet || ""
+        );
+        if (releasedState?.released) break;
+        if (attempt < 4) await new Promise((resolve) => setTimeout(resolve, Math.min(6000, 1000 * 2 ** attempt)));
+      }
+      if (!releasedState?.released) {
+        throw new Error(`Release submitted and confirmed, but payout verification is still pending. Hash: ${res.txHash}`);
+      }
       await transitionDeal(roomId, current.dealId, "RELEASE_PENDING", "COMPLETED", {
         "escrow.releasedAt": nowIso(),
         "escrow.releaseMethod": "buyer_release",
