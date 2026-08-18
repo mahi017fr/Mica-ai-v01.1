@@ -4,7 +4,6 @@
 // and the payment history storage. The UI only ever talks to these types —
 // never to raw chain values typed in by the user.
 
-import type { EIP1193Provider } from "@privy-io/react-auth";
 import type { StepLogger } from "./arcRpc";
 
 export type ArcNetwork = "arc";
@@ -27,12 +26,20 @@ export interface ArcPaymentRequest {
   amount: number; // positive decimal, USDC units
 }
 
+// Minimal structural EIP-1193 signing provider accepted by the send pipeline.
+// Satisfied both by Privy's embedded/external wallet provider and by the
+// Circle Modular Wallet provider (which only exposes `request`). The pipeline
+// only ever calls `request({ method, params })`.
+export interface ArcSigningProvider {
+  request(request: { method: string; params?: unknown[] }): Promise<unknown>;
+}
+
 // Everything the send needs that is NOT part of the request itself:
-// - the real signing provider from the connected Privy wallet (NEVER a mock),
-// - the sender address on that wallet,
+// - the real signing provider (Privy wallet OR the Circle Modular Wallet),
+// - the sender address on that provider (the account that signs),
 // - an optional step logger for the console timeline.
 export interface ArcSendDeps {
-  provider: EIP1193Provider;
+  provider: ArcSigningProvider;
   from: string;
   log?: StepLogger;
 }

@@ -5,6 +5,11 @@ import { createServer as createViteServer } from "vite";
 import { ethers } from "ethers";
 import { v2 as cloudinary } from "cloudinary";
 import formidable from "formidable";
+import { handleEnsureWallet } from "./src/server/circleWalletService";
+
+function logDiag(entry: Record<string, unknown>) {
+  console.log("[WALLET_DIAG]", JSON.stringify(entry));
+}
 
 const arcReadProvider = new ethers.JsonRpcProvider(process.env.ARC_RPC_URL || "https://rpc.testnet.arc.io", 5042002, { staticNetwork: true });
 const arcBalanceInflight = new Map<string, Promise<any>>();
@@ -48,6 +53,43 @@ async function startServer() {
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Circle Developer-Controlled Wallet: ensure one wallet per uid.
+  app.post("/api/wallet/ensure", async (req, res) => {
+    res.type("application/json");
+    try {
+      const authHeader = req.headers.authorization ?? "";
+      const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+      if (!idToken) {
+        return res.status(401).json({ ok: false, error: "Missing Firebase ID token." });
+      }
+      logDiag({ step: "received_request", hasAuth: Boolean(authHeader.startsWith("Bearer ")), idTokenLen: idToken.length, circleApiKeySet: Boolean(process.env.CIRCLE_API_KEY), entitySecretSet: Boolean(process.env.CIRCLE_ENTITY_SECRET), walletSetIdSet: Boolean(process.env.CIRCLE_WALLET_SET_ID) });
+
+      const wallet = await handleEnsureWallet(idToken);
+      logDiag({ step: "wallet_ensured_ok", address: wallet.address, walletId: wallet.walletId, blockchain: wallet.blockchain, state: wallet.state });
+      return res.json({
+        ok: true,
+        wallet: {
+          walletId: wallet.walletId,
+          address: wallet.address,
+          blockchain: wallet.blockchain,
+          state: wallet.state,
+          ensuredAt: wallet.ensuredAt,
+        },
+      });
+    } catch (err: any) {
+      const message = err?.message || String(err);
+      console.error("[POST /api/wallet/ensure] Error:", message);
+      logDiag({ step: "caught_exception", message: String(message).slice(0, 300), name: err?.name, stackSnippet: err?.stack ? String(err.stack).slice(0, 400) : null });
+      if (message.includes("not configured") || message.includes("not initialized")) {
+        return res.status(500).json({ ok: false, error: `Server configuration error: ${String(message).slice(0, 120)}` });
+      }
+      if (message.includes("verifyIdToken") || message.includes("auth/")) {
+        return res.status(401).json({ ok: false, error: "Invalid Firebase ID token." });
+      }
+      return res.status(500).json({ ok: false, error: `Wallet ensure failed: ${String(message).slice(0, 120)}` });
+    }
   });
 
   app.get("/api/arc-usdc-balance", async (req, res) => {

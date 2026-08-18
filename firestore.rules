@@ -51,7 +51,7 @@ service cloud.firestore {
         && (!('displayName' in request.resource.data) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 64))
         && (!('username' in request.resource.data) || (request.resource.data.username is string && request.resource.data.username.size() >= 3 && request.resource.data.username.size() <= 32))
         && (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'displayName', 'avatarUrl', 'status', 'lastActive', 'walletAddress', 'walletProvider', 'walletLinkedAt', 'walletVerified', 'walletStatus', 'authProvider', 'privyUserId', 'pushToken', 'username', 'onboardingCompleted', 'bio', 'moodEmoji', 'githubUrl', 'twitterUrl', 'dndMode'
+          'displayName', 'avatarUrl', 'status', 'lastActive', 'walletAddress', 'walletProvider', 'walletLinkedAt', 'walletVerified', 'walletStatus', 'authProvider', 'privyUserId', 'pushToken', 'username', 'onboardingCompleted', 'bio', 'moodEmoji', 'githubUrl', 'twitterUrl', 'dndMode', 'circleWalletAddress', 'circleWalletCredentialId', 'circleWalletStatus', 'circleWalletLinkedAt', 'circleWalletId'
         ]));
     }
 

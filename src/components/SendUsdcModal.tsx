@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { useArcWalletSession } from "../hooks/useArcWalletSession";
+import { useChat } from "../context/ChatContext";
+import type { CircleEip1193Provider, CircleWalletResult } from "../circle/types";
 import {
   X,
   Coins,
@@ -27,6 +28,7 @@ import {
   getTxExplorerUrl,
   ArcBalanceStatus,
   fetchArcUsdcBalance,
+  sleep,
 } from "../payments";
 
 type Stage = "form" | "confirm" | "processing" | "success";
@@ -86,36 +88,38 @@ export default function SendUsdcModal({
     console.info(`[Arc] [${new Date().toISOString()}] ${step}${detail ? " — " + detail : ""}`);
   }, []);
 
-  // Live Privy wallet session — rehydrated on every modal open and re-checked
-  // at send time via getSigningContext() so MetaMask/Rabby always has a real,
-  // current provider to show its confirmation popup.
+  // Circle Modular Wallet session — the authenticated user's passkey-backed
+  // smart account (created/restored automatically in ChatContext). The
+  // transaction ALWAYS originates from this wallet: the linked session is the
+  // sender, and every send requires a fresh passkey authorization at sign time.
   const {
-    session,
-    ready: privyReady,
-    authenticated,
-    refresh: refreshSession,
-    reconnect: reconnectWallet,
-    reconnecting: walletReconnecting,
-    ensureArcChain,
-    getSigningContext,
-  } = useArcWalletSession();
+    circleWallet,
+    ensureCircleWallet,
+  } = useChat();
+
+  // Live mirror so async send-time logic can observe the session as the
+  // auto-ensure (passkey restore) progresses without stale closures.
+  const circleWalletRef = useRef(circleWallet);
+  circleWalletRef.current = circleWallet;
 
   const [balanceState, setBalanceState] = useState<ArcBalanceStatus>({ status: "checking" });
   const [retryKey, setRetryKey] = useState(0);
   const balanceRequestRef = useRef(0);
+  const submitInFlightRef = useRef(false);
 
-  // Verified sender wallet address: prefer the live rehydrated connected
-  // wallet, fall back to the saved verified primary wallet for display and
-  // balance purposes. A stored address alone never authorizes a transaction.
+  // Verified sender wallet address: prefer the live linked Circle wallet, fall
+  // back to the saved Circle wallet metadata for display and balance purposes.
+  // A stored address alone never authorizes a transaction.
   const walletAddress =
-    (session.status === "connected" ? session.connectedAddress : null) ||
+    (circleWallet.status === "linked" ? circleWallet.address : null) ||
     senderWallet?.toLowerCase() ||
-    senderProfile?.walletAddress?.toLowerCase() ||
+    senderProfile?.circleWalletAddress?.toLowerCase() ||
     null;
 
-  // Sending USDC requires a live, matched wallet session.
-  const canSign = session.status === "connected";
-  const balanceChainId = session.status === "connected" ? session.chainId : null;
+  // Sending USDC requires a live, linked Circle wallet session (passkey
+  // unlocked). The wallet is always on Arc Network by construction.
+  const canSign = circleWallet.status === "linked";
+  const balanceChainId = ARC_NETWORK.chainId;
 
   const refreshBalance = useCallback(async () => {
     if (!open) return;
@@ -137,38 +141,19 @@ export default function SendUsdcModal({
     }
   }, [open, refreshBalance, retryKey]);
 
-  // Re-hydrate the active Privy/external wallet connection every time the modal
-  // opens (login, page refresh, browser restart). If the external wallet has
-  // been reconnected meanwhile, this re-promotes it and refreshes the session
-  // so sending can sign through the real provider.
-  useEffect(() => {
-    if (open) {
-      refreshSession();
-    }
-  }, [open, refreshSession]);
+  // Circle wallet restore is NOT auto-triggered here: prompting for the passkey
+  // is an explicit user action (Send / Confirm / the "Unlock Circle Wallet"
+  // panel button). The ChatContext auto-ensure already restored the session at
+  // login; at send time `handleConfirm` unlocks it again if needed.
 
-  const handleSwitchToArc = async () => {
+  const handleLinkCircleWallet = async () => {
     setError("");
     try {
-      const ok = await ensureArcChain();
-      if (ok) {
-        setRetryKey((k) => k + 1);
-      } else {
-        setError("Could not switch your wallet to Arc Network. Please switch manually.");
-      }
+      await ensureCircleWallet();
+      setRetryKey((k) => k + 1);
     } catch (err: any) {
-      console.error(`[Arc] Failed to switch wallet to ${ARC_NETWORK.name}:`, err);
-      setError("Could not switch your wallet to Arc Network. Please switch manually.");
-    }
-  };
-
-  const handleReconnect = async () => {
-    setError("");
-    try {
-      await reconnectWallet();
-    } catch (err: any) {
-      console.error("[Arc] Wallet reconnect failed:", err);
-      setError("Could not reconnect your wallet. Please try again.");
+      console.error("[Circle] Circle wallet unlock failed:", err);
+      setError("Could not unlock your Circle wallet. Please try again.");
     }
   };
 
@@ -177,7 +162,7 @@ export default function SendUsdcModal({
   const balance = balanceState.status === "success" ? balanceState.balance : 0;
   const balanceReady = balanceState.status === "success";
 
-  // Verified wallets ONLY — always from the database / Privy, never manual input.
+  // Verified wallets ONLY — always from the database, never manual input.
   const recipientWallet = recipient?.walletVerified ? recipient.walletAddress || null : null;
 
   useEffect(() => {
@@ -258,13 +243,12 @@ export default function SendUsdcModal({
     const n = validateAmount();
     if (n === null) return;
     setAmount(fmtAmount(n));
-    // Wallet signing not ready yet? Re-attempt session rehydration now so the
+    // Circle wallet not unlocked yet? Re-attempt the passkey restore now so the
     // signature prompt can fire at Confirm. We never block the amount field or
-    // the Send action on the wallet state — getSigningContext() re-establishes
-    // the real provider at send time and shows "Reconnect your wallet to
-    // continue." if explicit reconnection is required.
-    if (session.status !== "connected") {
-      refreshSession();
+    // the Send action on the wallet state — Confirm re-establishes the real
+    // signing context and shows "Unlock your Circle wallet…" if needed.
+    if (circleWallet.status !== "linked") {
+      void ensureCircleWallet();
     }
     setStage("confirm");
   };
@@ -272,19 +256,26 @@ export default function SendUsdcModal({
   const handleConfirm = async () => {
     const n = validateAmount();
     if (n === null) return;
+    // Duplicate submission guard: never start a second transaction while one is
+    // in flight. The confirm buttons disappear in `processing`, but a fast
+    // double-click could still pass this handler twice before the stage lands.
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
 
     // Safety gate: never pay a user you have blocked (either direction).
     if (isUserBlocked(recipient?.uid)) {
       setError(getBlockMessage(recipient?.uid) || "Payments are disabled for this user.");
       setStage("form");
+      submitInFlightRef.current = false;
       return;
     }
 
-    // Requirement 4: a real wallet signature is mandatory. If there is no
-    // connected wallet that can sign, DO NOT continue the payment flow.
+    // Requirement 4: a real passkey signature is mandatory. If there is no
+    // Circle wallet that can sign, DO NOT continue the payment flow.
     if (!walletAddress || !recipientWallet || !senderProfile || !recipient) {
       setError("Verified wallets are required to send USDC.");
       setStage("form");
+      submitInFlightRef.current = false;
       return;
     }
 
@@ -294,11 +285,41 @@ export default function SendUsdcModal({
     logStep("Wallet Connected", walletAddress);
 
     try {
-      // Re-establish a REAL wallet session before signing: active wallet ->
-      // fresh provider -> eth_requestAccounts -> address matches primary MICA
-      // wallet -> Arc Network chain. This is what makes MetaMask/Rabby show
-      // its confirmation popup instead of silently failing on a stale session.
-      const { provider, from } = await getSigningContext();
+      // Restore-before-send: if the Circle wallet session is not linked yet,
+      // unlock it NOW with the passkey (Login prompts for the same credential
+      // that created the wallet). A stored address alone never authorizes.
+      let s = circleWalletRef.current;
+      if (s.status === "linking") {
+        // The passkey prompt is already showing (auto-ensure in flight) — wait
+        // for it instead of firing a second prompt.
+        const deadline = Date.now() + 30_000;
+        while (s.status === "linking" && Date.now() < deadline) {
+          await sleep(200);
+          s = circleWalletRef.current;
+        }
+      }
+
+      let ctx: { provider: CircleEip1193Provider; from: string };
+      if (s.status === "linked" && s.provider) {
+        ctx = { provider: s.provider, from: s.from };
+      } else {
+        setProcStep("Awaiting passkey…");
+        const result = (await ensureCircleWallet()) as CircleWalletResult | null;
+        if (!result) {
+          throw new Error(
+            s.status === "error" && s.message
+              ? s.message
+              : "Unlock your Circle wallet with your passkey to continue."
+          );
+        }
+        ctx = { provider: result.provider, from: result.from };
+      }
+
+      // The sender MUST be the authenticated user's Circle wallet address.
+      if (ctx.from.toLowerCase() !== walletAddress.toLowerCase()) {
+        throw new Error("Circle wallet session does not match your profile wallet.");
+      }
+
       logStep("Preparing Transaction", `${n} USDC → @${recipient.username}`);
 
       const request: ArcPaymentRequest = {
@@ -313,12 +334,14 @@ export default function SendUsdcModal({
       };
 
       setProcStep("Awaiting wallet signature…");
-      // Real Arc Circle USDC transfer: wallet signature (Privy confirmation
-      // modal for embedded wallets) -> eth_sendTransaction -> real hash ->
-      // on-chain confirmation. Never simulated.
+      // Real Arc Circle USDC transfer from the Circle Modular Wallet: passkey
+      // signature (browser prompt for this user's credential) -> user op
+      // broadcast through Circle's bundler -> real L1 hash -> on-chain
+      // confirmation. Never simulated. If a hash is returned, it is awaited to
+      // confirmation — a duplicate is NEVER submitted.
       const res = await arcUsdcAdapter.sendUsdc(request, {
-        provider,
-        from,
+        provider: ctx.provider,
+        from: ctx.from,
         log: logStep,
       });
 
@@ -344,13 +367,12 @@ export default function SendUsdcModal({
       logStep("Payment Failed", message);
       console.error("[Arc] Arc USDC transfer failed:", err);
       setError(message);
-      // A stale/disconnected signing provider is recoverable in-place. Keep
-      // the entered amount and return to the form where the user can invoke
-      // Privy's reconnect flow with a direct button click.
+      // A cancelled / failed passkey prompt is recoverable in-place. Keep the
+      // entered amount and return to the form where the user can invoke the
+      // passkey unlock again with a direct button click.
       setStage("form");
-      if (message === "Reconnect your wallet to continue.") {
-        await refreshSession();
-      }
+    } finally {
+      submitInFlightRef.current = false;
     }
   };
 
@@ -369,21 +391,19 @@ export default function SendUsdcModal({
   const balanceLoading = balanceState.status === "checking";
   const walletReady = canSign;
   const transactionPending = stage === "processing";
-  const providerAvailable = canSign;
 
   // Amount field: editable at ALL times EXCEPT while a transaction is actually
   // being submitted. Wallet signing readiness, balance loading, and network
-  // state NEVER disable typing — an external wallet that needs reconnection
+  // state NEVER disable typing — a Circle wallet that needs a passkey unlock
   // after a browser restart must NOT block the user from entering an amount.
-  // Wallet reconnection is handled at Send/Confirm time via getSigningContext()
-  // (fresh provider + eth_requestAccounts + address/chain verification), or
-  // through the "Reconnect Wallet" panel.
+  // The unlock is handled at Send/Confirm time via the passkey restore, or
+  // through the "Unlock Circle Wallet" panel.
   const amountLocked = transactionPending;
 
   // Send button: requires a valid amount, verified sender + recipient wallets,
-  // and a loaded balance. It is NEVER disabled merely because the live wallet
-  // session is not "connected" — clicking Send re-attempts rehydration and the
-  // Confirm step re-establishes the real signing provider.
+  // and a loaded balance. It is NEVER disabled merely because the Circle wallet
+  // session is not yet "linked" — clicking Send re-attempts the passkey restore
+  // and the Confirm step re-establishes the real signing context.
   const sendLocked = !parsedAmount || !walletAddress || !recipientWallet || !balanceReady;
 
   // MAX button: only needs a loaded, non-zero balance and verified wallets.
@@ -398,22 +418,17 @@ export default function SendUsdcModal({
     if (transactionPending) reasons.push("transaction in progress (stage === 'processing')");
     if (!walletAddress)
       reasons.push(
-        "no sender wallet address (session not connected && senderWallet && profile.walletAddress all empty)"
+        "no sender wallet address (Circle session not linked && senderWallet && profile.circleWalletAddress all empty)"
       );
     if (!recipientWallet) reasons.push("recipient has no verified wallet (walletVerified === true required)");
 
     console.log("USDC SEND DEBUG", {
-      authenticated,
-      privyReady,
+      circleWalletStatus: circleWallet.status,
+      circleWalletAddress: circleWallet.status === "linked" ? circleWallet.address : null,
       walletReady,
-      walletConnected: session.status === "connected",
-      providerAvailable,
       signerAvailable: canSign,
-      walletClientAvailable: session.status === "connected" ? !!session.wallet.walletClientType : false,
-      connectedAddress: session.status === "connected" ? session.connectedAddress : null,
-      primaryWalletAddress: senderWallet,
-      chainId: session.status === "connected" ? session.chainId : null,
-      sessionStatus: session.status,
+      senderWallet,
+      chainId: ARC_NETWORK.chainId,
       balance,
       balanceLoading,
       isSending: transactionPending,
@@ -436,11 +451,8 @@ export default function SendUsdcModal({
     balanceLoading,
     walletReady,
     canSign,
-    providerAvailable,
-    session,
+    circleWallet,
     senderWallet,
-    authenticated,
-    privyReady,
   ]);
 
   const renderBalanceCard = () => {
@@ -489,16 +501,6 @@ export default function SendUsdcModal({
               Your wallet is connected to a different chain. Switch it to Arc Network to view
               and send USDC.
             </p>
-            {session.status === "connected" && (
-              <button
-                type="button"
-                onClick={handleSwitchToArc}
-                className="w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-100 hover:bg-amber-500/25 text-[11px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <PlugZap className="w-3.5 h-3.5" />
-                Switch to Arc Network
-              </button>
-            )}
           </div>
         );
       case "error":
@@ -665,7 +667,7 @@ export default function SendUsdcModal({
                     {!walletAddress && (
                       <p className="text-[11px] text-amber-400/90 font-medium flex items-center gap-1.5 px-1">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        Link a verified primary wallet to send USDC.
+                        Create or restore your Circle wallet to send USDC.
                       </p>
                     )}
                     {walletAddress && !recipientWallet && (
@@ -684,29 +686,27 @@ export default function SendUsdcModal({
                             : "Unable to fetch your USDC balance."}
                         </p>
                       )}
-                    {walletAddress && recipientWallet && session.status === "disconnected" && (
-                      <div className="p-3.5 bg-amber-500/[0.06] border border-amber-500/20 rounded-2xl space-y-2.5">
-                        <p className="text-[11px] text-amber-200/90 font-medium flex items-center gap-1.5">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          Reconnect your wallet to continue.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleReconnect}
-                          disabled={walletReconnecting}
-                          className="w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-100 hover:bg-amber-500/25 text-[11px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Wallet className="w-3.5 h-3.5" />
-                          {walletReconnecting ? "Reconnecting…" : "Reconnect Wallet"}
-                        </button>
-                      </div>
-                    )}
-                    {walletAddress && recipientWallet && session.status === "mismatch" && (
-                      <p className="text-[11px] text-rose-400/90 font-medium flex items-center gap-1.5 px-1">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        Connected wallet does not match your primary MICA wallet.
-                      </p>
-                    )}
+                    {walletAddress &&
+                      recipientWallet &&
+                      circleWallet.status !== "linked" &&
+                      circleWallet.status !== "linking" && (
+                        <div className="p-3.5 bg-amber-500/[0.06] border border-amber-500/20 rounded-2xl space-y-2.5">
+                          <p className="text-[11px] text-amber-200/90 font-medium flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            {circleWallet.status === "error"
+                              ? circleWallet.message || "Could not unlock your Circle wallet."
+                              : "Unlock your Circle wallet with your passkey to send USDC."}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleLinkCircleWallet}
+                            className="w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-100 hover:bg-amber-500/25 text-[11px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <Wallet className="w-3.5 h-3.5" />
+                            Unlock Circle Wallet
+                          </button>
+                        </div>
+                      )}
 
                     {/* Summary */}
                     <div className="space-y-2 p-4 bg-black/30 border border-white/[0.06] rounded-2xl">

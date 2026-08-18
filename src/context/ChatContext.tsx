@@ -20,6 +20,12 @@ import { UserProfile, FriendRequest, ChatSession, ChatMessage, AppNotification, 
 import { VerifiedWallet } from "../hooks/usePrimaryWallet";
 import { isUserBlocked, getBlockMessage } from "../utils/blocking";
 import { usePrivy } from "@privy-io/react-auth";
+import {
+  useCircleWalletSession,
+  type CircleWalletSession,
+  type CircleEip1193Provider,
+} from "../circle";
+import { ensureServerWallet } from "../api/wallet";
 
 interface ChatContextType {
   currentUser: any;
@@ -45,7 +51,7 @@ interface ChatContextType {
     username: string,
     displayName: string,
     avatarUrl: string,
-    wallet: VerifiedWallet,
+    wallet?: VerifiedWallet | null,
     privyUserId?: string
   ) => Promise<void>;
   updatePrimaryWallet: (wallet: VerifiedWallet, privyUserId?: string) => Promise<void>;
@@ -71,6 +77,13 @@ interface ChatContextType {
   setTypingStatus: (isTyping: boolean) => Promise<void>;
   triggerBotResponse: (chatId: string, userText: string, replyToMessage?: any) => Promise<void>;
   triggerNotification: (noti: AppNotification) => void;
+  // Circle Developer-Controlled Wallet (server-side MPC) — created/restored
+  // automatically for the authenticated uid via POST /api/wallet/ensure.
+  // `getCircleSigningContext` returns the EIP-1193 provider seam used by the
+  // transaction pipeline.
+  circleWallet: CircleWalletSession;
+  ensureCircleWallet: () => Promise<any>;
+  getCircleSigningContext: () => Promise<{ provider: CircleEip1193Provider; from: string }>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -98,6 +111,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const processedDndMessageIds = useRef<Set<string>>(new Set());
   const { logout: privyLogout } = usePrivy();
 
+  // Circle Developer-Controlled Wallet (server-side MPC): auto-created for the
+  // authenticated Firebase uid via POST /api/wallet/ensure. Writes ONLY the
+  // Circle metadata block to Firestore — never secrets.
+  const {
+    session: circleWallet,
+    ensure: ensureCircleWallet,
+    getSigningContext: getCircleSigningContext,
+  } = useCircleWalletSession({
+    uid: currentUser?.uid ?? null,
+    profile: userProfile,
+    username: userProfile?.username ?? null,
+  });
+
   // 1. Listen to Authentication Changes
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
@@ -114,6 +140,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // If updateDoc fails, maybe doc doesn't exist yet, we let AuthPage handle the creation first
           console.log("Presence check ignored (profile not ready yet)");
         }
+
+        // Phase 1: Ensure a Circle Developer-Controlled Wallet exists for this
+        // Firebase uid. Fire-and-forget — wallet creation is server-side MPC and
+        // does not block the login flow. The Firestore onSnapshot listener (step
+        // 2) will pick up the updated circleWalletAddress automatically.
+        ensureServerWallet().catch((err) => {
+          console.warn("[ChatContext] ensureServerWallet (background) failed:", err);
+        });
       } else {
         // Handle Logout presence clean up prior to state wipe
         if (currentUser) {
@@ -630,17 +664,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Complete first-time user profile setup config.
-  // A verified primary wallet (from Privy) is MANDATORY — the dashboard stays
-  // locked until both onboarding and a verified wallet exist.
-  const completeOnboarding = async (username: string, displayName: string, avatarUrl: string, wallet: VerifiedWallet, privyUserId?: string) => {
+  // An external (Privy) wallet is OPTIONAL. Google-only users enter MICA with
+  // their internal Circle wallet; the dashboard no longer requires a verified
+  // external wallet. When a Privy wallet IS linked, its verified metadata is
+  // persisted (still used by Send USDC).
+  const completeOnboarding = async (username: string, displayName: string, avatarUrl: string, wallet?: VerifiedWallet | null, privyUserId?: string) => {
     if (!currentUser) return;
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     if (!cleanUsername) throw new Error("Username must contain alphanumeric characters or underscores");
     if (cleanUsername.length < 3 || cleanUsername.length > 32) {
       throw new Error("Username must be between 3 and 32 characters");
-    }
-    if (!wallet || !wallet.address) {
-      throw new Error("A verified wallet must be connected before you can continue.");
     }
 
     // Check if username is taken by another user
@@ -665,14 +698,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatarUrl: avatarUrl.trim(),
         onboardingCompleted: true,
         authProvider: detectAuthProvider(currentUser),
-        walletAddress: wallet.address.toLowerCase(),
-        walletProvider: wallet.provider,
-        walletLinkedAt: wallet.linkedAt || new Date().toISOString(),
-        walletVerified: true,
-        walletStatus: "active",
-        privyUserId: privyUserId || null,
         lastActive: new Date().toISOString(),
       };
+      if (wallet && wallet.address) {
+        updateData.walletAddress = wallet.address.toLowerCase();
+        updateData.walletProvider = wallet.provider;
+        updateData.walletLinkedAt = wallet.linkedAt || new Date().toISOString();
+        updateData.walletVerified = true;
+        updateData.walletStatus = "active";
+      }
+      if (privyUserId) {
+        updateData.privyUserId = privyUserId;
+      }
       await setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
@@ -1374,6 +1411,9 @@ Keep your response warm, concise, and match the language of the incoming message
         setTypingStatus,
         triggerBotResponse,
         triggerNotification,
+        circleWallet,
+        ensureCircleWallet,
+        getCircleSigningContext,
       }}
     >
       {children}

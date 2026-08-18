@@ -1,8 +1,7 @@
 import { Interface } from "ethers";
-import type { EIP1193Provider } from "@privy-io/react-auth";
 import { ARC_NETWORK, chainLabel, isArcChainId } from "./arcNetwork";
 import { waitForArcTransaction } from "./arcRpc";
-import { ArcPaymentRequest, ArcPaymentReceipt, ArcSendDeps, ArcUsdcAdapter } from "./types";
+import { ArcPaymentRequest, ArcPaymentReceipt, ArcSendDeps, ArcSigningProvider, ArcUsdcAdapter } from "./types";
 
 // Circle USDC ERC-20 on Arc. `transfer(to, value)` moves real USDC.
 const USDC_IFACE = new Interface([
@@ -28,12 +27,14 @@ export function buildUsdcTransferCalldata(to: string, amount: number): string {
  * - "method not supported"/disconnect -> the wallet could not produce a
  *   signature at all — this is the "Wallet signature required." case from the
  *   spec: do NOT continue the payment flow.
+ * - "not allowed"                     -> the passkey prompt was cancelled
+ *   (WebAuthn `NotAllowedError`), e.g. from the Circle Modular Wallet.
  * - anything else                    -> the raw error message.
  */
 export function classifySendError(err: any): { userMessage: string; detail: string } {
   const code = err?.code;
   const message = String(err?.message || err || "Unknown wallet error");
-  if (code === 4001 || /user rejected|user denied|reject/i.test(message)) {
+  if (code === 4001 || /user rejected|user denied|reject|not allowed|cancelled by user/i.test(message)) {
     return {
       userMessage: "Transaction cancelled.",
       detail: message,
@@ -56,7 +57,7 @@ export function classifySendError(err: any): { userMessage: string; detail: stri
  * if the wallet cannot estimate (some external wallets), send without a gas
  * limit and let the Arc node compute it.
  */
-async function estimateGas(provider: EIP1193Provider, tx: Record<string, unknown>): Promise<string | undefined> {
+async function estimateGas(provider: ArcSigningProvider, tx: Record<string, unknown>): Promise<string | undefined> {
   try {
     const hex = await provider.request({ method: "eth_estimateGas", params: [tx] });
     return typeof hex === "string" ? hex : undefined;
@@ -68,12 +69,14 @@ async function estimateGas(provider: EIP1193Provider, tx: Record<string, unknown
 
 /**
  * Execute a REAL Arc Circle USDC transfer through the connected wallet's
- * EIP-1193 provider (obtained from Privy's `wallet.getEthereumProvider()`).
+ * EIP-1193 provider — either the Circle Modular Wallet provider (passkey-backed
+ * smart account; `eth_sendTransaction` is converted into a signed user op) or
+ * a Privy embedded/external wallet provider.
  *
  * Flow (each step is logged to the console via `deps.log`):
  *   Preparing Transaction
- *   Opening Wallet Signature      <- Privy embedded wallet confirmation modal /
- *                                    external wallet popup appears here
+ *   Opening Wallet Signature      <- passkey / wallet confirmation prompt
+ *                                    appears here (a REAL signature is required)
  *   Submitting Transaction        <- eth_sendTransaction (real broadcast)
  *   Signature Approved
  *   Transaction Hash              <- real 0x hash
@@ -102,10 +105,15 @@ export async function executeArcUsdcSend(
 
   // 1) Re-verify the connected wallet is on Arc right before sending.
   //    Never send on the wrong chain, and never let a stale provider decide.
+  //    Accept hex ("0x4cef52"), decimal ("5042002"), and numeric JSON results.
   let walletChainId: number | null = null;
   try {
-    const hex = await provider.request({ method: "eth_chainId", params: [] });
-    walletChainId = typeof hex === "string" ? parseInt(hex, 16) : Number(hex);
+    const raw = await provider.request({ method: "eth_chainId", params: [] });
+    if (typeof raw === "string") {
+      walletChainId = /^0x/i.test(raw) ? parseInt(raw, 16) : Number(raw);
+    } else if (typeof raw === "number") {
+      walletChainId = raw;
+    }
   } catch (err: any) {
     console.error("[Arc] eth_chainId failed before send:", err);
   }
@@ -121,13 +129,17 @@ export async function executeArcUsdcSend(
   const tx: Record<string, unknown> = {
     from: from.toLowerCase(),
     to: ARC_NETWORK.usdc.address,
-    value: "0x0",
     data,
   };
+  // NOTE: `value` is deliberately omitted. An ERC-20 `transfer` carries 0 native
+  // value, and the Circle Modular Wallet provider forwards `eth_sendTransaction`
+  // params into its ERC-4337 user-op encoding (`execute(to, value, data)`) where
+  // `value` must be a bigint — a hex string would break encoding. Omission
+  // defaults to 0n for the SDK and to a 0-value tx for standard EIP-1193 wallets.
 
-  // 3) Request the wallet signature + broadcast. For a Privy embedded wallet
-  //    this shows Privy's confirmation modal; for an external wallet it shows
-  //    the wallet's own popup. A real signature is ALWAYS required.
+  // 3) Request the wallet signature + broadcast. For the Circle Modular Wallet
+  //    this shows the passkey prompt; for a Privy/external wallet it shows the
+  //    wallet's own confirmation popup. A real signature is ALWAYS required.
   step("Opening Wallet Signature");
 
   const gas = await estimateGas(provider, tx);

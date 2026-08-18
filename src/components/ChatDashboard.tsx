@@ -6,6 +6,7 @@ import { UserProfile, ChatMessage } from "../types";
 import { compressImage } from "../utils/image";
 import CallHistory from "./CallHistory";
 import DealRoom from "./DealRoom";
+import CircleWalletDashboard from "./CircleWalletDashboard";
 import SendUsdcModal from "./SendUsdcModal";
 import BlockUserModal, { BlockModalMode } from "./BlockUserModal";
 import { useBlock } from "../context/BlockContext";
@@ -255,6 +256,7 @@ export default function ChatDashboard() {
     isFriendTyping,
     setTypingStatus,
     triggerBotResponse,
+    circleWallet,
   } = useChat();
 
   const { startCall } = useCall();
@@ -333,10 +335,6 @@ export default function ChatDashboard() {
       const cleanUser = onboardUsername.toLowerCase().trim().replace(/[^a-z0-9_]/g, "");
       if (cleanUser !== onboardUsername.toLowerCase().trim()) {
         throw new Error("Username can only contain alphanumeric characters and underscores");
-      }
-
-      if (!privyPrimaryWallet || !privyPrimaryWallet.address) {
-        throw new Error("Please connect a verified wallet to continue.");
       }
 
       const finalAvatarUrl = onboardAvatarType === "custom" && onboardCustomAvatarUrl
@@ -923,9 +921,9 @@ export default function ChatDashboard() {
   const [viewChatOnMobile, setViewChatOnMobile] = useState(false);
 
   // Dynamic Tab state representing bottom navigation (mimics uploaded interface)
-  const [activeTab, setActiveTab] = useState<"chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom">("chats");
+  const [activeTab, setActiveTab] = useState<"chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom" | "wallet">("chats");
 
-  const handleSelectTab = (tab: "chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom") => {
+  const handleSelectTab = (tab: "chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom" | "wallet") => {
     setActiveTab(tab);
     setViewChatOnMobile(false);
     
@@ -1356,11 +1354,11 @@ export default function ChatDashboard() {
     (r) => r.status === "pending" && r.senderId === currentUser?.uid
   );
 
-  // If the user profile is missing, hasn't completed onboarding, or has no
-  // verified primary wallet yet, display the onboarding setup form. The
-  // dashboard stays locked until onboarding is complete AND a verified wallet
-  // (from Privy) exists.
-  if (!userProfile || userProfile.onboardingCompleted !== true || userProfile.walletVerified !== true) {
+  // If the user profile is missing or hasn't completed onboarding, display the
+  // onboarding setup form. The dashboard opens once the profile setup is done.
+  // An external (Privy) wallet is OPTIONAL — Google-only users enter MICA with
+  // their internal Circle wallet (auto-created server-side for the Firebase uid).
+  if (!userProfile || userProfile.onboardingCompleted !== true) {
     const onboardPreviewUrl = onboardAvatarType === "custom" && onboardCustomAvatarUrl
       ? onboardCustomAvatarUrl
       : `https://api.dicebear.com/7.x/${onboardAvatarStyle}/svg?seed=${onboardAvatarSeed || "default"}`;
@@ -1506,13 +1504,13 @@ export default function ChatDashboard() {
                 />
               </div>
 
-              {/* Primary Wallet (Required — verified via Privy) */}
+              {/* Wallet (Optional — internal Circle wallet is the default) */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[12px] text-white/50 font-medium tracking-wide">
-                    Primary Wallet
+                    Wallet
                   </label>
-                  <span className="text-[10px] text-emerald-400/80 font-medium tracking-widest uppercase">Required</span>
+                  <span className="text-[10px] text-white/30 font-medium tracking-widest uppercase">Optional</span>
                 </div>
 
                 {privyPrimaryWallet ? (
@@ -1533,27 +1531,42 @@ export default function ChatDashboard() {
                     </span>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleConnectOnboardWallet}
-                    disabled={walletConnecting}
-                    className="w-full bg-white/[0.04] border border-white/[0.08] hover:border-[#6366F1]/50 rounded-2xl px-4 py-3.5 flex items-center justify-center gap-2.5 text-[13px] font-semibold text-white cursor-pointer transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {walletConnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-[#818CF8]" />
-                        Waiting for wallet confirmation...
-                      </>
-                    ) : (
-                      <>
-                        <Wallet className="w-4 h-4 text-[#818CF8]" />
-                        Connect Wallet via Privy
-                      </>
-                    )}
-                  </button>
+                  <div className="w-full bg-white/[0.04] border border-white/[0.08] rounded-2xl px-4 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-[#6366F1]/10 border border-[#6366F1]/20 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-4 h-4 text-[#818CF8]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] text-white font-semibold">
+                          Circle Wallet (server-secured)
+                        </p>
+                        <p className="text-[11px] text-white/35 font-medium truncate">
+                          Created automatically for your MICA account — no external wallet needed.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleConnectOnboardWallet}
+                      disabled={walletConnecting}
+                      className="mt-3 w-full bg-white/[0.04] border border-white/[0.08] hover:border-[#6366F1]/50 rounded-xl px-4 py-2.5 flex items-center justify-center gap-2 text-[12px] font-semibold text-white/70 hover:text-white cursor-pointer transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {walletConnecting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-[#818CF8]" />
+                          Waiting for wallet confirmation...
+                        </>
+                      ) : (
+                        <>
+                          <Wallet className="w-4 h-4 text-[#818CF8]" />
+                          Link external wallet (optional)
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
                 <p className="text-[11px] text-white/25 mt-1.5 pl-2">
-                  Your wallet is verified by Privy and can only be linked by signing from your wallet — no manual addresses are accepted.
+                  Optional: linking an external wallet enables advanced features like Send USDC. Your internal Circle wallet is always available.
                 </p>
               </div>
 
@@ -1561,7 +1574,7 @@ export default function ChatDashboard() {
               <div className="flex flex-col gap-3 pt-2">
                 <button
                   type="submit"
-                  disabled={onboardLoading || !privyPrimaryWallet}
+                  disabled={onboardLoading}
                   className="w-full bg-gradient-to-r from-[#6366F1] via-[#7C3AED] to-[#8B5CF6] text-white hover:brightness-110 font-semibold py-3.5 px-6 rounded-full text-[14px] flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_30px_rgba(99,102,241,0.35)] hover:scale-[1.01] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   {onboardLoading ? (
@@ -1569,7 +1582,7 @@ export default function ChatDashboard() {
                   ) : (
                     <>
                       <Check className="w-4 h-4 text-white" />
-                      {privyPrimaryWallet ? "Complete Setup & Enter Chats" : "Connect a wallet to continue"}
+                      Complete Setup & Enter Chats
                     </>
                   )}
                 </button>
@@ -1628,8 +1641,9 @@ export default function ChatDashboard() {
               { key: "friends", label: "Add Friend", icon: UsersRound },
               { key: "notifications", label: "NOTIFICATION", icon: Bell },
               { key: "dealroom", label: "Deal Room", icon: Handshake },
+              { key: "wallet", label: "Wallet", icon: Wallet },
               { key: "settings", label: "Settings", icon: Settings },
-            ] as { key: "chats" | "calls" | "friends" | "notifications" | "dealroom" | "settings"; label: string; icon: any }[]).map(
+            ] as { key: "chats" | "calls" | "friends" | "notifications" | "dealroom" | "wallet" | "settings"; label: string; icon: any }[]).map(
               (item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.key;
@@ -1680,7 +1694,7 @@ export default function ChatDashboard() {
       {/* SIDEBAR WRAPPER: Responsive view management on mobile */}
       <div
         className={`bg-[#0D111D]/75 border-r border-white/5 flex flex-col h-screen shrink-0 relative backdrop-blur-xl z-10 transition-[width,opacity,margin] duration-300 ease-in-out overflow-hidden ${
-          showSettingsPage || activeTab === "dealroom"
+          showSettingsPage || activeTab === "dealroom" || activeTab === "wallet"
             ? "w-0 opacity-0 -ml-2 pointer-events-none"
             : `w-full md:w-96 opacity-100 ml-0 ${viewChatOnMobile ? "hidden md:flex" : "flex"}`
         }`}
@@ -2350,7 +2364,7 @@ export default function ChatDashboard() {
 
         {/* Persistent High-Fidelity Bottom Navigation Bar (matches uploaded image layout) */}
         <div className="md:hidden bg-[#0D111D] border-t border-white/5 px-4 sm:px-6 py-2 flex items-center justify-between shrink-0 h-16 shadow-[0_-8px_35px_rgba(0,0,0,0.6)] z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]" id="bottom_navbar_tabs">
-          <div className="grid grid-cols-6 w-full h-full my-auto items-center">
+          <div className="grid grid-cols-7 w-full h-full my-auto items-center">
             {/* Chats Tab Button */}
             <button
               onClick={() => handleSelectTab("chats")}
@@ -2438,6 +2452,26 @@ export default function ChatDashboard() {
                   <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                 )}
                 {activeTab === "notifications" && (
+                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                )}
+              </div>
+            </button>
+
+            {/* Wallet Tab Button */}
+            <button
+              onClick={() => handleSelectTab("wallet")}
+              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
+              title="Circle Wallet"
+            >
+              <div className="relative p-1.5 rounded-xl transition-all duration-200">
+                <Wallet
+                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                    activeTab === "wallet"
+                      ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                  }`}
+                />
+                {activeTab === "wallet" && (
                   <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
                 )}
               </div>
@@ -3139,6 +3173,8 @@ export default function ChatDashboard() {
                 </div>
               </div>
             </motion.div>
+          ) : activeTab === "wallet" ? (
+            <CircleWalletDashboard onBack={handleBackToChats} />
           ) : activeTab === "dealroom" ? (
             <DealRoom onBack={handleBackToChats} />
           ) : activeChatId && activeChatFriend ? (
@@ -4892,7 +4928,11 @@ export default function ChatDashboard() {
       <SendUsdcModal
         open={showUsdcPaymentModal}
         senderProfile={userProfile}
-        senderWallet={privyPrimaryWallet?.address ?? null}
+        senderWallet={
+          circleWallet.status === "linked"
+            ? circleWallet.address
+            : userProfile?.circleWalletAddress ?? null
+        }
         recipient={activeChatFriend}
         chatId={activeChatId}
         onClose={() => setShowUsdcPaymentModal(false)}

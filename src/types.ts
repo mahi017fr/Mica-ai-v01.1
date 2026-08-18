@@ -20,6 +20,16 @@ export interface UserProfile {
   walletStatus?: WalletStatus;
   authProvider?: AuthProvider;
   privyUserId?: string;
+  // Circle Developer-Controlled Wallet (server-side MPC), tied to this uid.
+  // Phase 1: one wallet per Firebase uid, created server-side.
+  circleWalletId?: string;
+  // Circle Developer-Controlled Wallet (server-side MPC), tied to this uid.
+  // Created/restored server-side via POST /api/wallet/ensure.
+  // METADATA ONLY — never private keys / seed phrases / signing credentials.
+  circleWalletAddress?: string;
+  circleWalletCredentialId?: string;
+  circleWalletStatus?: "unconfigured" | "not_created" | "linking" | "linked" | "error";
+  circleWalletLinkedAt?: string;
   // Available Arc USDC balance (Circle USDC). Server/Arc managed — never
   // client-writable; read-only for the payment UI.
   usdcBalance?: number;
