@@ -5,7 +5,6 @@
   "installCommand": "npm install",
   "functions": {
     "api/wallet/ensure.ts": {
-      "runtime": "nodejs22.x",
       "maxDuration": 60
     }
   },
