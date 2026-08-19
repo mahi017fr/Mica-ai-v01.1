@@ -5,7 +5,7 @@ import { createServer as createViteServer } from "vite";
 import { ethers } from "ethers";
 import { v2 as cloudinary } from "cloudinary";
 import formidable from "formidable";
-import { handleEnsureWallet } from "./src/server/circleWalletService";
+import { handleEnsureWallet } from "./api/_lib/circleWalletService";
 
 function logDiag(entry: Record<string, unknown>) {
   console.log("[WALLET_DIAG]", JSON.stringify(entry));

@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── Inner try/catch for wallet logic ────────────────────────────
     try {
-      const { handleEnsureWallet } = await import("../../src/server/circleWalletService");
+      const { handleEnsureWallet } = await import("../_lib/circleWalletService");
       const wallet = await handleEnsureWallet(idToken);
       jsonResponse(res, 200, {
         ok: true,
