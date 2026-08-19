@@ -9,11 +9,10 @@
 //   - This file is only imported by server-side code (server.ts, api/ handlers).
 //   - The entity secret is auto-encrypted per request by the SDK.
 
-import {
-  initiateDeveloperControlledWalletsClient,
-  type CircleDeveloperControlledWalletsClient,
-} from "@circle-fin/developer-controlled-wallets";
-import type { Blockchain } from "@circle-fin/developer-controlled-wallets";
+// IMPORTANT: All heavy SDK imports are dynamic (lazy) so that a module-loading
+// failure in any dependency never crashes the serverless function at init time.
+// This ensures the handler can ALWAYS return a JSON error instead of a Vercel
+// HTML error page.
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -23,16 +22,16 @@ const CIRCLE_API_KEY = process.env.CIRCLE_API_KEY ?? "";
 const CIRCLE_ENTITY_SECRET = process.env.CIRCLE_ENTITY_SECRET ?? "";
 const CIRCLE_WALLET_SET_ID = process.env.CIRCLE_WALLET_SET_ID ?? "";
 
-const ARC_TESTNET: Blockchain = "ARC-TESTNET" as Blockchain;
+const ARC_TESTNET = "ARC-TESTNET" as const;
 
 // Singleton client — created lazily on first use.
-let _client: CircleDeveloperControlledWalletsClient | null = null;
+let _client: any = null;
 
 function logDiag(entry: Record<string, unknown>) {
   console.log("[WALLET_DIAG]", JSON.stringify(entry));
 }
 
-function getClient(): CircleDeveloperControlledWalletsClient {
+async function getClient(): Promise<any> {
   if (_client) return _client;
   const hasKey = Boolean(CIRCLE_API_KEY);
   const hasSecret = Boolean(CIRCLE_ENTITY_SECRET);
@@ -51,7 +50,18 @@ function getClient(): CircleDeveloperControlledWalletsClient {
     );
   }
   try {
-    _client = initiateDeveloperControlledWalletsClient({
+    const sdk = await import("@circle-fin/developer-controlled-wallets");
+    logDiag({ step: "getClient_sdk_imported" });
+    const sdkExports: any = (sdk as any).default ?? sdk;
+    const initFn = sdkExports.initiateDeveloperControlledWalletsClient
+      ?? sdk.initiateDeveloperControlledWalletsClient;
+    if (!initFn) {
+      throw new Error(
+        "Circle SDK loaded but initiateDeveloperControlledWalletsClient export not found. " +
+        "Available exports: " + Object.keys(sdkExports).slice(0, 10).join(", ")
+      );
+    }
+    _client = initFn({
       apiKey: CIRCLE_API_KEY,
       entitySecret: CIRCLE_ENTITY_SECRET,
     });
@@ -100,7 +110,7 @@ export async function ensureCircleDevWallet(
   firestoreSet: (path: string, data: Record<string, unknown>) => Promise<void>
 ): Promise<EnsuredWallet> {
   logDiag({ step: "ensureCircleDevWallet_start", uidLen: uid.length });
-  const client = getClient();
+  const client = await getClient();
   const now = () => new Date().toISOString();
   const userPath = `users/${uid}`;
 
