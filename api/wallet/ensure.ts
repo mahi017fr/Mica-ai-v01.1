@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { handleEnsureWallet } from "../_lib/circleWalletService";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -63,7 +64,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── Inner try/catch for wallet logic ────────────────────────────
     try {
-      const { handleEnsureWallet } = await import("../_lib/circleWalletService");
       const wallet = await handleEnsureWallet(idToken);
       jsonResponse(res, 200, {
         ok: true,
