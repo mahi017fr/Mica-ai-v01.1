@@ -385,3 +385,135 @@ export async function handleEnsureWallet(
     throw err;
   }
 }
+
+// ---------------------------------------------------------------------------
+// USDC send support — Developer-Controlled Wallet transfers (server-side only).
+//
+// The source wallet is ALWAYS a server-resolved Circle wallet id; signing is
+// performed by Circle's MPC infrastructure. No passkey / WebAuthn / Privy /
+// browser signature is ever involved in this path.
+// ---------------------------------------------------------------------------
+
+/** Resolved Circle wallet for a MICA user (metadata only). */
+export interface ResolvedCircleWallet {
+  walletId: string;
+  address: string;
+}
+
+/**
+ * Resolve a user's existing Circle wallet from Firestore.
+ * Returns null when the user has no Circle wallet yet (never creates one).
+ */
+export async function resolveCircleWallet(uid: string): Promise<ResolvedCircleWallet | null> {
+  const profile = await firestoreGet(`users/${uid}`);
+  const walletId = typeof profile?.circleWalletId === "string" ? profile.circleWalletId : null;
+  const address = typeof profile?.circleWalletAddress === "string" ? profile.circleWalletAddress : null;
+  if (!walletId || !address) return null;
+  return { walletId, address };
+}
+
+/** Resolve only the on-chain address (used for recipients). */
+export async function resolveCircleWalletAddress(uid: string): Promise<string | null> {
+  const profile = await firestoreGet(`users/${uid}`);
+  const address =
+    typeof profile?.circleWalletAddress === "string" && profile.circleWalletAddress.startsWith("0x")
+      ? profile.circleWalletAddress
+      : null;
+  return address;
+}
+
+/** Terminal Circle transaction states that mean the write will not proceed. */
+const FAILED_STATES = new Set(["FAILED", "DENIED", "CANCELLED"]);
+/** Terminal states meaning the transaction is final on-chain. */
+const SUCCESS_STATES = new Set(["COMPLETE"]);
+
+export function isTerminalCircleState(state: string): boolean {
+  return state === "COMPLETE" || state === "CONFIRMED" || FAILED_STATES.has(state) || state === "STUCK";
+}
+export function isFailedCircleState(state: string): boolean {
+  return FAILED_STATES.has(state);
+}
+
+/**
+ * Create a token transfer through Circle's Developer-Controlled Wallets SDK.
+ *
+ * - `idempotencyKey` MUST be stable per logical send: Circle treats repeated
+ *   calls with the same key as THE SAME request and returns the original
+ *   transaction instead of creating a second blockchain write.
+ * - `amountDecimal` is a human decimal string (e.g. "10" / "0.5") at ≤6 dp.
+ * - `tokenAddress` is the ERC-20 USDC contract; empty string would mean native.
+ * Returns the Circle transaction id + initial state. NEVER fabricates results.
+ */
+export async function createCircleUsdcTransfer(params: {
+  sourceWalletId: string;
+  destinationAddress: string;
+  amountDecimal: string;
+  tokenAddress: string;
+  blockchain?: string;
+  idempotencyKey: string;
+}): Promise<{ transactionId: string; state: string }> {
+  const client = await getClient();
+  const response = await client.createTransaction({
+    walletId: params.sourceWalletId,
+    destinationAddress: params.destinationAddress,
+    amount: [params.amountDecimal],
+    tokenAddress: params.tokenAddress,
+    blockchain: params.blockchain ?? ARC_TESTNET,
+    fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+    idempotencyKey: params.idempotencyKey,
+  });
+  const tx = response?.data;
+  if (!tx?.id) {
+    throw new Error("Circle createTransaction returned no transaction id.");
+  }
+  return { transactionId: String(tx.id), state: String(tx.state ?? "INITIATED") };
+}
+
+/**
+ * Fetch the current state of a Circle transaction. Returns null when Circle
+ * does not know the id (never guessed).
+ */
+export async function getCircleTransaction(
+  transactionId: string
+): Promise<{ state: string; txHash: string | null } | null> {
+  const client = await getClient();
+  const response = await client.getTransaction({ id: transactionId });
+  const tx = response?.data?.transaction;
+  if (!tx) return null;
+  return {
+    state: String(tx.state ?? "UNKNOWN"),
+    txHash: typeof tx.txHash === "string" ? tx.txHash : null,
+  };
+}
+
+/**
+ * Create a Firestore document at `collectionPath/id`. Fails (returns false)
+ * when a document already exists there — used for race-free idempotency keys.
+ */
+export async function firestoreCreate(
+  collectionPath: string,
+  id: string,
+  data: Record<string, unknown>
+): Promise<boolean> {
+  const db = await getFirestore();
+  try {
+    await db.collection(collectionPath).doc(id).create(data);
+    return true;
+  } catch (err: any) {
+    if (String(err?.code ?? "").includes("already-exists") || /already exists/i.test(String(err?.message))) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Run an atomic Firestore transaction. `fn` receives the raw Firestore
+ * transaction object plus the Firestore instance (server-side only).
+ */
+export async function firestoreRunTransaction(
+  fn: (tx: any, db: any) => Promise<void>
+): Promise<void> {
+  const db = await getFirestore();
+  await db.runTransaction(async (tx: any) => fn(tx, db));
+}

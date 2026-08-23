@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { useChat } from "../context/ChatContext";
-import type { CircleEip1193Provider, CircleWalletResult } from "../circle/types";
 import {
   X,
   Coins,
@@ -21,15 +19,13 @@ import { UserProfile } from "../types";
 import { isUserBlocked, getBlockMessage } from "../utils/blocking";
 import {
   ArcPaymentReceipt,
-  ArcPaymentRequest,
-  arcUsdcAdapter,
   ARC_NETWORK,
   chainLabel,
   getTxExplorerUrl,
   ArcBalanceStatus,
   fetchArcUsdcBalance,
-  sleep,
 } from "../payments";
+import { sendUsdcViaServer } from "../api/sendUsdc";
 
 type Stage = "form" | "confirm" | "processing" | "success";
 
@@ -83,42 +79,27 @@ export default function SendUsdcModal({
   const [procStep, setProcStep] = useState("");
 
   // Every payment step is logged to the browser console with a timestamp so
-  // the real wallet/signature/submission lifecycle can be audited end-to-end.
+  // the server-side send lifecycle can be audited end-to-end.
   const logStep = useCallback((step: string, detail?: string) => {
     console.info(`[Arc] [${new Date().toISOString()}] ${step}${detail ? " — " + detail : ""}`);
   }, []);
 
-  // Circle Modular Wallet session — the authenticated user's passkey-backed
-  // smart account (created/restored automatically in ChatContext). The
-  // transaction ALWAYS originates from this wallet: the linked session is the
-  // sender, and every send requires a fresh passkey authorization at sign time.
-  const {
-    circleWallet,
-    ensureCircleWallet,
-  } = useChat();
-
-  // Live mirror so async send-time logic can observe the session as the
-  // auto-ensure (passkey restore) progresses without stale closures.
-  const circleWalletRef = useRef(circleWallet);
-  circleWalletRef.current = circleWallet;
-
+  // USDC transfers are executed by the SERVER through the authenticated
+  // user's Circle Developer-Controlled Wallet (MPC signing). No passkey,
+  // no browser wallet signature and no Privy approval is ever requested.
   const [balanceState, setBalanceState] = useState<ArcBalanceStatus>({ status: "checking" });
   const [retryKey, setRetryKey] = useState(0);
   const balanceRequestRef = useRef(0);
   const submitInFlightRef = useRef(false);
 
-  // Verified sender wallet address: prefer the live linked Circle wallet, fall
-  // back to the saved Circle wallet metadata for display and balance purposes.
-  // A stored address alone never authorizes a transaction.
+  // Sender wallet address for DISPLAY + balance reads only. The transaction
+  // source is always resolved server-side from the authenticated Firebase uid.
   const walletAddress =
-    (circleWallet.status === "linked" ? circleWallet.address : null) ||
     senderWallet?.toLowerCase() ||
     senderProfile?.circleWalletAddress?.toLowerCase() ||
     null;
 
-  // Sending USDC requires a live, linked Circle wallet session (passkey
-  // unlocked). The wallet is always on Arc Network by construction.
-  const canSign = circleWallet.status === "linked";
+  // Balance reads are Arc-only by construction (server endpoint).
   const balanceChainId = ARC_NETWORK.chainId;
 
   const refreshBalance = useCallback(async () => {
@@ -141,24 +122,8 @@ export default function SendUsdcModal({
     }
   }, [open, refreshBalance, retryKey]);
 
-  // Circle wallet restore is NOT auto-triggered here: prompting for the passkey
-  // is an explicit user action (Send / Confirm / the "Unlock Circle Wallet"
-  // panel button). The ChatContext auto-ensure already restored the session at
-  // login; at send time `handleConfirm` unlocks it again if needed.
-
-  const handleLinkCircleWallet = async () => {
-    setError("");
-    try {
-      await ensureCircleWallet();
-      setRetryKey((k) => k + 1);
-    } catch (err: any) {
-      console.error("[Circle] Circle wallet unlock failed:", err);
-      setError("Could not unlock your Circle wallet. Please try again.");
-    }
-  };
-
-  // Available Arc USDC balance — real on-chain value from the connected wallet.
-  // Never a mock or a client-editable field.
+  // Available Arc USDC balance — real on-chain value from the server-resolved
+  // Circle wallet address. Never a mock or a client-editable field.
   const balance = balanceState.status === "success" ? balanceState.balance : 0;
   const balanceReady = balanceState.status === "success";
 
@@ -243,13 +208,6 @@ export default function SendUsdcModal({
     const n = validateAmount();
     if (n === null) return;
     setAmount(fmtAmount(n));
-    // Circle wallet not unlocked yet? Re-attempt the passkey restore now so the
-    // signature prompt can fire at Confirm. We never block the amount field or
-    // the Send action on the wallet state — Confirm re-establishes the real
-    // signing context and shows "Unlock your Circle wallet…" if needed.
-    if (circleWallet.status !== "linked") {
-      void ensureCircleWallet();
-    }
     setStage("confirm");
   };
 
@@ -270,8 +228,6 @@ export default function SendUsdcModal({
       return;
     }
 
-    // Requirement 4: a real passkey signature is mandatory. If there is no
-    // Circle wallet that can sign, DO NOT continue the payment flow.
     if (!walletAddress || !recipientWallet || !senderProfile || !recipient) {
       setError("Verified wallets are required to send USDC.");
       setStage("form");
@@ -281,76 +237,40 @@ export default function SendUsdcModal({
 
     setStage("processing");
     setError("");
-    setProcStep("Connecting wallet…");
-    logStep("Wallet Connected", walletAddress);
+    setProcStep("Verifying accounts…");
+    logStep("Submitting Payment", `${n} USDC → @${recipient.username}`);
 
     try {
-      // Restore-before-send: if the Circle wallet session is not linked yet,
-      // unlock it NOW with the passkey (Login prompts for the same credential
-      // that created the wallet). A stored address alone never authorizes.
-      let s = circleWalletRef.current;
-      if (s.status === "linking") {
-        // The passkey prompt is already showing (auto-ensure in flight) — wait
-        // for it instead of firing a second prompt.
-        const deadline = Date.now() + 30_000;
-        while (s.status === "linking" && Date.now() < deadline) {
-          await sleep(200);
-          s = circleWalletRef.current;
-        }
-      }
-
-      let ctx: { provider: CircleEip1193Provider; from: string };
-      if (s.status === "linked" && s.provider) {
-        ctx = { provider: s.provider, from: s.from };
-      } else {
-        setProcStep("Awaiting passkey…");
-        const result = (await ensureCircleWallet()) as CircleWalletResult | null;
-        if (!result) {
-          throw new Error(
-            s.status === "error" && s.message
-              ? s.message
-              : "Unlock your Circle wallet with your passkey to continue."
-          );
-        }
-        ctx = { provider: result.provider, from: result.from };
-      }
-
-      // The sender MUST be the authenticated user's Circle wallet address.
-      if (ctx.from.toLowerCase() !== walletAddress.toLowerCase()) {
-        throw new Error("Circle wallet session does not match your profile wallet.");
-      }
-
-      logStep("Preparing Transaction", `${n} USDC → @${recipient.username}`);
-
-      const request: ArcPaymentRequest = {
+      // The server performs EVERYTHING sensitive: it verifies the Firebase ID
+      // token, resolves BOTH Circle wallets from Firestore, validates the
+      // amount, checks the on-chain balance and submits a Developer-Controlled
+      // Wallet transfer (MPC signing — no passkey, no browser signature, no
+      // Privy approval). The same idempotency key protects against duplicates.
+      const tx = await sendUsdcViaServer({
+        recipientUid: recipient.uid,
+        amount: fmtAmount(n),
         chatId,
-        senderId: senderProfile.uid,
-        senderUsername: senderProfile.username,
-        senderWallet: walletAddress,
-        recipientId: recipient.uid,
-        recipientUsername: recipient.username,
-        recipientWallet,
-        amount: n,
-      };
-
-      setProcStep("Awaiting wallet signature…");
-      // Real Arc Circle USDC transfer from the Circle Modular Wallet: passkey
-      // signature (browser prompt for this user's credential) -> user op
-      // broadcast through Circle's bundler -> real L1 hash -> on-chain
-      // confirmation. Never simulated. If a hash is returned, it is awaited to
-      // confirmation — a duplicate is NEVER submitted.
-      const res = await arcUsdcAdapter.sendUsdc(request, {
-        provider: ctx.provider,
-        from: ctx.from,
-        log: logStep,
+        onStep: (s) => setProcStep(s),
       });
 
+      logStep("Transaction Confirmed", tx.transactionHash);
+
+      const res: ArcPaymentReceipt = {
+        transactionHash: tx.transactionHash,
+        amount: n,
+        fee: 0,
+        network: "arc",
+        asset: "circle_usdc",
+        senderWallet: walletAddress.toLowerCase(),
+        recipientWallet: recipientWallet.toLowerCase(),
+        status: "succeeded",
+        confirmedAt: new Date().toISOString(),
+      };
       setReceipt(res);
 
-      // Requirement 5: after success, refresh the sender's balance with a
-      // FRESH RPC request — never keep showing cached balances.
+      // After success, refresh the sender's balance with a FRESH request —
+      // never keep showing cached balances.
       setProcStep("Refreshing balance…");
-      logStep("Refreshing Balance", res.transactionHash);
       await refreshBalance();
       logStep("Done");
 
@@ -365,11 +285,8 @@ export default function SendUsdcModal({
     } catch (err: any) {
       const message = err?.message || "Payment failed. Please try again.";
       logStep("Payment Failed", message);
-      console.error("[Arc] Arc USDC transfer failed:", err);
+      console.error("[Arc] Server USDC transfer failed:", err);
       setError(message);
-      // A cancelled / failed passkey prompt is recoverable in-place. Keep the
-      // entered amount and return to the form where the user can invoke the
-      // passkey unlock again with a direct button click.
       setStage("form");
     } finally {
       submitInFlightRef.current = false;
@@ -389,57 +306,33 @@ export default function SendUsdcModal({
 
   // Independent readiness flags — never one generic lock for the whole form.
   const balanceLoading = balanceState.status === "checking";
-  const walletReady = canSign;
+  const walletReady = Boolean(walletAddress);
   const transactionPending = stage === "processing";
 
   // Amount field: editable at ALL times EXCEPT while a transaction is actually
-  // being submitted. Wallet signing readiness, balance loading, and network
-  // state NEVER disable typing — a Circle wallet that needs a passkey unlock
-  // after a browser restart must NOT block the user from entering an amount.
-  // The unlock is handled at Send/Confirm time via the passkey restore, or
-  // through the "Unlock Circle Wallet" panel.
+  // being submitted.
   const amountLocked = transactionPending;
 
   // Send button: requires a valid amount, verified sender + recipient wallets,
-  // and a loaded balance. It is NEVER disabled merely because the Circle wallet
-  // session is not yet "linked" — clicking Send re-attempts the passkey restore
-  // and the Confirm step re-establishes the real signing context.
+  // and a loaded balance. Signing happens server-side — no wallet session
+  // state can ever block it.
   const sendLocked = !parsedAmount || !walletAddress || !recipientWallet || !balanceReady;
 
   // MAX button: only needs a loaded, non-zero balance and verified wallets.
   const maxLocked = !walletAddress || !recipientWallet || !balanceReady || balance <= 0;
 
-  // DEVELOPMENT TRACE — why the Amount field is (or isn't) disabled. Logs on
-  // every modal open and on every relevant state change so the persistent-state
-  // (browser-restart) bug is visible in the console instead of guessed at.
+  // DEVELOPMENT TRACE — why the Amount field is (or isn't) disabled.
   useEffect(() => {
     if (!open) return;
-    const reasons: string[] = [];
-    if (transactionPending) reasons.push("transaction in progress (stage === 'processing')");
-    if (!walletAddress)
-      reasons.push(
-        "no sender wallet address (Circle session not linked && senderWallet && profile.circleWalletAddress all empty)"
-      );
-    if (!recipientWallet) reasons.push("recipient has no verified wallet (walletVerified === true required)");
-
     console.log("USDC SEND DEBUG", {
-      circleWalletStatus: circleWallet.status,
-      circleWalletAddress: circleWallet.status === "linked" ? circleWallet.address : null,
-      walletReady,
-      signerAvailable: canSign,
-      senderWallet,
+      walletAddress,
       chainId: ARC_NETWORK.chainId,
       balance,
       balanceLoading,
       isSending: transactionPending,
-      transactionPending,
       recipientAddress: recipientWallet,
       amountDisabled: amountLocked,
     });
-    console.log(
-      "AMOUNT INPUT DISABLED REASON",
-      amountLocked ? reasons.join(" | ") || "unknown" : "enabled"
-    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     open,
@@ -450,9 +343,6 @@ export default function SendUsdcModal({
     balance,
     balanceLoading,
     walletReady,
-    canSign,
-    circleWallet,
-    senderWallet,
   ]);
 
   const renderBalanceCard = () => {
@@ -667,13 +557,13 @@ export default function SendUsdcModal({
                     {!walletAddress && (
                       <p className="text-[11px] text-amber-400/90 font-medium flex items-center gap-1.5 px-1">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        Create or restore your Circle wallet to send USDC.
+                        Create your MICA wallet to send USDC.
                       </p>
                     )}
                     {walletAddress && !recipientWallet && (
                       <p className="text-[11px] text-amber-400/90 font-medium flex items-center gap-1.5 px-1">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        {recipient?.displayName} hasn't linked a verified wallet yet.
+                        {recipient?.displayName} doesn't have a MICA wallet yet.
                       </p>
                     )}
                     {walletAddress &&
@@ -686,27 +576,6 @@ export default function SendUsdcModal({
                             : "Unable to fetch your USDC balance."}
                         </p>
                       )}
-                    {walletAddress &&
-                      recipientWallet &&
-                      circleWallet.status !== "linked" &&
-                      circleWallet.status !== "linking" && (
-                        <div className="p-3.5 bg-amber-500/[0.06] border border-amber-500/20 rounded-2xl space-y-2.5">
-                          <p className="text-[11px] text-amber-200/90 font-medium flex items-center gap-1.5">
-                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                            {circleWallet.status === "error"
-                              ? circleWallet.message || "Could not unlock your Circle wallet."
-                              : "Unlock your Circle wallet with your passkey to send USDC."}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={handleLinkCircleWallet}
-                            className="w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-100 hover:bg-amber-500/25 text-[11px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-                          >
-                            <Wallet className="w-3.5 h-3.5" />
-                            Unlock Circle Wallet
-                          </button>
-                        </div>
-                      )}
 
                     {/* Summary */}
                     <div className="space-y-2 p-4 bg-black/30 border border-white/[0.06] rounded-2xl">
@@ -715,7 +584,7 @@ export default function SendUsdcModal({
                         { label: "Recipient", value: recipient ? `@${recipient.username}` : "—" },
                         { label: "Network", value: "Arc" },
                         { label: "Asset", value: "Circle USDC" },
-                        { label: "Estimated Fee", value: `${fmtUsdc(arcUsdcAdapter.fee)} USDC` },
+                        { label: "Estimated Fee", value: `${fmtUsdc(0)} USDC` },
                       ].map((row) => (
                         <div key={row.label} className="flex items-center justify-between">
                           <span className="text-[10px] font-medium text-[#94A3B8]">{row.label}</span>
@@ -766,7 +635,7 @@ export default function SendUsdcModal({
                         { label: "Recipient", value: recipient ? `@${recipient.username}` : "—" },
                         { label: "Recipient Wallet", value: shortAddress(recipientWallet || recipient?.walletAddress) },
                         { label: "Network", value: "Arc" },
-                        { label: "Estimated Fee", value: `${fmtUsdc(arcUsdcAdapter.fee)} USDC` },
+                        { label: "Estimated Fee", value: `${fmtUsdc(0)} USDC` },
                       ].map((row) => (
                         <div key={row.label} className="flex items-center justify-between">
                           <span className="text-[10px] font-medium text-[#94A3B8]">{row.label}</span>
@@ -829,11 +698,11 @@ export default function SendUsdcModal({
                     </div>
                     <div className="space-y-1.5 px-6">
                       {[
-                        "Connecting wallet & verifying network",
-                        "Building transfer on Arc Network",
-                        "Awaiting wallet signature",
-                        "Broadcasting Circle USDC transaction",
-                        "Waiting for confirmation",
+                        "Verifying your account & wallets",
+                        "Validating amount & balance",
+                        "Submitting Circle USDC transfer",
+                        "Waiting for network confirmation",
+                        "Finalizing payment",
                       ].map((step, i) => (
                         <div key={step} className="flex items-center gap-2 text-[11px] font-medium text-[#94A3B8]">
                           <span

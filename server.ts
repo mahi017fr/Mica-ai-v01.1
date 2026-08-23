@@ -6,6 +6,7 @@ import { ethers } from "ethers";
 import { v2 as cloudinary } from "cloudinary";
 import formidable from "formidable";
 import { handleEnsureWallet } from "./api/_lib/circleWalletService";
+import { handleSendUsdc } from "./api/_lib/sendUsdcService";
 
 function logDiag(entry: Record<string, unknown>) {
   console.log("[WALLET_DIAG]", JSON.stringify(entry));
@@ -89,6 +90,20 @@ async function startServer() {
         return res.status(401).json({ ok: false, error: "Invalid Firebase ID token." });
       }
       return res.status(500).json({ ok: false, error: `Wallet ensure failed: ${String(message).slice(0, 120)}` });
+    }
+  });
+
+  // Circle Developer-Controlled Wallet: USDC transfer between MICA users.
+  app.post("/api/wallet/send-usdc", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleSendUsdc(req.headers.authorization, req.body ?? {});
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      const message = err?.message || String(err);
+      console.error("[POST /api/wallet/send-usdc] OUTER ERROR:", String(message).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error while sending USDC.", code: "SERVER_ERROR" });
     }
   });
 

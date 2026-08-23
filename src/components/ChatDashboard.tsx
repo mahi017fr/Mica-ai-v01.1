@@ -11,7 +11,7 @@ import SendUsdcModal from "./SendUsdcModal";
 import BlockUserModal, { BlockModalMode } from "./BlockUserModal";
 import { useBlock } from "../context/BlockContext";
 import { getBlockMessage } from "../utils/blocking";
-import { ArcPaymentReceipt, recordArcPayment } from "../payments";
+import { ArcPaymentReceipt } from "../payments";
 // @ts-ignore
 import micaLogo from "../assets/images/micalogo.png";
 
@@ -1229,8 +1229,9 @@ export default function ChatDashboard() {
   };
 
   // After a successful Arc USDC transfer: insert a payment system message in
-  // the chat and persist the payment record (for future Wallet/Payment/Deal
-  // history). Both are best-effort — never block the success screen.
+  // the chat. The authoritative payment-history record is persisted SERVER-SIDE
+  // (api/wallet/send-usdc) after Circle confirms the transaction — writing it
+  // here too would create a duplicate record. Best-effort — never block.
   const handleUsdcPaymentSuccess = async (receipt: ArcPaymentReceipt) => {
     if (!activeChatId || !currentUser || !userProfile) return;
     const recipientUser = activeChatFriend;
@@ -1241,21 +1242,8 @@ export default function ChatDashboard() {
         recipientUsername: recipientUser?.username || "",
         transactionHash: receipt.transactionHash,
       });
-      await recordArcPayment({
-        chatId: activeChatId,
-        senderId: currentUser.uid,
-        senderUsername: userProfile.username,
-        senderWallet: receipt.senderWallet,
-        recipientId: recipientUser?.uid || "",
-        recipientUsername: recipientUser?.username || "",
-        recipientWallet: receipt.recipientWallet,
-        amount: receipt.amount,
-        fee: receipt.fee,
-        transactionHash: receipt.transactionHash,
-        status: "succeeded",
-      });
     } catch (err) {
-      console.error("Failed to persist payment message/history:", err);
+      console.error("Failed to persist payment message:", err);
     }
   };
 
