@@ -37,20 +37,36 @@ async function postSendUsdc(body: PostBody): Promise<ServerSendTransaction> {
   if (!user) throw new SendUsdcApiError("You must be signed in to send USDC.", "UNAUTHORIZED");
   const idToken = await user.getIdToken();
 
-  const res = await fetch("/api/wallet/send-usdc", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${idToken}`,
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/wallet/send-usdc", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // Network-level failure (offline, proxy drop). Treated as a transport
+    // error so the polling loop can re-post the SAME idempotency key.
+    throw new SendUsdcApiError("Could not reach the payment server.", "TRANSPORT_ERROR");
+  }
+
+  // Read as text first so a non-JSON body can be diagnosed safely.
+  // Never logged here: the Authorization header / Firebase ID token.
+  const rawText = await res.text().catch(() => null);
 
   let data: any = null;
   try {
-    data = await res.json();
+    data = rawText === null ? undefined : JSON.parse(rawText);
   } catch {
-    throw new SendUsdcApiError("Server returned an invalid response.", "SERVER_ERROR");
+    console.error("[SendUsdc] Non-JSON response from server", {
+      httpStatus: res.status,
+      contentType: res.headers.get("content-type"),
+      bodyPrefix: rawText === null ? "<body unreadable>" : rawText.slice(0, 500),
+    });
+    throw new SendUsdcApiError("Server returned an invalid response.", "TRANSPORT_ERROR");
   }
 
   if (!res.ok || data?.ok !== true) {
@@ -98,13 +114,17 @@ export async function sendUsdcViaServer(params: {
         chatId: params.chatId ?? null,
       });
     } catch (err) {
-      // The exact same request may briefly collide with itself while the
-      // server is still submitting; retry with the SAME key (never resubmits).
-      if (
+      // Transient conditions keep the SAME idempotencyKey in play so the
+      // server NEVER re-submits the blockchain write:
+      //  - DUPLICATE_REQUEST: another invocation is mid-submission.
+      //  - TRANSPORT_ERROR: non-JSON/platform error page or network drop —
+      //    e.g. the function was killed after Circle accepted the transfer
+      //    but before its JSON response reached us. Re-posting continues
+      //    status polling from the persisted idempotency record.
+      const retryable =
         err instanceof SendUsdcApiError &&
-        err.code === "DUPLICATE_REQUEST" &&
-        Date.now() < deadline
-      ) {
+        (err.code === "DUPLICATE_REQUEST" || err.code === "TRANSPORT_ERROR");
+      if (retryable && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         continue;
       }

@@ -81,6 +81,32 @@
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* Wallet dashboard skeleton shimmer */
+.mica-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.mica-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: mica-shimmer-slide 1.6s infinite;
+}
+
+@keyframes mica-shimmer-slide {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Scroll layout helpers */
 .my-auto-only {
   margin-top: auto;

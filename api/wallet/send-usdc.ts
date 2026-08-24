@@ -30,6 +30,7 @@ function jsonResponse(
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const startedAt = Date.now();
   try {
     for (const [key, value] of Object.entries(CORS_HEADERS)) {
       res.setHeader(key, value);
@@ -46,9 +47,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
+    // Safe diagnostic — no Authorization header, no body, no credentials.
+    console.log("[POST /api/wallet/send-usdc] ENTER", { method: req.method });
+
     const body = (req.body ?? {}) as Record<string, unknown>;
     const result = await handleSendUsdc(req.headers.authorization, body);
     jsonResponse(res, result.httpStatus, result.body as unknown as Record<string, unknown>);
+    console.log("[POST /api/wallet/send-usdc] EXIT", {
+      httpStatus: result.httpStatus,
+      ok: (result.body as { ok?: unknown }).ok === true,
+      elapsedMs: Date.now() - startedAt,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err ?? "handler crashed");
     console.error("[POST /api/wallet/send-usdc] OUTER ERROR:", message.slice(0, 200));

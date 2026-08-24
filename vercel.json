@@ -6,6 +6,9 @@
   "functions": {
     "api/wallet/ensure.ts": {
       "maxDuration": 60
+    },
+    "api/wallet/send-usdc.ts": {
+      "maxDuration": 60
     }
   },
   "headers": [

@@ -99,9 +99,56 @@ function walletEnsureApi() {
   };
 }
 
+function walletSendUsdcApi() {
+  const middleware = async (req: any, res: any, next: any) => {
+    const url = new URL(req.url || '/', 'http://localhost');
+    if (url.pathname !== '/api/wallet/send-usdc' || req.method !== 'POST') return next();
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    try {
+      const authHeader: string = req.headers?.authorization || '';
+      // Raw-body parse: unlike server.ts there is no express.json() on the
+      // Vite dev server, so connect hands us the unparsed stream.
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const raw = Buffer.concat(chunks).toString('utf8');
+      let body: any = {};
+      try {
+        body = raw ? JSON.parse(raw) : {};
+      } catch {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ok: false, error: 'Invalid JSON body.', code: 'INVALID_REQUEST'}));
+        return;
+      }
+      logDiag({ step: 'send_usdc_received_request', hasAuth: authHeader.startsWith('Bearer '), hasRecipientUid: typeof body?.recipientUid === 'string', hasAmount: body?.amount != null, hasIdempotencyKey: typeof body?.idempotencyKey === 'string' });
+
+      // SAME production handler as api/wallet/send-usdc.ts and server.ts —
+      // no duplicated business logic.
+      const {handleSendUsdc} = await import('./api/_lib/sendUsdcService');
+      const result = await handleSendUsdc(authHeader || undefined, body);
+      res.statusCode = result.httpStatus;
+      res.end(JSON.stringify(result.body));
+      logDiag({ step: 'send_usdc_response', httpStatus: result.httpStatus, ok: (result.body as any)?.ok === true });
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      console.error('[POST /api/wallet/send-usdc] Error:', message);
+      logDiag({ step: 'send_usdc_caught_exception', message: String(message).slice(0, 300), name: error?.name });
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ok: false, error: 'Internal error while sending USDC.', code: 'SERVER_ERROR'}));
+      }
+    }
+  };
+  return {
+    name: 'wallet-send-usdc-api',
+    configureServer(server: any) { server.middlewares.use(middleware); },
+    configurePreviewServer(server: any) { server.middlewares.use(middleware); },
+  };
+}
+
 export default defineConfig(() => {
   return {
-    plugins: [arcBalanceApi(), walletEnsureApi(), react(), tailwindcss()],
+    plugins: [arcBalanceApi(), walletEnsureApi(), walletSendUsdcApi(), react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
