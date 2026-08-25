@@ -398,28 +398,225 @@ export async function handleEnsureWallet(
 export interface ResolvedCircleWallet {
   walletId: string;
   address: string;
+  blockchain: string;
+  status: string;
 }
 
 /**
- * Resolve a user's existing Circle wallet from Firestore.
- * Returns null when the user has no Circle wallet yet (never creates one).
+ * Centralized wallet resolver — the SINGLE source of truth for every
+ * wallet-related server operation.
+ *
+ * Resolution order:
+ *   1. Firestore users/{uid} — if circleWalletId + circleWalletAddress exist, use them.
+ *   2. Circle API listWallets({ refId: uid }) — if found, repair Firestore and return.
+ *   3. Create a new Circle wallet — persist to Firestore and return.
+ *
+ * Returns { walletId, walletAddress, blockchain, status }.
+ * Never returns null — always creates if nothing exists.
+ */
+export async function resolveUserCircleWallet(uid: string): Promise<ResolvedCircleWallet> {
+  logDiag({ step: "resolveUserCircleWallet_start", uidLen: uid.length });
+  const client = await getClient();
+  const now = () => new Date().toISOString();
+  const userPath = `users/${uid}`;
+
+  // --- Step 1: Check Firestore for existing wallet mapping ---
+  const profile = await firestoreGet(userPath);
+  const existingWalletId = (profile?.circleWalletId as string) ?? null;
+  const existingAddress = (profile?.circleWalletAddress as string) ?? null;
+
+  if (existingWalletId && existingAddress) {
+    logDiag({ step: "resolve_from_firestore", walletId: existingWalletId, address: existingAddress });
+    return {
+      walletId: existingWalletId,
+      address: existingAddress,
+      blockchain: "ARC-TESTNET",
+      status: (profile?.circleWalletStatus as string) ?? "linked",
+    };
+  }
+
+  // --- Step 2: Firestore mapping incomplete — try Circle by refId ---
+  try {
+    logDiag({ step: "resolve_listWallets_attempt", refId: uid.slice(0, 8) + "..." });
+    const circleResponse = await client.listWallets({
+      refId: uid,
+      blockchain: ARC_TESTNET,
+      walletSetId: CIRCLE_WALLET_SET_ID,
+    });
+
+    const wallets = circleResponse.data?.wallets;
+    logDiag({ step: "resolve_listWallets_response", walletCount: wallets?.length ?? 0 });
+
+    if (wallets && wallets.length > 0) {
+      // Deterministic selection: if multiple wallets exist, pick the first
+      // (sorted by creation time from Circle) and log the duplicate situation.
+      if (wallets.length > 1) {
+        logDiag({
+          step: "resolve_duplicate_wallets_detected",
+          uidLen: uid.length,
+          count: wallets.length,
+          message: "Multiple Circle wallets found for same refId. Using deterministic selection.",
+        });
+        console.warn(
+          `[WalletResolver] WARNING: ${wallets.length} Circle wallets found for refId=${uid.slice(0, 8)}... ` +
+          `Using the first wallet deterministically. Duplicate wallets were NOT created by this code path.`
+        );
+      }
+
+      const wallet = wallets[0];
+
+      // Repair Firestore mapping.
+      await firestoreSet(userPath, {
+        circleWalletId: wallet.id,
+        circleWalletAddress: wallet.address,
+        circleWalletStatus: "linked",
+        circleWalletLinkedAt: now(),
+      });
+
+      logDiag({ step: "resolve_repaired_from_circle", walletId: wallet.id, address: wallet.address });
+      return {
+        walletId: wallet.id,
+        address: wallet.address,
+        blockchain: wallet.blockchain ?? "ARC-TESTNET",
+        status: wallet.state ?? "linked",
+      };
+    }
+  } catch (err: any) {
+    const msg = err?.message ? String(err.message).slice(0, 300) : String(err).slice(0, 300);
+    logDiag({ step: "resolve_listWallets_failed", message: msg });
+    console.error("[WalletResolver] listWallets failed:", err);
+  }
+
+  // --- Step 3: No wallet exists anywhere — create one ---
+  try {
+    logDiag({ step: "resolve_createWallets_attempt" });
+    const createResponse = await client.createWallets({
+      blockchains: [ARC_TESTNET],
+      count: 1,
+      walletSetId: CIRCLE_WALLET_SET_ID,
+      metadata: [{ refId: uid, name: `MICA-${uid.slice(0, 8)}` }],
+      accountType: "EOA",
+    });
+
+    const createdWallets = createResponse.data?.wallets;
+    if (!createdWallets || createdWallets.length === 0) {
+      throw new Error("Circle createWallets returned no wallets.");
+    }
+
+    const wallet = createdWallets[0];
+
+    await firestoreSet(userPath, {
+      circleWalletId: wallet.id,
+      circleWalletAddress: wallet.address,
+      circleWalletStatus: "linked",
+      circleWalletLinkedAt: now(),
+    });
+
+    logDiag({ step: "resolve_wallet_created", walletId: wallet.id, address: wallet.address });
+    return {
+      walletId: wallet.id,
+      address: wallet.address,
+      blockchain: wallet.blockchain ?? "ARC-TESTNET",
+      status: wallet.state ?? "linked",
+    };
+  } catch (err: any) {
+    const msg = err?.message ? String(err.message).slice(0, 300) : String(err).slice(0, 300);
+    logDiag({ step: "resolve_createWallets_failed", message: msg });
+    throw err;
+  }
+}
+
+/**
+ * Resolve a user's existing Circle wallet from Firestore with repair.
+ * If Firestore is missing the mapping but Circle has the wallet via refId,
+ * repairs the mapping automatically.
+ * Returns null ONLY when no wallet exists anywhere (Firestore + Circle).
  */
 export async function resolveCircleWallet(uid: string): Promise<ResolvedCircleWallet | null> {
   const profile = await firestoreGet(`users/${uid}`);
   const walletId = typeof profile?.circleWalletId === "string" ? profile.circleWalletId : null;
   const address = typeof profile?.circleWalletAddress === "string" ? profile.circleWalletAddress : null;
-  if (!walletId || !address) return null;
-  return { walletId, address };
+
+  if (walletId && address) {
+    return {
+      walletId,
+      address,
+      blockchain: "ARC-TESTNET",
+      status: (profile?.circleWalletStatus as string) ?? "linked",
+    };
+  }
+
+  // Firestore mapping incomplete — try Circle API as repair fallback.
+  try {
+    const client = await getClient();
+    const circleResponse = await client.listWallets({
+      refId: uid,
+      blockchain: ARC_TESTNET,
+      walletSetId: CIRCLE_WALLET_SET_ID,
+    });
+    const wallets = circleResponse.data?.wallets;
+    if (wallets && wallets.length > 0) {
+      const wallet = wallets[0];
+      const now = () => new Date().toISOString();
+      await firestoreSet(`users/${uid}`, {
+        circleWalletId: wallet.id,
+        circleWalletAddress: wallet.address,
+        circleWalletStatus: "linked",
+        circleWalletLinkedAt: now(),
+      });
+      logDiag({ step: "resolveCircleWallet_repaired", walletId: wallet.id, address: wallet.address });
+      return {
+        walletId: wallet.id,
+        address: wallet.address,
+        blockchain: wallet.blockchain ?? "ARC-TESTNET",
+        status: wallet.state ?? "linked",
+      };
+    }
+  } catch (err: any) {
+    logDiag({ step: "resolveCircleWallet_repair_failed", message: err?.message?.slice(0, 200) });
+  }
+
+  return null;
 }
 
-/** Resolve only the on-chain address (used for recipients). */
+/**
+ * Resolve only the on-chain address (used for recipients).
+ * Includes Firestore repair: if mapping is missing, queries Circle by refId.
+ */
 export async function resolveCircleWalletAddress(uid: string): Promise<string | null> {
   const profile = await firestoreGet(`users/${uid}`);
   const address =
     typeof profile?.circleWalletAddress === "string" && profile.circleWalletAddress.startsWith("0x")
       ? profile.circleWalletAddress
       : null;
-  return address;
+  if (address) return address;
+
+  // Firestore mapping incomplete — try Circle API as repair fallback.
+  try {
+    const client = await getClient();
+    const circleResponse = await client.listWallets({
+      refId: uid,
+      blockchain: ARC_TESTNET,
+      walletSetId: CIRCLE_WALLET_SET_ID,
+    });
+    const wallets = circleResponse.data?.wallets;
+    if (wallets && wallets.length > 0) {
+      const wallet = wallets[0];
+      const now = () => new Date().toISOString();
+      await firestoreSet(`users/${uid}`, {
+        circleWalletId: wallet.id,
+        circleWalletAddress: wallet.address,
+        circleWalletStatus: "linked",
+        circleWalletLinkedAt: now(),
+      });
+      logDiag({ step: "resolveCircleWalletAddress_repaired", address: wallet.address });
+      return wallet.address;
+    }
+  } catch (err: any) {
+    logDiag({ step: "resolveCircleWalletAddress_repair_failed", message: err?.message?.slice(0, 200) });
+  }
+
+  return null;
 }
 
 /** Terminal Circle transaction states that mean the write will not proceed. */

@@ -23,7 +23,7 @@ import {
   firestoreSet,
   getCircleTransaction,
   resolveCircleWallet,
-  resolveCircleWalletAddress,
+  resolveUserCircleWallet,
   verifyFirebaseToken,
 } from "./circleWalletService";
 
@@ -245,19 +245,21 @@ export async function handleSendUsdc(
     const chatId = typeof body.chatId === "string" && body.chatId.length <= 200 ? body.chatId : null;
 
     // ── 3. Resolve SENDER from the authenticated uid (never the browser).
-    const senderWallet = await resolveCircleWallet(senderUid);
-    if (!senderWallet) {
-      throw new SendUsdcError("SENDER_WALLET_NOT_FOUND", "You do not have a MICA wallet yet.", 400);
-    }
+    //    Uses the centralized resolver — creates a wallet if the sender doesn't
+    //    have one yet.
+    const senderWallet = await resolveUserCircleWallet(senderUid);
 
-    // ── 4. Resolve RECIPIENT from their Firestore profile.
-    const recipientAddress = await resolveCircleWalletAddress(recipientUid);
-    if (!recipientAddress) {
+    // ── 4. Resolve RECIPIENT from their Firebase UID.
+    //    Uses resolveCircleWallet which repairs the Firestore mapping if the
+    //    Circle wallet exists but Firestore is missing the mapping.
+    const recipientWallet = await resolveCircleWallet(recipientUid);
+    if (!recipientWallet) {
       return {
         httpStatus: 400,
-        body: { ok: false, code: "RECIPIENT_WALLET_NOT_FOUND", error: "Recipient does not have a MICA wallet yet." },
+        body: { ok: false, code: "RECIPIENT_WALLET_NOT_FOUND", error: "This account doesn't have a MICA wallet yet." },
       };
     }
+    const recipientAddress = recipientWallet.address;
 
     // ── 5. Idempotency record (create-or-load, race-free).
     const created = await firestoreCreate(IDEMPOTENCY_COLLECTION, body.idempotencyKey, {

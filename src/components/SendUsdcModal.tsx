@@ -127,8 +127,9 @@ export default function SendUsdcModal({
   const balance = balanceState.status === "success" ? balanceState.balance : 0;
   const balanceReady = balanceState.status === "success";
 
-  // Verified wallets ONLY — always from the database, never manual input.
-  const recipientWallet = recipient?.walletVerified ? recipient.walletAddress || null : null;
+  // Recipient wallet: always from the Circle Developer-Controlled Wallet mapping
+  // (the canonical MICA wallet). Never from the external/Privy wallet field.
+  const recipientWallet = recipient?.circleWalletAddress || null;
 
   useEffect(() => {
     if (open) {
@@ -506,12 +507,12 @@ export default function SendUsdcModal({
                         </p>
                         <p className="text-[10px] font-mono text-[#94A3B8] truncate mt-0.5 flex items-center gap-1">
                           <Wallet className="w-3 h-3" />
-                          {shortAddress(recipientWallet || recipient?.walletAddress)}
+                          {shortAddress(recipientWallet)}
                         </p>
                       </div>
                       <span className="shrink-0 flex items-center gap-1 text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        {recipient?.walletVerified ? "Verified" : "No wallet"}
+                        {recipient?.circleWalletAddress ? "Verified" : "No wallet"}
                       </span>
                     </div>
 
@@ -633,7 +634,7 @@ export default function SendUsdcModal({
                       {[
                         { label: "You Send", value: parsedAmount ? `${fmtUsdc(parsedAmount)} USDC` : "—" },
                         { label: "Recipient", value: recipient ? `@${recipient.username}` : "—" },
-                        { label: "Recipient Wallet", value: shortAddress(recipientWallet || recipient?.walletAddress) },
+                        { label: "Recipient Wallet", value: shortAddress(recipientWallet) },
                         { label: "Network", value: "Arc" },
                         { label: "Estimated Fee", value: `${fmtUsdc(0)} USDC` },
                       ].map((row) => (
