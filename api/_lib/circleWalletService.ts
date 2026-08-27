@@ -235,15 +235,25 @@ export async function ensureCircleDevWallet(
 //   2. GOOGLE_APPLICATION_CREDENTIALS / applicationDefault()
 // ---------------------------------------------------------------------------
 
-let _adminInitialized = false;
 let _adminApp: unknown = null;
+let _adminInitPromise: Promise<unknown> | null = null;
 
 let _diagEmitted = false;
 
-async function getAdminApp(): Promise<unknown> {
-  if (_adminInitialized) return _adminApp;
-  _adminInitialized = true;
-
+/**
+ * Initialize the Firebase Admin SDK exactly once (planet-safe singleton).
+ *
+ * - Reads FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY.
+ * - Escaped "\\n" sequences in the private key are converted to real newlines
+ *   (Vercel stores the PEM with literal backslash-n when pasted).
+ * - Falls back to GOOGLE_APPLICATION_CREDENTIALS / applicationDefault() only
+ *   when that env var is explicitly set.
+ * - Throws a clear, actionable error when no credentials are configured —
+ *   never an opaque "not initialized" state.
+ *
+ * Server-side only. NEVER expose credentials to the browser.
+ */
+async function initFirebaseAdmin(): Promise<unknown> {
   // ── Safe diagnostics (no secrets printed) ──────────────────────────
   const hasProjectId = Boolean(process.env.FIREBASE_PROJECT_ID);
   const hasClientEmail = Boolean(process.env.FIREBASE_CLIENT_EMAIL);
@@ -273,48 +283,75 @@ async function getAdminApp(): Promise<unknown> {
     console.log("[FirebaseAdmin]", JSON.stringify(diag));
   }
 
-  try {
-    const adminModule = await import("firebase-admin");
-    const admin = (adminModule as any).default ?? adminModule;
+  const adminModule = await import("firebase-admin");
+  const admin = (adminModule as any).default ?? adminModule;
 
-    if (admin.apps.length === 0) {
-      const projectId = process.env.FIREBASE_PROJECT_ID ?? "";
-      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL ?? "";
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY ?? "";
-
-      if (projectId && clientEmail && privateKey) {
-        const parsedKey = privateKey.replace(/\\n/g, "\n");
-        logDiag({ step: "firebase_admin_init", method: "service_account_env" });
-        admin.initializeApp({
-          credential: admin.credential.cert({ projectId, clientEmail, privateKey: parsedKey }),
-        });
-      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        logDiag({ step: "firebase_admin_init", method: "application_default" });
-        admin.initializeApp({
-          credential: admin.credential.applicationDefault(),
-        });
-      } else {
-        logDiag({ step: "firebase_admin_init", method: "application_default_fallback" });
-        admin.initializeApp({
-          credential: admin.credential.applicationDefault(),
-        });
-      }
-    } else {
-      logDiag({ step: "firebase_admin_init", method: "already_initialized" });
-    }
-
-    _adminApp = admin;
-    console.log("[FirebaseAdmin] ADMIN_INITIALIZED=true");
-    logDiag({ step: "firebase_admin_ready", ADMIN_INITIALIZED: true });
-  } catch (err: any) {
-    const msg = err?.message ? String(err.message).slice(0, 200) : String(err).slice(0, 200);
-    console.error("[FirebaseAdmin] ADMIN_INITIALIZED=false");
-    console.error("[FirebaseAdmin] INIT_ERROR=" + msg);
-    logDiag({ step: "firebase_admin_init_failed", ADMIN_INITIALIZED: false, INIT_ERROR: msg });
-    // Reset so next call can retry
-    _adminInitialized = false;
+  // Adapter guard for the installed firebase-admin version (13.x CJS export).
+  if (!admin || typeof admin.initializeApp !== "function" || !admin.apps) {
+    throw new Error(
+      "firebase-admin loaded but the expected exports are missing. " +
+        "Available exports: " + Object.keys(adminModule ?? {}).slice(0, 10).join(", ")
+    );
   }
-  return _adminApp;
+
+  // Already initialized (by us or another module) — reuse the singleton app.
+  if ((admin.apps as unknown[]).length > 0) {
+    logDiag({ step: "firebase_admin_init", method: "already_initialized" });
+    console.log("[FirebaseAdmin] ADMIN_INITIALIZED=true");
+    return admin;
+  }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID ?? "";
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL ?? "";
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY ?? "";
+
+  if (projectId && clientEmail && privateKey) {
+    // Vercel may inject the PEM with escaped "\\n"; convert to real newlines.
+    const parsedKey = privateKey.replace(/\\n/g, "\n").trim();
+    logDiag({ step: "firebase_admin_init", method: "service_account_env" });
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey: parsedKey }),
+    });
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    logDiag({ step: "firebase_admin_init", method: "application_default" });
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+    });
+  } else {
+    throw new Error(
+      "Firebase Admin SDK is not configured: missing FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, " +
+        "or FIREBASE_PRIVATE_KEY. Set them server-side (or GOOGLE_APPLICATION_CREDENTIALS)."
+    );
+  }
+
+  console.log("[FirebaseAdmin] ADMIN_INITIALIZED=true");
+  logDiag({ step: "firebase_admin_ready", ADMIN_INITIALIZED: true });
+  return admin;
+}
+
+/**
+ * Get the Firebase Admin app, initializing it once and deduplicating
+ * concurrent initialization (single-flight promise).
+ */
+async function getAdminApp(): Promise<unknown> {
+  if (_adminApp) return _adminApp;
+  if (!_adminInitPromise) {
+    const pending = initFirebaseAdmin()
+      .then((adminApp) => {
+        _adminApp = adminApp;
+        return adminApp;
+      })
+      .catch((err: any) => {
+        const msg = err?.message ? String(err.message).slice(0, 300) : String(err).slice(0, 300);
+        console.error("[FirebaseAdmin] ADMIN_INITIALIZED=false");
+        console.error("[FirebaseAdmin] INIT_ERROR=" + msg);
+        logDiag({ step: "firebase_admin_init_failed", ADMIN_INITIALIZED: false, INIT_ERROR: msg });
+        _adminInitPromise = null; // allow a later retry on the next invocation
+        throw err;
+      });
+    _adminInitPromise = pending;
+  }
+  return _adminInitPromise;
 }
 
 /**
@@ -326,7 +363,10 @@ export async function verifyFirebaseToken(
 ): Promise<{ uid: string; email?: string }> {
   const admin = await getAdminApp() as any;
   if (!admin) {
-    throw new Error("Firebase Admin SDK is not initialized.");
+    throw new Error(
+      "Firebase Admin SDK is not initialized: set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, " +
+        "and FIREBASE_PRIVATE_KEY server-side environment variables."
+    );
   }
   const decoded = await admin.auth().verifyIdToken(idToken);
   return { uid: decoded.uid, email: decoded.email };
@@ -339,7 +379,10 @@ export async function verifyFirebaseToken(
 async function getFirestore(): Promise<any> {
   const admin = await getAdminApp() as any;
   if (!admin) {
-    throw new Error("Firebase Admin SDK is not initialized.");
+    throw new Error(
+      "Firebase Admin SDK is not initialized: set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, " +
+        "and FIREBASE_PRIVATE_KEY server-side environment variables."
+    );
   }
   return admin.firestore();
 }
