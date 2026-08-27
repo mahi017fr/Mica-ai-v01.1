@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleEnsureWallet } from "../_lib/circleWalletService";
+import { handleEnsureWallet } from "../_lib/circleWalletService.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",

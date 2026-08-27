@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleSendUsdc } from "../_lib/sendUsdcService";
+import { handleSendUsdc } from "../_lib/sendUsdcService.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",

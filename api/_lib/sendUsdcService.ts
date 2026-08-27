@@ -14,7 +14,7 @@
 //   - Firebase ID tokens are verified, never logged.
 
 import { Contract, JsonRpcProvider } from "ethers";
-import { ARC_NETWORK } from "../../src/payments/arcNetwork";
+import { ARC_NETWORK } from "../../src/payments/arcNetwork.js";
 import {
   createCircleUsdcTransfer,
   firestoreCreate,
@@ -25,7 +25,7 @@ import {
   resolveCircleWallet,
   resolveUserCircleWallet,
   verifyFirebaseToken,
-} from "./circleWalletService";
+} from "./circleWalletService.js";
 
 const IDEMPOTENCY_COLLECTION = "usdc_send_idempotency";
 
