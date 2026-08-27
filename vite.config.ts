@@ -7,6 +7,8 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {defineConfig} from 'vite';
 import {Contract, JsonRpcProvider, formatUnits, getAddress} from 'ethers';
+import {handleEnsureWallet} from './api/_lib/circleWalletService';
+import {handleSendUsdc} from './api/_lib/sendUsdcService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,7 +64,6 @@ function walletEnsureApi() {
       }
       logDiag({ step: 'received_request', hasAuth: Boolean(authHeader.startsWith('Bearer ')), idTokenLen: idToken.length, circleApiKeySet: Boolean(process.env.CIRCLE_API_KEY), entitySecretSet: Boolean(process.env.CIRCLE_ENTITY_SECRET), walletSetIdSet: Boolean(process.env.CIRCLE_WALLET_SET_ID), FIREBASE_PROJECT_ID_SET: Boolean(process.env.FIREBASE_PROJECT_ID), FIREBASE_CLIENT_EMAIL_SET: Boolean(process.env.FIREBASE_CLIENT_EMAIL), FIREBASE_PRIVATE_KEY_SET: Boolean(process.env.FIREBASE_PRIVATE_KEY) });
 
-      const { handleEnsureWallet } = await import('./api/_lib/circleWalletService');
       const wallet = await handleEnsureWallet(idToken);
       logDiag({ step: 'wallet_ensured_ok', address: wallet.address, walletId: wallet.walletId, blockchain: wallet.blockchain, state: wallet.state });
       res.statusCode = 200;
@@ -124,7 +125,6 @@ function walletSendUsdcApi() {
 
       // SAME production handler as api/wallet/send-usdc.ts and server.ts —
       // no duplicated business logic.
-      const {handleSendUsdc} = await import('./api/_lib/sendUsdcService');
       const result = await handleSendUsdc(authHeader || undefined, body);
       res.statusCode = result.httpStatus;
       res.end(JSON.stringify(result.body));
