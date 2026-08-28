@@ -9,10 +9,42 @@
 //   - This file is only imported by server-side code (server.ts, api/ handlers).
 //   - The entity secret is auto-encrypted per request by the SDK.
 
-// IMPORTANT: All heavy SDK imports are dynamic (lazy) so that a module-loading
-// failure in any dependency never crashes the serverless function at init time.
-// This ensures the handler can ALWAYS return a JSON error instead of a Vercel
-// HTML error page.
+// IMPORTANT (Vercel runtime fix):
+// The @circle-fin/developer-controlled-wallets package ships TWO builds:
+//   - dist/developer-controlled-wallets.es.js  (ESM, `import` condition)
+//   - dist/developer-controlled-wallets.cjs.js (CommonJS, `require` condition)
+// Its package.json has NO "type":"module", but the ESM build contains raw
+// `import`/`export` statements. On Vercel's Node 20/22 runtime, dynamic
+// `import("@circle-fin/developer-controlled-wallets")` resolves the `import`
+// condition to the .es.js file, which Node then parses as CommonJS (no
+// `type: module`) -> "Cannot use import statement outside a module".
+//
+// FIX: load the SDK through CommonJS `require()` via createRequire, which
+// resolves the `require` condition to the guaranteed-CommonJS .cjs.js build.
+// This works identically on Node 18/20/22/24 and inside esbuild bundles that
+// are compiled to ESM or CommonJS.
+//
+// All heavy SDK imports stay lazy (inside functions) so that a module-loading
+// failure never crashes the serverless function at init time and the handler
+// can ALWAYS return a JSON error instead of a Vercel HTML error page.
+
+import { createRequire } from "module";
+
+// Cached plain require() that works whether this file is bundled as ESM or
+// CommonJS. Using require() forces Node to pick the CJS build of the SDK.
+let _cjsRequire: ((id: string) => unknown) | null = null;
+function cjsRequire(id: string): unknown {
+  if (!_cjsRequire) {
+    try {
+      // ESM (or esbuild CJS output, which shims import.meta.url).
+      _cjsRequire = createRequire((import.meta as { url?: string }).url);
+    } catch {
+      // True CommonJS runtime without esbuild shim: fall back to global require.
+      _cjsRequire = (moduleId: string) => require(moduleId);
+    }
+  }
+  return _cjsRequire(id);
+}
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -50,8 +82,11 @@ async function getClient(): Promise<any> {
     );
   }
   try {
-    const sdk = await import("@circle-fin/developer-controlled-wallets");
-    logDiag({ step: "getClient_sdk_imported" });
+    // Load the CommonJS build via require() (see header comment). This resolves
+    // to dist/developer-controlled-wallets.cjs.js, which is valid CommonJS on
+    // every Node runtime — unlike the ESM build that crashes Vercel.
+    const sdk = cjsRequire("@circle-fin/developer-controlled-wallets") as Record<string, unknown>;
+    logDiag({ step: "getClient_sdk_imported", method: "commonjs_require" });
     const sdkExports: any = (sdk as any).default ?? sdk;
     const initFn = sdkExports.initiateDeveloperControlledWalletsClient
       ?? sdk.initiateDeveloperControlledWalletsClient;
