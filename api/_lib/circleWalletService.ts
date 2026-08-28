@@ -9,42 +9,34 @@
 //   - This file is only imported by server-side code (server.ts, api/ handlers).
 //   - The entity secret is auto-encrypted per request by the SDK.
 
-// IMPORTANT (Vercel runtime fix):
+// IMPORTANT (Vercel runtime fix — traceable static import):
+//
 // The @circle-fin/developer-controlled-wallets package ships TWO builds:
 //   - dist/developer-controlled-wallets.es.js  (ESM, `import` condition)
 //   - dist/developer-controlled-wallets.cjs.js (CommonJS, `require` condition)
-// Its package.json has NO "type":"module", but the ESM build contains raw
-// `import`/`export` statements. On Vercel's Node 20/22 runtime, dynamic
-// `import("@circle-fin/developer-controlled-wallets")` resolves the `import`
-// condition to the .es.js file, which Node then parses as CommonJS (no
-// `type: module`) -> "Cannot use import statement outside a module".
+// Its package.json has NO "type":"module", so the ESM build is NOT loadable on
+// older Node runtimes (Vercel Node 20/22): dynamic import/require of the
+// package's `.es.js` fails with "Cannot use import statement outside a module".
 //
-// FIX: load the SDK through CommonJS `require()` via createRequire, which
-// resolves the `require` condition to the guaranteed-CommonJS .cjs.js build.
-// This works identically on Node 18/20/22/24 and inside esbuild bundles that
-// are compiled to ESM or CommonJS.
+// We therefore import the SDK with a STATIC ESM `import` statement below.
+// This gives Vercel's serverless bundler (webpack/ncc) a statically-traceable,
+// top-level dependency that it always bundles into the function output —
+// which BOTH:
+//   1. guarantees the package is physically included in the deployed function
+//      (no "Cannot find module '@circle-fin/developer-controlled-wallets'"), and
+//   2. compiles the SDK's ESM source into the function's CommonJS bundle at
+//      build time, so the raw `import`/`export` statements never reach the
+//      Node 20/22 runtime (no "Cannot use import statement outside a module").
 //
-// All heavy SDK imports stay lazy (inside functions) so that a module-loading
-// failure never crashes the serverless function at init time and the handler
-// can ALWAYS return a JSON error instead of a Vercel HTML error page.
+// The SDK's only external dependency is `axios` (CommonJS) and `node:util`
+// (builtin), which bundle/load cleanly. No @solana subpath is referenced by
+// the root export we use, so the optional @solana peer deps are not required.
+//
+// firebase-admin is deliberately left as a dynamic import() with a literal
+// string id: its root export is CommonJS (lib/index.js), which loads
+// correctly on every Node version, and Vercel statically traces it as well.
 
-import { createRequire } from "module";
-
-// Cached plain require() that works whether this file is bundled as ESM or
-// CommonJS. Using require() forces Node to pick the CJS build of the SDK.
-let _cjsRequire: ((id: string) => unknown) | null = null;
-function cjsRequire(id: string): unknown {
-  if (!_cjsRequire) {
-    try {
-      // ESM (or esbuild CJS output, which shims import.meta.url).
-      _cjsRequire = createRequire((import.meta as { url?: string }).url);
-    } catch {
-      // True CommonJS runtime without esbuild shim: fall back to global require.
-      _cjsRequire = (moduleId: string) => require(moduleId);
-    }
-  }
-  return _cjsRequire(id);
-}
+import * as CircleSdk from "@circle-fin/developer-controlled-wallets";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -82,11 +74,10 @@ async function getClient(): Promise<any> {
     );
   }
   try {
-    // Load the CommonJS build via require() (see header comment). This resolves
-    // to dist/developer-controlled-wallets.cjs.js, which is valid CommonJS on
-    // every Node runtime — unlike the ESM build that crashes Vercel.
-    const sdk = cjsRequire("@circle-fin/developer-controlled-wallets") as Record<string, unknown>;
-    logDiag({ step: "getClient_sdk_imported", method: "commonjs_require" });
+    // Statically imported namespace (see header). Vercel bundles this module
+    // into the function, so it always resolves at runtime.
+    const sdk = CircleSdk as unknown as Record<string, unknown>;
+    logDiag({ step: "getClient_sdk_imported", method: "static_import" });
     const sdkExports: any = (sdk as any).default ?? sdk;
     const initFn = sdkExports.initiateDeveloperControlledWalletsClient
       ?? sdk.initiateDeveloperControlledWalletsClient;
