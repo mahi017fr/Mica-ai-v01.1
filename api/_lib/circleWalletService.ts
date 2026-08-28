@@ -9,34 +9,59 @@
 //   - This file is only imported by server-side code (server.ts, api/ handlers).
 //   - The entity secret is auto-encrypted per request by the SDK.
 
-// IMPORTANT (Vercel runtime fix — traceable static import):
+// IMPORTANT (Vercel runtime fix — direct, statically-traceable CJS require):
 //
 // The @circle-fin/developer-controlled-wallets package ships TWO builds:
 //   - dist/developer-controlled-wallets.es.js  (ESM, `import` condition)
 //   - dist/developer-controlled-wallets.cjs.js (CommonJS, `require` condition)
-// Its package.json has NO "type":"module", so the ESM build is NOT loadable on
-// older Node runtimes (Vercel Node 20/22): dynamic import/require of the
-// package's `.es.js` fails with "Cannot use import statement outside a module".
+// Its package.json has NO "type":"module".
 //
-// We therefore import the SDK with a STATIC ESM `import` statement below.
-// This gives Vercel's serverless bundler (webpack/ncc) a statically-traceable,
-// top-level dependency that it always bundles into the function output —
-// which BOTH:
-//   1. guarantees the package is physically included in the deployed function
-//      (no "Cannot find module '@circle-fin/developer-controlled-wallets'"), and
-//   2. compiles the SDK's ESM source into the function's CommonJS bundle at
-//      build time, so the raw `import`/`export` statements never reach the
-//      Node 20/22 runtime (no "Cannot use import statement outside a module").
+// TWO failure modes we must avoid on Vercel's Node 20/22 runtime:
 //
-// The SDK's only external dependency is `axios` (CommonJS) and `node:util`
-// (builtin), which bundle/load cleanly. No @solana subpath is referenced by
-// the root export we use, so the optional @solana peer deps are not required.
+//   (1) A top-level ESM `import * as CircleSdk` resolves the package's
+//       `import` condition to the raw `.es.js` (a file with `import`/`export`
+//       but no `type:module`). When Vercel bundles the SDK into the deployed
+//       function, esbuild webpack-transpiles the SDK AND its axios dependency
+//       tree (axios -> form-data -> combined-stream) into ESM. Those CJS
+//       modules call `require("util")` at module scope, which becomes a
+//       dynamic `require()` shim that Node 20/22's ESM loader rejects with
+//       "Dynamic require of 'util' is not supported" / ERR_REQUIRE_ESM — a
+//       module-initialization crash that happens before the handler/WALLET_DIAG.
+//
+//   (2) Loading the SDK through an opaque helper (e.g. a `cjsRequire(id)`
+//       wrapper) hides the literal package name from Vercel's file-tracing
+//       bundler, so the package is NOT included in the deploy and the function
+//       fails at runtime with "Cannot find module '@circle-fin/...'".
+//
+// FIX: use a DIRECT, statically analyzable CommonJS `require` with the literal
+// package string, created via `createRequire(import.meta.url)`. This:
+//   - makes the package id traceable (a literal string at the call site), so
+//     Vercel includes it in the deploy, AND
+//   - forces Node's `require` condition, loading the guaranteed-CommonJS
+//     `.cjs.js` build, so axios/combined-stream/form-data stay native CJS and
+//     are never ESM-transpiled — no dynamic-require crash on Node 20/22.
 //
 // firebase-admin is deliberately left as a dynamic import() with a literal
 // string id: its root export is CommonJS (lib/index.js), which loads
 // correctly on every Node version, and Vercel statically traces it as well.
 
-import * as CircleSdk from "@circle-fin/developer-controlled-wallets";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+
+// Resolve a stable base path that works in BOTH ESM output (Vercel bundles
+// these api/*.ts functions as ESM; `import.meta.url` is present) and
+// CommonJS output (the local `esbuild server.ts --format=cjs` build where
+// `import.meta` is empty and `__filename` is provided by the CJS wrapper).
+const _baseUrl =
+  typeof import.meta !== "undefined" && typeof import.meta.url === "string"
+    ? (import.meta.url as string)
+    : pathToFileURL(__filename).href;
+
+// Direct literal require — statically traceable by Vercel's bundler.
+const requireCwd = createRequire(_baseUrl);
+const CircleSdk = requireCwd(
+  "@circle-fin/developer-controlled-wallets"
+) as Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -53,6 +78,26 @@ let _client: any = null;
 
 function logDiag(entry: Record<string, unknown>) {
   console.log("[WALLET_DIAG]", JSON.stringify(entry));
+}
+
+// TEMPORARY startup diagnostic — proves the module (and thus the Circle SDK)
+// loaded successfully during function initialization. Never logs secret values.
+try {
+  const sdkInitFn =
+    (CircleSdk as Record<string, unknown>).initiateDeveloperControlledWalletsClient;
+  logDiag({
+    step: "circleWalletService_module_loaded",
+    sdk_export_found: typeof sdkInitFn === "function",
+    has_circle_api_key: Boolean(process.env.CIRCLE_API_KEY),
+    has_circle_entity_secret: Boolean(process.env.CIRCLE_ENTITY_SECRET),
+    has_circle_wallet_set_id: Boolean(process.env.CIRCLE_WALLET_SET_ID),
+  });
+} catch (err: any) {
+  logDiag({
+    step: "circleWalletService_module_loaded",
+    sdk_export_found: false,
+    error: err?.message ? String(err.message).slice(0, 200) : "unknown",
+  });
 }
 
 async function getClient(): Promise<any> {
@@ -74,10 +119,11 @@ async function getClient(): Promise<any> {
     );
   }
   try {
-    // Statically imported namespace (see header). Vercel bundles this module
-    // into the function, so it always resolves at runtime.
-    const sdk = CircleSdk as unknown as Record<string, unknown>;
-    logDiag({ step: "getClient_sdk_imported", method: "static_import" });
+    // Directly required CJS build (see header). `initiateDeveloperControlledWalletsClient`
+    // is a top-level export on the .cjs.js build (no `default` wrapper), but the
+    // `default ?? sdk` fallback keeps this correct for either layout.
+    const sdk = CircleSdk;
+    logDiag({ step: "getClient_sdk_imported", method: "direct_require" });
     const sdkExports: any = (sdk as any).default ?? sdk;
     const initFn = sdkExports.initiateDeveloperControlledWalletsClient
       ?? sdk.initiateDeveloperControlledWalletsClient;
