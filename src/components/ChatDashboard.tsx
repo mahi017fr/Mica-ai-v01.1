@@ -226,6 +226,113 @@ const DEFAULT_STICKERS = [
   { id: "s16", name: "Crystal Ball", url: "https://raw.githubusercontent.com/googlefonts/noto-emoji/main/svg/emoji_u1f52e.svg" }
 ];
 
+/* ------------------------------------------------------------------ */
+/* MICA Inbox welcome — clean branded greeting with a typewriter name  */
+/* ------------------------------------------------------------------ */
+
+const InboxWelcome: React.FC<{ displayName: string }> = ({ displayName }) => {
+  const fullName = (displayName || "").trim() || "there";
+  const [text, setText] = useState("");
+  const [phase, setPhase] = useState<"typing" | "hold" | "deleting">("typing");
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (phase === "typing") {
+      if (text.length < fullName.length) {
+        timer = setTimeout(() => setText(fullName.slice(0, text.length + 1)), 88);
+      } else {
+        timer = setTimeout(() => setPhase("hold"), 1900);
+      }
+    } else if (phase === "hold") {
+      timer = setTimeout(() => setPhase("deleting"), 700);
+    } else {
+      if (text.length > 0) {
+        timer = setTimeout(() => setText(fullName.slice(0, text.length - 1)), 42);
+      } else {
+        timer = setTimeout(() => setPhase("typing"), 900);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [phase, text, fullName]);
+
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center p-6 select-none relative overflow-hidden">
+      {/* Soft purple ambient glow blobs */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(70% 55% at 50% 20%, rgba(124,58,237,0.16) 0%, rgba(76,29,149,0.06) 45%, rgba(5,3,12,0) 75%), radial-gradient(50% 45% at 88% 80%, rgba(139,92,246,0.10) 0%, rgba(5,3,12,0) 70%), radial-gradient(140% 130% at 50% 50%, rgba(5,3,12,0) 35%, rgba(2,1,6,0.9) 100%)",
+        }}
+      />
+      <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[34rem] h-64 bg-[#6D28D9]/[0.18] blur-[120px] rounded-full" />
+      <div className="pointer-events-none absolute bottom-0 right-0 w-72 h-72 bg-[#8B5CF6]/[0.12] blur-[130px] rounded-full" />
+
+      {/* Floating particles */}
+      {[
+        { top: "18%", left: "14%", d: 0 },
+        { top: "30%", left: "86%", d: 1.2 },
+        { top: "70%", left: "12%", d: 0.6 },
+        { top: "80%", left: "88%", d: 1.8 },
+        { top: "50%", left: "50%", d: 0.9 },
+        { top: "12%", left: "60%", d: 1.4 },
+        { top: "62%", left: "28%", d: 2.2 },
+      ].map((p, i) => (
+        <span
+          key={i}
+          className="pointer-events-none absolute w-1.5 h-1.5 rounded-full bg-[#A78BFA]/70 blur-[1px] animate-pulse"
+          style={{ top: p.top, left: p.left, animationDelay: `${p.d}s` }}
+        />
+      ))}
+
+      {/* Centered glass welcome card */}
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-full max-w-xl rounded-3xl border border-[#8B5CF6]/25 bg-[#0B0716]/70 backdrop-blur-2xl px-6 sm:px-10 py-10 sm:py-12 text-center shadow-[0_0_80px_rgba(124,58,237,0.18),0_30px_80px_-30px_rgba(0,0,0,0.9)]"
+      >
+        {/* top sheen */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#A78BFA]/60 to-transparent"
+        />
+        <div
+          className="pointer-events-none absolute inset-0 rounded-3xl"
+          style={{
+            background:
+              "radial-gradient(90% 70% at 50% 0%, rgba(124,58,237,0.12) 0%, rgba(7,4,15,0) 60%)",
+          }}
+        />
+
+        <div className="relative">
+          {/* MICA logo */}
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#8B5CF6] shadow-[0_0_30px_rgba(124,58,237,0.45)]">
+            <img src={micaLogo} alt="MICA" className="w-9 h-9 object-contain rounded-lg" />
+          </div>
+
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
+            <span className="bg-gradient-to-r from-[#A78BFA] via-[#D8CCFF] to-[#8B5CF6] bg-clip-text text-transparent">
+              Welcome to MICA,{" "}
+            </span>
+            <span className="text-white">&ldquo;</span>
+            <span className="bg-gradient-to-r from-[#C084FC] via-[#E9D5FF] to-[#A78BFA] bg-clip-text text-transparent whitespace-nowrap">
+              {text}
+            </span>
+            <span
+              className="inline-block w-[2px] h-[1em] align-middle ml-0.5 bg-[#C084FC] animate-pulse"
+            />
+            <span className="text-white">&ldquo;</span>
+          </h1>
+
+          <p className="mt-4 text-xs sm:text-sm text-[#8A96B8] font-medium tracking-wide">
+            Your conversations. Your network. Your space.
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 export default function ChatDashboard() {
   const {
     currentUser,
@@ -4520,175 +4627,7 @@ export default function ChatDashboard() {
               </AnimatePresence>
             </div>
           ) : (
-            // Immersive, high-fidelity Web3 Control Panel Greeting Screen
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none bg-transparent overflow-y-auto custom-scrollbar">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="max-w-2xl w-full text-left space-y-6 my-auto py-8"
-              >
-                {/* System Status Top Label */}
-                <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#6C5CE0]"></span>
-                    </span>
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#6C5CE0] font-bold">
-                      COSMIC MESSAGING ENVIRONMENT • SECURE NODE ACTIVE
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-mono text-sky-300/40">
-                    UTC {new Date().toISOString().substring(11, 16)}
-                  </span>
-                </div>
-
-                {/* Dashboard Header Profile Details */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 p-6 bg-gradient-to-br from-[#161A2B]/95 to-[#0D111D]/95 border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(108, 92, 224,0.08)] relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#6C5CE0]/5 blur-2xl pointer-events-none group-hover:bg-[#6C5CE0]/10 transition-colors" />
-                  <div className="flex items-center gap-5">
-                    <img
-                      src={userProfile?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser?.uid}`}
-                      alt="Current User"
-                      className="w-16 h-16 rounded-full bg-[#161A2B] border border-[#6C5CE0]/35 object-cover shadow-inner"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-bold text-sky-100 flex items-center gap-1.5">
-                        Welcome, {userProfile?.displayName || "Guest Agent"}
-                      </h3>
-                      <p 
-                        onClick={() => {
-                          if (userProfile?.username) {
-                            navigator.clipboard.writeText(`@${userProfile.username}`);
-                            showToast(`Copied username @${userProfile.username}`, "success");
-                          }
-                        }}
-                        className="text-xs sm:text-sm text-sky-300/60 hover:text-sky-100 hover:underline font-mono mt-1 cursor-pointer transition-all inline-block"
-                        title="Click to copy username"
-                      >
-                        @{userProfile?.username || "unknown"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:items-end justify-center min-w-[170px]">
-                    <span className="text-[10px] uppercase tracking-wider text-sky-300/40 font-bold">Cryptographic Wallet</span>
-                    {userProfile?.walletAddress ? (
-                      <span 
-                        onClick={() => {
-                          navigator.clipboard.writeText(userProfile.walletAddress || "");
-                          showToast("Copied wallet address to clipboard!", "success");
-                        }}
-                        className="text-[11px] font-mono font-medium text-sky-200 select-all bg-[#0D111D] border border-white/5 hover:border-sky-500/20 px-3 py-1.5 rounded-lg mt-1 block max-w-[160px] truncate cursor-pointer transition-all" 
-                        title="Click to copy full wallet address"
-                      >
-                        {userProfile.walletAddress}
-                      </span>
-                    ) : (
-                      <button 
-                        onClick={() => handleSelectTab("settings")}
-                        className="text-[11px] text-[#6C5CE0] font-semibold underline hover:text-white mt-1 cursor-pointer"
-                      >
-                        Link a cryptographics wallet
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Network Metrics Cards Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                  <div className="p-3 bg-[#12172A]/60 border border-white/5 rounded-xl shadow-[0_0_30px_rgba(108, 92, 224,0.02)]">
-                    <span className="text-[8px] uppercase font-mono tracking-widest text-sky-300/50 font-bold block">
-                      Connection Match
-                    </span>
-                    <span className="text-lg font-black text-[#6C5CE0] font-mono mt-1 block">
-                      {friends.length} active
-                    </span>
-                  </div>
-                  <div className="p-3 bg-[#12172A]/60 border border-white/5 rounded-xl shadow-[0_0_30px_rgba(108, 92, 224,0.02)]">
-                    <span className="text-[8px] uppercase font-mono tracking-widest text-sky-300/50 font-bold block">
-                      Secure Latency
-                    </span>
-                    <span className="text-lg font-black text-sky-200 font-mono mt-1 block">
-                      &lt; 9ms
-                    </span>
-                  </div>
-                  <div className="p-3 bg-[#12172A]/60 border border-white/5 rounded-xl shadow-[0_0_30px_rgba(108, 92, 224,0.02)]">
-                    <span className="text-[8px] uppercase font-mono tracking-widest text-sky-300/50 font-bold block">
-                      P2P Encryption
-                    </span>
-                    <span className="text-lg font-black text-sky-200 font-mono mt-1 block">
-                      AES-256
-                    </span>
-                  </div>
-                </div>
-
-                {/* Interactive Navigation Shortcuts label */}
-                <div className="space-y-3">
-                  <h4 className="text-[10px] uppercase font-mono tracking-widest text-sky-300/40 font-bold pl-1">
-                    Direct Console Shortcuts
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {/* Inbox card */}
-                    <button
-                      onClick={() => handleSelectTab("chats")}
-                      className="text-left p-4 bg-[#12172A]/50 border border-white/5 hover:border-[#6C5CE0]/40 hover:bg-[#161A2B]/50 transition-all rounded-2xl group cursor-pointer"
-                    >
-                      <div className="p-2 w-9 h-9 rounded-xl bg-[#0D111D] border border-white/5 text-sky-300/60 group-hover:text-white transition-colors flex items-center justify-center">
-                        <MessageSquare className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-xs font-bold text-sky-100 mt-3 group-hover:text-white">
-                        Direct Messages
-                      </h4>
-                      <p className="text-[10px] text-sky-300/40 mt-1 leading-relaxed">
-                        Access active chat rooms and chat directly with your approved peers.
-                      </p>
-                    </button>
-
-                    {/* Friends Search card */}
-                    <button
-                      onClick={() => handleSelectTab("friends")}
-                      className="text-left p-4 bg-[#12172A]/50 border border-white/5 hover:border-[#6C5CE0]/40 hover:bg-[#161A2B]/50 transition-all rounded-2xl group cursor-pointer"
-                    >
-                      <div className="p-2 w-9 h-9 rounded-xl bg-[#0D111D] border border-white/5 text-sky-300/60 group-hover:text-white transition-colors flex items-center justify-center">
-                        <UserPlus className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-xs font-bold text-sky-100 mt-3 group-hover:text-white">
-                        Invite Match
-                      </h4>
-                      <p className="text-[10px] text-sky-300/40 mt-1 leading-relaxed">
-                        Search standard usernames and send real-time secure friend invitations.
-                      </p>
-                    </button>
-
-                    {/* Settings card */}
-                    <button
-                      onClick={() => handleSelectTab("settings")}
-                      className="text-left p-4 bg-[#12172A]/50 border border-white/5 hover:border-[#6C5CE0]/40 hover:bg-[#161A2B]/50 transition-all rounded-2xl group cursor-pointer"
-                    >
-                      <div className="p-2 w-9 h-9 rounded-xl bg-[#0D111D] border border-white/5 text-sky-300/60 group-hover:text-white transition-colors flex items-center justify-center">
-                        <Settings className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-xs font-bold text-sky-100 mt-3 group-hover:text-white">
-                        Configure profile
-                      </h4>
-                      <p className="text-[10px] text-sky-300/40 mt-1 leading-relaxed">
-                        Update customized visual avatar, cryptographic key strings, and status bio.
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sub-note footer */}
-                <p className="text-[10px] text-sky-300/40 font-medium leading-relaxed bg-[#12172A]/45 p-3 rounded-xl border border-white/5">
-                  <span className="font-bold text-sky-200 block mb-0.5">💡 Direct P2P Encryption Guidelines</span>
-                  Please ensure standard alphanumeric entries inside standard usernames. Crypto keys handles EVM compatible chains and other standard protocols. Select any match above or on the sidebar pane to dispatch real-time messages.
-                </p>
-              </motion.div>
-            </div>
+            <InboxWelcome displayName={userProfile?.displayName || ""} />
           )}
         </AnimatePresence>
       </div>
