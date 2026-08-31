@@ -1,5 +1,4 @@
 import { Interface, parseUnits, keccak256, toUtf8Bytes, getAddress, isAddress } from "ethers";
-import type { EIP1193Provider } from "@privy-io/react-auth";
 import { ARC_NETWORK } from "../payments/arcNetwork";
 import { getSharedArcReadProvider, waitForArcTransaction, sleep, withArcReadCache, isRateLimited } from "../payments/arcRpc";
 import { classifySendError } from "../payments/arcUsdc";
@@ -10,6 +9,14 @@ import {
   USDC_ABI,
   escrowCustodyMode,
 } from "../config/arcEscrow";
+
+// Minimal EIP-1193-shaped provider interface. This is the smallest surface the
+// escrow client needs (request only). It lets BOTH the Privy browser provider
+// and the Circle Developer-Controlled-Wallet server-stub provider be used here
+// — the server-stub routes `eth_sendTransaction` through Circle MPC signing.
+export interface AnyEip1193Provider {
+  request(req: { method: string; params?: unknown[] }): Promise<unknown>;
+}
 
 // On-chain escrow client. Every financial action goes through the connected
 // wallet's EIP-1193 provider (real signature -> eth_sendTransaction -> receipt).
@@ -39,7 +46,7 @@ function usdcAmountWei(amount: number): bigint {
 }
 
 async function estimateGasForCall(
-  provider: EIP1193Provider,
+  provider: AnyEip1193Provider,
   tx: Record<string, unknown>
 ): Promise<string | undefined> {
   try {
@@ -63,7 +70,7 @@ async function estimateGasForCall(
  * Returns the real transaction hash (lowercased).
  */
 export async function sendContractCall(
-  provider: EIP1193Provider,
+  provider: AnyEip1193Provider,
   from: string,
   to: string,
   iface: Interface,
@@ -151,7 +158,7 @@ export async function createEscrowForDeal(params: {
   sellerWallet: string;
   amount: number;
   collateralAmount: number;
-  provider: EIP1193Provider;
+  provider: AnyEip1193Provider;
   from: string;
   log?: EscrowStepLogger;
   onSubmitted?: (hash: string) => Promise<void>;
@@ -226,7 +233,7 @@ export async function createEscrowForDeal(params: {
 export async function depositEscrowLeg(params: {
   escrowAddress: string;
   amount: number;
-  provider: EIP1193Provider;
+  provider: AnyEip1193Provider;
   from: string;
   log?: EscrowStepLogger;
 }): Promise<DepositResult> {
@@ -295,7 +302,7 @@ export async function depositEscrowLeg(params: {
 /** Seller confirms delivery and starts the 24h review window on-chain. */
 export async function startReviewPeriod(params: {
   escrowAddress: string;
-  provider: EIP1193Provider;
+  provider: AnyEip1193Provider;
   from: string;
   log?: EscrowStepLogger;
 }): Promise<{ mode: "contract" | "seam"; txHash: string | null }> {
@@ -317,7 +324,7 @@ export async function startReviewPeriod(params: {
 /** Buyer approves delivery -> escrow pays the seller (price + collateral back). */
 export async function buyerReleaseEscrow(params: {
   escrowAddress: string;
-  provider: EIP1193Provider;
+  provider: AnyEip1193Provider;
   from: string;
   log?: EscrowStepLogger;
   onSubmitted?: (hash: string) => Promise<void>;
@@ -342,7 +349,7 @@ export async function buyerReleaseEscrow(params: {
 /** Dispute -> pauses the review clock; no release can happen while disputed. */
 export async function disputeEscrow(params: {
   escrowAddress: string;
-  provider: EIP1193Provider;
+  provider: AnyEip1193Provider;
   from: string;
   log?: EscrowStepLogger;
 }): Promise<{ mode: "contract" | "seam"; txHash: string | null }> {
@@ -364,7 +371,7 @@ export async function disputeEscrow(params: {
 /** Auto-release: callable by anyone once the 24h window has passed on-chain. */
 export async function triggerAutoRelease(params: {
   escrowAddress: string;
-  provider: EIP1193Provider;
+  provider: AnyEip1193Provider;
   from: string;
   log?: EscrowStepLogger;
 }): Promise<{ mode: "contract" | "seam"; txHash: string | null }> {
@@ -386,7 +393,7 @@ export async function triggerAutoRelease(params: {
 /** A party can claw back their own deposit before the review period starts. */
 export async function refundEscrowLeg(params: {
   escrowAddress: string;
-  provider: EIP1193Provider;
+  provider: AnyEip1193Provider;
   from: string;
   log?: EscrowStepLogger;
 }): Promise<{ mode: "contract" | "seam"; txHash: string | null }> {

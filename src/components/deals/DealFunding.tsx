@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Coins, Loader2, PlugZap, ShieldCheck, Wallet } from "lucide-react";
+import { Coins, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { DealDoc, DealRole, fmtUsdc } from "../../deals/types";
 import { canFund, isDisputed } from "../../deals/dealStatusMachine";
 import {
@@ -7,7 +7,6 @@ import {
   ARC_NETWORK,
   fetchArcUsdcBalance,
 } from "../../payments";
-import type { ArcWalletSession } from "../../hooks/useArcWalletSession";
 import { ActionButton, InfoBanner, Section, WarnBanner, WalletChip } from "./dealUi";
 
 function useUsdcBalance(address: string | null | undefined, chainId: number | null) {
@@ -41,7 +40,13 @@ interface Props {
   onCancel: (note: string) => void;
   onNext: () => void;
   wallet: {
-    session: ArcWalletSession;
+    session:
+      | { status: "linked"; address?: string; from?: string }
+      | { status: "checking" }
+      | { status: "unconfigured" }
+      | { status: "idle" }
+      | { status: "linking" }
+      | { status: "error" };
     primaryAddress: string | null;
     reconnect: () => Promise<void>;
     reconnecting: boolean;
@@ -65,8 +70,8 @@ export default function DealFunding({
   const [cancelNote, setCancelNote] = useState("");
 
   const connectedAddress =
-    wallet.session.status === "connected" ? wallet.session.connectedAddress : null;
-  const balance = useUsdcBalance(connectedAddress || wallet.primaryAddress, wallet.session.status === "connected" ? wallet.session.chainId : null);
+    wallet.session.status === "linked" ? wallet.session.from || wallet.session.address || null : null;
+  const balance = useUsdcBalance(connectedAddress || wallet.primaryAddress, ARC_NETWORK.chainId);
 
   const canCancel = ["SETUP", "AI_ANALYSIS", "NEGOTIATING", "AWAITING_ACCEPTANCE", "LOCKED", "AWAITING_FUNDING"].includes(deal?.state || "");
   const bothDepositsConfirmed =
@@ -204,14 +209,10 @@ export default function DealFunding({
         </div>
       )}
 
-      {wallet.session.status === "disconnected" && (
+      {wallet.session.status !== "linked" && (
         <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500/[0.07] border border-amber-500/20">
-          <PlugZap className="w-4 h-4 text-amber-400 shrink-0" />
-          <p className="flex-1 text-[11px] text-amber-100">Reconnect your wallet to sign escrow transactions.</p>
-          <ActionButton onClick={wallet.reconnect} disabled={wallet.reconnecting} variant="ghost">
-            {wallet.reconnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wallet className="w-3.5 h-3.5" />}
-            {wallet.reconnecting ? "…" : "Reconnect"}
-          </ActionButton>
+          <Wallet className="w-4 h-4 text-amber-400 shrink-0" />
+          <p className="flex-1 text-[11px] text-amber-100">Set up your MICA Wallet to sign escrow transactions.</p>
         </div>
       )}
 

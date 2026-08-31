@@ -948,8 +948,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
         currentUid={currentUser?.uid}
         buyerUid={buyerUid}
         sellerUid={sellerUid}
-        buyerWallet={buyerProfile?.walletAddress}
-        sellerWallet={sellerProfile?.walletAddress}
+        buyerWallet={buyerProfile?.circleWalletAddress}
+        sellerWallet={sellerProfile?.circleWalletAddress}
         buyerName={buyerProfile?.displayName}
         sellerName={sellerProfile?.displayName}
       >

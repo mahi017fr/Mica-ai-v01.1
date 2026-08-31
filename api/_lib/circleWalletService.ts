@@ -782,6 +782,43 @@ export async function createCircleUsdcTransfer(params: {
 }
 
 /**
+ * Execute an arbitrary smart-contract interaction through Circle's
+ * Developer-Controlled Wallets SDK (server-side MPC signing).
+ *
+ * This is the primitive used by the Deal escrow migration: the signing wallet
+ * is the ACTING user's Circle wallet (resolved from uid on the server — never
+ * a browser signer). `callData` is the raw ABI-encoded function calldata
+ * (`0x...`, even-length hex), which Circle submits to `contractAddress`.
+ *
+ * - `idempotencyKey` MUST be stable per logical blockchain write: Circle treats
+ *   repeated calls with the same key as THE SAME request.
+ * - `blockchain` defaults to ARC-TESTNET.
+ * Returns the Circle transaction id + initial state. NEVER fabricates results.
+ */
+export async function createCircleContractExecution(params: {
+  sourceWalletId: string;
+  contractAddress: string;
+  callData: string;
+  blockchain?: string;
+  idempotencyKey: string;
+}): Promise<{ transactionId: string; state: string }> {
+  const client = await getClient();
+  const response = await client.createContractExecutionTransaction({
+    walletId: params.sourceWalletId,
+    contractAddress: params.contractAddress,
+    callData: params.callData,
+    blockchain: params.blockchain ?? ARC_TESTNET,
+    fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+    idempotencyKey: params.idempotencyKey,
+  });
+  const tx = response?.data;
+  if (!tx?.id) {
+    throw new Error("Circle createContractExecutionTransaction returned no transaction id.");
+  }
+  return { transactionId: String(tx.id), state: String(tx.state ?? "INITIATED") };
+}
+
+/**
  * Fetch the current state of a Circle transaction. Returns null when Circle
  * does not know the id (never guessed).
  */

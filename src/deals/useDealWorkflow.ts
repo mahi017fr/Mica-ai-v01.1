@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteField, serverTimestamp } from "firebase/firestore";
-import { useArcWalletSession } from "../hooks/useArcWalletSession";
+import { useChat } from "../context/ChatContext";
+import { ARC_NETWORK } from "../payments/arcNetwork";
 import {
   createDeal,
   getLatestDeal,
@@ -58,7 +59,27 @@ export interface DealWorkflowParams {
 
 export function useDealWorkflow(params: DealWorkflowParams) {
   const { roomId, currentUid, buyerUid, sellerUid } = params;
-  const wallet = useArcWalletSession();
+
+  // Circle Developer-Controlled Wallet (server-side MPC): all Deal escrow
+  // signing is routed through the server. There is no browser/Privy signing in
+  // the payment path anymore.
+  const { circleWallet, getCircleSigningContext } = useChat();
+
+  // Shape the wallet object consumed by the workflow (and by DealFunding) to
+  // mirror the old `{ getSigningContext, primaryAddress }` seam.
+  const wallet = useMemo(
+    () => ({
+      // Accepts an optional expectedAddress for API compat, but Circle signing
+      // always resolves the acting user's wallet from their uid server-side.
+      getSigningContext: getCircleSigningContext,
+      primaryAddress: circleWallet.status === "linked" ? circleWallet.from ?? null : null,
+      session: circleWallet,
+      // Server-managed wallet never needs a browser reconnect.
+      reconnect: async () => {},
+      reconnecting: false,
+    }),
+    [getCircleSigningContext, circleWallet]
+  );
 
   const [deal, setDeal] = useState<DealDoc | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,8 +114,9 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     if (currentUid === effectiveSellerUid) return "seller";
 
     // Realtime chat props can briefly carry a stale participant UID. Fall back
-    // to the verified Privy wallet stored on the deal so the correct controls
-    // still render, while transaction signing remains wallet-verified.
+    // to the user's Circle wallet address stored on the deal so the correct
+    // controls still render, while the escrow contract itself enforces roles
+    // via msg.sender (the Circle wallet address is the participant address).
     const connected = wallet.primaryAddress?.toLowerCase();
     if (connected && connected === deal?.buyerWallet?.toLowerCase()) return "buyer";
     if (connected && connected === deal?.sellerWallet?.toLowerCase()) return "seller";

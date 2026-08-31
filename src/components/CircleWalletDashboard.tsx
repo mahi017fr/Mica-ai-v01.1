@@ -121,7 +121,7 @@ function fmtUsdc(n: number): string {
 /* Design system primitives                                            */
 /* ------------------------------------------------------------------ */
 
-/** Consistent premium surface: deep navy, whisper-thin border, soft depth. */
+/** Consistent premium surface: sidebar-tone surface, whisper-thin border, soft depth. */
 const Card: React.FC<{
   className?: string;
   children: React.ReactNode;
@@ -131,7 +131,7 @@ const Card: React.FC<{
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.35, delay, ease: [0.22, 1, 0.36, 1] }}
-    className={`relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0A0714]/80 backdrop-blur-xl shadow-[0_16px_50px_-22px_rgba(0,0,0,0.8)] ${className}`}
+    className={`relative overflow-hidden rounded-2xl border border-white/[0.05] bg-[#161A2B]/75 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_16px_50px_-24px_rgba(0,0,0,0.85)] ${className}`}
   >
     {children}
   </motion.div>
@@ -144,8 +144,8 @@ const SectionLabel: React.FC<{ icon: React.ReactNode; children: React.ReactNode;
 }) => (
   <div className="flex items-center justify-between mb-4">
     <div className="flex items-center gap-2">
-      <span className="text-[#7C6CF0]">{icon}</span>
-      <span className="text-[10px] uppercase font-mono tracking-[0.18em] text-[#8A96B8] font-bold">
+      <span className="text-[#8E82F5]">{icon}</span>
+      <span className="text-[10px] uppercase font-mono tracking-[0.18em] text-[#9AA9BE] font-bold">
         {children}
       </span>
     </div>
@@ -158,7 +158,7 @@ const ShimmerBlock: React.FC<{ className?: string }> = ({ className = "" }) => (
 );
 
 const NetworkBadge: React.FC<{ compact?: boolean }> = ({ compact }) => (
-  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#6C5CE0]/15 border border-[#6C5CE0]/30 text-[#A78BFA] text-[9px] font-mono font-bold uppercase tracking-wider">
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#6C5CE0]/18 border border-[#8E82F5]/25 text-[#D2CDF9] text-[9px] font-mono font-bold uppercase tracking-wider">
     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
     {compact ? "Arc" : ARC_NETWORK.name}
   </span>
@@ -210,13 +210,13 @@ const PortfolioTrend: React.FC<{ live: boolean }> = ({ live }) => {
       <svg viewBox="0 0 100 44" preserveAspectRatio="none" className="w-full h-14 sm:h-16">
         <defs>
           <linearGradient id="mica-trend-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6C5CE0" stopOpacity="0.32" />
+            <stop offset="0%" stopColor="#6C5CE0" stopOpacity="0.30" />
             <stop offset="100%" stopColor="#6C5CE0" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="mica-trend-line" x1="0" y1="0" x2="1" y2="0">
-<stop offset="0%" stopColor="#8B5CF6" />
-<stop offset="55%" stopColor="#A78BFA" />
-<stop offset="100%" stopColor="#C084FC" />
+<stop offset="0%" stopColor="#7D70E8" />
+<stop offset="55%" stopColor="#A69DF7" />
+<stop offset="100%" stopColor="#D6D2FA" />
           </linearGradient>
         </defs>
         <path d={area} fill="url(#mica-trend-fill)" />
@@ -232,10 +232,10 @@ const PortfolioTrend: React.FC<{ live: boolean }> = ({ live }) => {
         />
       </svg>
       <div className="absolute inset-x-0 -bottom-0.5 flex items-center justify-between px-0.5">
-        <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-[#64748B]">
+        <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-[#94A3B8]">
           Portfolio trend
         </span>
-        <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-[#64748B]/70">
+        <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-[#94A3B8]/70">
           {live ? "Live balance · history coming soon" : "Awaiting balance"}
         </span>
       </div>
@@ -244,7 +244,7 @@ const PortfolioTrend: React.FC<{ live: boolean }> = ({ live }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Decorative purple glowing wallet illustration (UI-only, decorative) */
+/* Decorative cool-blue glowing wallet illustration (UI-only, decorative) */
 /* ------------------------------------------------------------------ */
 
 const WalletIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
@@ -252,9 +252,9 @@ const WalletIllustration: React.FC<{ className?: string }> = ({ className = "" }
     <svg width="150" height="110" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="mica-wallet-card" x1="0" y1="0" x2="150" y2="110">
-          <stop offset="0%" stopColor="#7C6CF0" stopOpacity="0.95" />
-          <stop offset="55%" stopColor="#8B5CF6" />
-          <stop offset="100%" stopColor="#C084FC" stopOpacity="0.85" />
+          <stop offset="0%" stopColor="#5749D4" stopOpacity="0.95" />
+          <stop offset="55%" stopColor="#8E82F5" />
+          <stop offset="100%" stopColor="#A69DF7" stopOpacity="0.9" />
         </linearGradient>
         <linearGradient id="mica-wallet-shine" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.45" />
@@ -262,12 +262,12 @@ const WalletIllustration: React.FC<{ className?: string }> = ({ className = "" }
         </linearGradient>
       </defs>
       {/* glowing halo */}
-      <circle cx="75" cy="55" r="50" fill="#6C5CE0" opacity="0.28" className="animate-pulse" style={{ filter: "blur(14px)" }} />
+      <circle cx="75" cy="55" r="50" fill="#7D70E8" opacity="0.28" className="animate-pulse" style={{ filter: "blur(14px)" }} />
       {/* card body */}
       <rect x="18" y="26" width="114" height="62" rx="14" fill="url(#mica-wallet-card)" />
       <rect x="18" y="26" width="114" height="62" rx="14" fill="url(#mica-wallet-shine)" opacity="0.35" />
       {/* chip */}
-      <rect x="34" y="44" width="22" height="16" rx="4" fill="#0B0F1C" opacity="0.55" />
+      <rect x="34" y="44" width="22" height="16" rx="4" fill="#0D111D" opacity="0.55" />
       <rect x="37" y="47" width="16" height="10" rx="2" stroke="#FFFFFF" strokeOpacity="0.6" strokeWidth="1" />
       {/* circuit lines */}
       <path d="M78 36 H112" stroke="#FFFFFF" strokeOpacity="0.55" strokeWidth="2" strokeLinecap="round" />
@@ -298,15 +298,15 @@ const QuickActionTile: React.FC<{
     onClick={onClick}
     className={`group flex flex-col items-center gap-2 py-3 rounded-2xl transition-all duration-200 cursor-pointer ${
       hot
-        ? "bg-[#6C5CE0]/[0.12] border border-[#6C5CE0]/25 hover:bg-[#6C5CE0]/[0.2] hover:border-[#8B5CF6]/45"
+        ? "bg-[#6C5CE0]/[0.18] border border-[#8E82F5]/30 hover:bg-[#6C5CE0]/[0.26] hover:border-[#D2CDF9]/40 shadow-[0_10px_28px_-10px_rgba(108,92,224,0.45)]"
         : "bg-white/[0.02] border border-transparent hover:bg-white/[0.045] hover:border-white/[0.07]"
     }`}
   >
     <span
       className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${
         hot
-          ? "bg-gradient-to-br from-[#6C5CE0] to-[#8B5CF6] text-white shadow-[0_4px_14px_rgba(108,92,224,0.35)]"
-          : "bg-[#0B0F1C]/90 border border-white/[0.06] text-[#C4B5FD] group-hover:text-white group-hover:border-[#6C5CE0]/35"
+          ? "bg-gradient-to-br from-[#6C5CE0] via-[#6C5CE0] to-[#A69DF7] text-white shadow-[0_6px_20px_-4px_rgba(108,92,224,0.35)]"
+          : "bg-[#161A2B]/90 border border-white/[0.06] text-[#AAA2F2] group-hover:text-white group-hover:border-[#6C5CE0]/40"
       }`}
     >
       {icon}
@@ -430,13 +430,13 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
     }
     switch (session.status) {
       case "checking":
-        return { label: "Checking…", tone: "text-[#A78BFA]", dot: "bg-[#8B5CF6] animate-pulse" };
+        return { label: "Checking…", tone: "text-[#AAA2F2]", dot: "bg-[#7D70E8] animate-pulse" };
       case "unconfigured":
         return { label: "Not configured", tone: "text-amber-300", dot: "bg-amber-400" };
       case "idle":
-        return { label: "No wallet yet", tone: "text-[#A78BFA]", dot: "bg-[#8B5CF6]" };
+        return { label: "No wallet yet", tone: "text-[#AAA2F2]", dot: "bg-[#7D70E8]" };
       case "linking":
-        return { label: "Linking…", tone: "text-[#A78BFA]", dot: "bg-[#8B5CF6] animate-pulse" };
+        return { label: "Linking…", tone: "text-[#AAA2F2]", dot: "bg-[#7D70E8] animate-pulse" };
       case "linked":
         return { label: "Connected", tone: "text-emerald-400", dot: "bg-emerald-500 animate-pulse" };
       case "error":
@@ -504,32 +504,39 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
   /* ================================================================== */
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#070511] overflow-hidden relative">
-      {/* Atmospheric lighting: large diffused purple light areas, dark edges */}
+    <div className="flex-1 flex flex-col h-full bg-[#0D111D] overflow-hidden relative">
+      {/* Atmospheric lighting: foggy layered cool blue ambient light, dark edges */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(72% 58% at 50% -14%, rgba(124,58,237,0.15) 0%, rgba(76,29,149,0.06) 45%, rgba(5,3,12,0) 75%), radial-gradient(55% 45% at 90% 32%, rgba(139,92,246,0.09) 0%, rgba(5,3,12,0) 70%), radial-gradient(50% 42% at 8% 76%, rgba(124,58,237,0.08) 0%, rgba(5,3,12,0) 72%), radial-gradient(130% 120% at 50% 50%, rgba(5,3,12,0) 35%, rgba(2,1,6,0.9) 100%)",
+            "radial-gradient(96% 52% at 50% -8%, rgba(226,224,253,0.09) 0%, rgba(166,157,247,0.06) 30%, rgba(108,92,224,0.04) 55%, rgba(10,13,20,0) 80%), radial-gradient(58% 46% at 84% 16%, rgba(142,130,245,0.10) 0%, rgba(14,20,32,0) 66%), radial-gradient(54% 48% at 8% 58%, rgba(87,73,212,0.12) 0%, rgba(13,18,28,0) 68%), radial-gradient(42% 38% at 66% 84%, rgba(192,186,245,0.05) 0%, rgba(13,18,28,0) 62%), radial-gradient(80% 46% at 50% 108%, rgba(59,50,180,0.5) 0%, rgba(30,32,64,0.22) 42%, rgba(10,13,20,0) 78%), radial-gradient(150% 125% at 50% 50%, rgba(10,13,20,0) 40%, rgba(6,9,14,0.7) 82%, rgba(4,6,10,0.96) 100%)",
         }}
       />
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[46rem] h-80 bg-[#6D28D9]/[0.13] blur-[140px] rounded-full" />
-      <div className="pointer-events-none absolute top-40 -right-28 w-[30rem] h-80 bg-[#8B5CF6]/[0.10] blur-[150px] rounded-full" />
-      <div className="pointer-events-none absolute bottom-0 -left-24 w-[28rem] h-72 bg-[#A78BFA]/[0.08] blur-[150px] rounded-full" />
+      {/* soft diffused icy-white highlight, upper centre — brightest area */}
+      <div className="pointer-events-none absolute -top-44 left-1/2 -translate-x-1/2 w-[52rem] h-96 bg-[#D2CDF9]/[0.07] blur-[150px] rounded-full" />
+      {/* pale blue sheen upper right */}
+      <div className="pointer-events-none absolute top-36 -right-28 w-[32rem] h-80 bg-[#8E82F5]/[0.12] blur-[160px] rounded-full" />
+      {/* muted cool navy ambient mid-left */}
+      <div className="pointer-events-none absolute top-[36%] -left-32 w-[30rem] h-80 bg-[#6C5CE0]/[0.15] blur-[160px] rounded-full" />
+      {/* cool blue rising from the bottom */}
+      <div className="pointer-events-none absolute -bottom-36 left-1/2 -translate-x-1/2 w-[48rem] h-80 bg-[#6F60E2]/[0.13] blur-[150px] rounded-full" />
+      {/* very subtle pale blue whisper, lower right */}
+      <div className="pointer-events-none absolute bottom-10 -right-16 w-[22rem] h-60 bg-[#C0BAF5]/[0.06] blur-[140px] rounded-full" />
 
       {/* ============================ HEADER (premium, compact) ========= */}
-      <header className="shrink-0 z-20 border-b border-white/[0.06] bg-[#0C0820]/85 backdrop-blur-xl">
+      <header className="shrink-0 z-20 border-b border-white/[0.05] bg-[#161A2B]/85 backdrop-blur-xl">
         <div className="w-full px-3 sm:px-5 py-2.5 sm:py-3 flex items-center gap-2.5 sm:gap-3">
           <button
             onClick={onBack}
-            className="h-9 w-9 shrink-0 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[#C4B5FD] hover:text-white transition-all duration-200 hover:border-[#6C5CE0]/50 hover:bg-white/[0.07] cursor-pointer flex items-center justify-center"
+            className="h-9 w-9 shrink-0 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[#D6D2FA] hover:text-white transition-all duration-200 hover:border-[#8E82F5]/45 hover:bg-white/[0.07] cursor-pointer flex items-center justify-center"
             title="Back"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
 
           <div className="hidden md:flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6C5CE0] to-[#8B5CF6] flex items-center justify-center shadow-[0_0_18px_rgba(108,92,224,0.35)] shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6C5CE0] to-[#8E82F5] flex items-center justify-center shadow-[0_0_18px_rgba(108,92,224,0.4)] shrink-0">
               <WalletIcon className="w-4 h-4 text-white" />
             </div>
             <h2 className="text-sm font-black text-white tracking-tight truncate shrink-0">MICA Wallet</h2>
@@ -547,7 +554,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
 
           <div className="flex-1" />
 
-          <div className="hidden lg:flex items-center gap-1.5 text-[9.5px] font-mono text-[#64748B] tracking-wide">
+          <div className="hidden lg:flex items-center gap-1.5 text-[9.5px] font-mono text-[#94A3B8] tracking-wide">
             <span className="inline-flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${rpcConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
               {rpcConnected ? "Connected" : "Checking"}
@@ -560,9 +567,9 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
             type="button"
             onClick={handleRefresh}
             title="Refresh balance & activity"
-            className="h-9 w-9 shrink-0 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[#C4B5FD] hover:text-white transition-all duration-200 hover:border-[#6C5CE0]/50 hover:bg-white/[0.07] cursor-pointer flex items-center justify-center"
+            className="h-9 w-9 shrink-0 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[#D6D2FA] hover:text-white transition-all duration-200 hover:border-[#8E82F5]/45 hover:bg-white/[0.07] cursor-pointer flex items-center justify-center"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-[#8B5CF6]" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-[#8E82F5]" : ""}`} />
           </button>
         </div>
       </header>
@@ -574,8 +581,8 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
           <div className="p-4 sm:p-6 max-w-md mx-auto pt-10">
             <Card className="p-6" delay={0.02}>
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#6C5CE0]/15 border border-[#6C5CE0]/30 flex items-center justify-center shrink-0">
-                  <WalletIcon className="w-5 h-5 text-[#A78BFA]" />
+                <div className="w-11 h-11 rounded-2xl bg-[#6C5CE0]/18 border border-[#8E82F5]/28 flex items-center justify-center shrink-0">
+                  <WalletIcon className="w-5 h-5 text-[#D2CDF9]" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-[#F8FAFC]">No Circle wallet linked yet</p>
@@ -590,7 +597,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                   type="button"
                   onClick={() => void ensureCircleWallet()}
                   disabled={session.status === "linking"}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#6C5CE0] to-[#7C6CF0] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider transition-all shadow-[0_6px_24px_rgba(108,92,224,0.25)] cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#5749D4] to-[#8E82F5] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider transition-all shadow-[0_8px_28px_-6px_rgba(87,73,212,0.6)] cursor-pointer"
                 >
                   {session.status === "linking" ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -612,16 +619,16 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               {/* ---------------- LEFT COLUMN ---------------- */}
               <div className="space-y-4 min-w-0">
                 {/* ============ PORTFOLIO OVERVIEW ============ */}
-                <Card className="p-5 sm:p-6 overflow-hidden relative !bg-[#0C0717]" delay={0.02}>
+                <Card className="p-5 sm:p-6 overflow-hidden relative !bg-[#161A2B]/95" delay={0.02}>
                   <div
                     className="pointer-events-none absolute inset-0"
                     style={{
                       background:
-                        "radial-gradient(95% 70% at 38% 38%, rgba(109,40,217,0.20) 0%, rgba(124,58,237,0.09) 45%, rgba(6,3,14,0) 78%), radial-gradient(60% 55% at 88% 30%, rgba(139,92,246,0.13) 0%, rgba(6,3,14,0) 72%)",
+                        "radial-gradient(120% 90% at 16% 18%, rgba(30,32,64,0.8) 0%, rgba(59,50,180,0.42) 36%, rgba(10,13,20,0) 74%), radial-gradient(46% 42% at 86% 14%, rgba(166,157,247,0.15) 0%, rgba(142,130,245,0.07) 46%, rgba(10,13,20,0) 74%), radial-gradient(36% 32% at 74% 44%, rgba(192,186,245,0.06) 0%, rgba(10,13,20,0) 64%), radial-gradient(140% 120% at 50% 50%, rgba(10,13,20,0) 46%, rgba(6,9,14,0.55) 82%, rgba(4,6,10,0.85) 100%)",
                     }}
                   />
-                  <div className="absolute -top-28 -right-20 w-80 h-64 bg-[#8B5CF6]/[0.15] blur-[100px] rounded-full pointer-events-none" />
-                  <div className="absolute -bottom-24 left-0 w-72 h-56 bg-[#6D28D9]/[0.12] blur-[100px] rounded-full pointer-events-none" />
+                  <div className="absolute -top-32 -right-16 w-80 h-64 bg-[#8E82F5]/[0.15] blur-[110px] rounded-full pointer-events-none" />
+                  <div className="absolute -bottom-24 -left-16 w-72 h-56 bg-[#5749D4]/[0.16] blur-[110px] rounded-full pointer-events-none" />
 
                   <div className="relative">
                     <SectionLabel
@@ -649,25 +656,25 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                                 +0.00% today
                               </span>
                             </div>
-                            <p className="mt-2.5 text-[13px] font-mono text-[#C4B5FD]/80 font-bold">
-                              {fmtUsdc(balance.balance)} <span className="text-[#64748B] font-semibold">USDC</span>
+                            <p className="mt-2.5 text-[13px] font-mono text-[#D6D2FA]/80 font-bold">
+                              {fmtUsdc(balance.balance)} <span className="text-[#94A3B8] font-semibold">USDC</span>
                               <span className="text-[#3B4256] mx-1.5">·</span>
-                              <span className="text-[#64748B] font-semibold">{ARC_NETWORK.name}</span>
+                              <span className="text-[#94A3B8] font-semibold">{ARC_NETWORK.name}</span>
                             </p>
-                            <div className="mt-1 text-[9.5px] font-mono uppercase tracking-wider text-[#64748B]">
+                            <div className="mt-1 text-[9.5px] font-mono uppercase tracking-wider text-[#94A3B8]">
                               24h change · history coming soon
                             </div>
                           </>
                         ) : balance?.status === "error" ? (
                           <div className="py-3">
                             <p className="text-sm font-bold text-amber-300 font-mono">Unable to load balance</p>
-                            <p className="text-[10px] text-[#64748B] font-mono mt-1 break-all line-clamp-2">
+                            <p className="text-[10px] text-[#94A3B8] font-mono mt-1 break-all line-clamp-2">
                               {balance.message}
                             </p>
                             <button
                               type="button"
                               onClick={handleRefresh}
-                              className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#6C5CE0]/15 border border-[#6C5CE0]/30 text-[#A78BFA] hover:bg-[#6C5CE0]/25 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer"
+                              className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#6C5CE0]/16 border border-[#8E82F5]/30 text-[#D2CDF9] hover:bg-[#6C5CE0]/25 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer"
                             >
                               <RefreshCw className="w-3 h-3" /> Retry
                             </button>
@@ -700,8 +707,8 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                           onClick={() => setRange(r)}
                           className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all duration-200 cursor-pointer ${
                             range === r
-                              ? "bg-[#6C5CE0]/20 border border-[#6C5CE0]/40 text-white"
-                              : "bg-white/[0.02] border border-transparent text-[#64748B] hover:text-[#CBD5E1] hover:bg-white/[0.05]"
+                              ? "bg-[#6C5CE0]/24 border border-[#8E82F5]/38 text-white shadow-[0_2px_14px_-4px_rgba(108,92,224,0.5)]"
+                              : "bg-white/[0.02] border border-transparent text-[#94A3B8] hover:text-[#E6EFF8] hover:bg-white/[0.05]"
                           }`}
                         >
                           {r}
@@ -714,7 +721,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                       <button
                         type="button"
                         onClick={openSendPicker}
-                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#6C5CE0] via-[#7C6CF0] to-[#8B5CF6] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.99] transition-all duration-200 shadow-[0_8px_28px_rgba(108,92,224,0.3)] cursor-pointer"
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#5749D4] via-[#6C5CE0] to-[#8E82F5] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.99] transition-all duration-200 shadow-[0_12px_34px_-8px_rgba(108,92,224,0.6)] cursor-pointer"
                       >
                         <ArrowUpRight className="w-4 h-4" />
                         Send
@@ -722,7 +729,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                       <button
                         type="button"
                         onClick={() => setReceiveOpen(true)}
-                        className="flex-1 py-3 rounded-xl bg-[#7C3AED]/[0.14] border border-[#A78BFA]/30 text-[#D8CCFF] text-[13px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#7C3AED]/[0.22] hover:border-[#A78BFA]/50 transition-all duration-200 cursor-pointer"
+                        className="flex-1 py-3 rounded-xl bg-[#6C5CE0]/[0.16] border border-[#8E82F5]/30 text-[#DCE8F5] text-[13px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#6C5CE0]/[0.26] hover:border-[#D2CDF9]/45 transition-all duration-200 cursor-pointer"
                       >
                         <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
                         Deposit
@@ -732,18 +739,18 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                 </Card>
 
                 {/* ============ ASSETS ============ */}
-                <Card className="p-4 sm:p-5 !bg-[#0B0713]" delay={0.08}>
+                <Card className="p-4 sm:p-5 !bg-[#161A2B]" delay={0.08}>
                   <div
                     className="pointer-events-none absolute inset-0"
                     style={{
                       background:
-                        "radial-gradient(70% 60% at 15% 20%, rgba(124,58,237,0.07) 0%, rgba(6,3,14,0) 70%)",
+                        "radial-gradient(62% 70% at 8% 12%, rgba(108,92,224,0.14) 0%, rgba(59,50,180,0.10) 36%, rgba(10,13,20,0) 70%), radial-gradient(42% 56% at 96% 40%, rgba(142,130,245,0.06) 0%, rgba(10,13,20,0) 68%), radial-gradient(120% 90% at 50% 104%, rgba(10,13,20,0.85) 0%, rgba(10,13,20,0) 62%)",
                     }}
                   />
                   <SectionLabel
                     icon={<CircleDollarSign className="w-3.5 h-3.5" />}
                     right={
-                      <span className="text-[9px] font-mono text-[#64748B] uppercase tracking-wider">
+                      <span className="text-[9px] font-mono text-[#94A3B8] uppercase tracking-wider">
                         1 asset
                       </span>
                     }
@@ -752,7 +759,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                   </SectionLabel>
 
                   {/* Header row (desktop) */}
-                  <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1.3fr] gap-3 px-4 pb-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.16em] text-[#64748B]">
+                  <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1.3fr] gap-3 px-4 pb-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.16em] text-[#94A3B8]">
                     <span>Asset</span>
                     <span className="text-right">Balance</span>
                     <span className="text-right">Value</span>
@@ -762,25 +769,25 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                   {/* USDC row — the only real asset */}
                   <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1.3fr] gap-3 px-4 py-3.5 items-center rounded-xl hover:bg-white/[0.025] transition-colors duration-200 -mx-1">
                     <div className="flex items-center gap-3 col-span-2 md:col-span-1 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center shrink-0 shadow-[0_0_14px_rgba(124,58,237,0.35)]">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#8E82F5] to-[#5749D4] flex items-center justify-center shrink-0 shadow-[0_0_16px_rgba(108,92,224,0.4)]">
                         <CircleDollarSign className="w-4.5 h-4.5 text-white" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-[13px] font-bold text-white truncate">USDC</p>
-                        <p className="text-[9.5px] font-mono text-[#64748B] truncate">Circle USDC</p>
+                        <p className="text-[9.5px] font-mono text-[#94A3B8] truncate">Circle USDC</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-[13px] font-black text-white font-mono">
                         {usdcBalance != null ? fmtUsdc(usdcBalance) : "—"}
                       </p>
-                      <p className="md:hidden text-[9px] font-mono text-[#64748B]">Balance</p>
+                      <p className="md:hidden text-[9px] font-mono text-[#94A3B8]">Balance</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[13px] font-bold text-[#C4B5FD]/90 font-mono">
+                      <p className="text-[13px] font-bold text-[#D6D2FA]/90 font-mono">
                         {usdcBalance != null ? fmtUsd(usdcBalance) : "—"}
                       </p>
-                      <p className="md:hidden text-[9px] font-mono text-[#64748B]">Value</p>
+                      <p className="md:hidden text-[9px] font-mono text-[#94A3B8]">Value</p>
                     </div>
                     <div className="col-span-2 md:col-span-1 flex items-center gap-3 justify-end">
                       <div className="hidden md:block w-24">
@@ -789,10 +796,10 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                             initial={{ width: 0 }}
                             animate={{ width: usdcBalance != null ? "100%" : "0%" }}
                             transition={{ duration: 0.9, ease: "easeOut" }}
-                            className="h-full rounded-full bg-gradient-to-r from-[#6C5CE0] to-[#C084FC]"
+                            className="h-full rounded-full bg-gradient-to-r from-[#6C5CE0] to-[#D2CDF9]"
                           />
                         </div>
-                        <p className="text-right text-[8.5px] font-mono text-[#64748B] mt-1">100%</p>
+                        <p className="text-right text-[8.5px] font-mono text-[#94A3B8] mt-1">100%</p>
                       </div>
                       <NetworkBadge compact />
                     </div>
@@ -801,23 +808,23 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                   {/* Polished empty state for future assets */}
                   <div className="mt-1 px-3 py-2.5 rounded-xl bg-white/[0.015] flex items-center gap-2.5">
                     <Info className="w-3.5 h-3.5 text-[#475569]" />
-                    <p className="text-[10.5px] text-[#64748B] font-medium">No other assets yet</p>
+                    <p className="text-[10.5px] text-[#94A3B8] font-medium">No other assets yet</p>
                   </div>
                 </Card>
 
                 {/* ============ WALLET INSIGHTS ============ */}
-                <Card className="p-4 sm:p-5 !bg-[#0F0A1D]" delay={0.12}>
+                <Card className="p-4 sm:p-5 !bg-[#1A2034]" delay={0.12}>
                   <div
                     className="pointer-events-none absolute inset-0"
                     style={{
                       background:
-                        "radial-gradient(80% 70% at 90% 10%, rgba(139,92,246,0.08) 0%, rgba(10,6,20,0) 72%)",
+                        "radial-gradient(85% 70% at 88% 0%, rgba(166,157,247,0.10) 0%, rgba(142,130,245,0.05) 42%, rgba(13,18,28,0) 72%), radial-gradient(55% 44% at 10% 6%, rgba(222,219,252,0.05) 0%, rgba(13,18,28,0) 60%), radial-gradient(90% 80% at 50% 110%, rgba(13,17,26,0.9) 0%, rgba(13,17,26,0) 58%)",
                     }}
                   />
                   <SectionLabel
                     icon={<Zap className="w-3.5 h-3.5" />}
                     right={
-                      <span className="text-[9px] font-mono text-[#64748B] uppercase tracking-wider">
+                      <span className="text-[9px] font-mono text-[#94A3B8] uppercase tracking-wider">
                         Live
                       </span>
                     }
@@ -827,50 +834,50 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
                     {/* Current Balance */}
                     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] min-w-0">
-                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#64748B]">
-                        <CircleDollarSign className="w-3 h-3 text-[#7C6CF0]" />
+                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#94A3B8]">
+                        <CircleDollarSign className="w-3 h-3 text-[#8E82F5]" />
                         Current Balance
                       </div>
                       <p className="mt-2 text-[15px] font-black text-white font-mono truncate">
                         {usdcBalance != null ? fmtUsd(usdcBalance) : "—"}
                       </p>
-                      <p className="mt-0.5 text-[9.5px] font-mono text-[#64748B] truncate">
+                      <p className="mt-0.5 text-[9.5px] font-mono text-[#94A3B8] truncate">
                         {usdcBalance != null ? `${fmtUsdc(usdcBalance)} USDC` : "Awaiting balance"}
                       </p>
                     </div>
 
                     {/* 24H Performance */}
                     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] min-w-0">
-                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#64748B]">
-                        <TrendingUp className="w-3 h-3 text-[#C084FC]" />
+                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#94A3B8]">
+                        <TrendingUp className="w-3 h-3 text-[#8E82F5]" />
                         24H Performance
                       </div>
                       <p className="mt-2 text-[15px] font-black text-emerald-300 font-mono">
                         +0.00%
                       </p>
-                      <p className="mt-0.5 text-[9.5px] font-mono text-[#64748B]">
+                      <p className="mt-0.5 text-[9.5px] font-mono text-[#94A3B8]">
                         USD value
                       </p>
                     </div>
 
                     {/* Activity */}
                     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] min-w-0">
-                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#64748B]">
+                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#94A3B8]">
                         <Clock3 className="w-3 h-3 text-[#FB923C]" />
                         Activity
                       </div>
                       <p className="mt-2 text-[15px] font-black text-white font-mono">
                         {paymentRecords.length}
                       </p>
-                      <p className="mt-0.5 text-[9.5px] font-mono text-[#64748B]">
+                      <p className="mt-0.5 text-[9.5px] font-mono text-[#94A3B8]">
                         {paymentRecords.length === 1 ? "transaction" : "transactions"}
                       </p>
                     </div>
 
                     {/* Network */}
                     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] min-w-0">
-                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#64748B]">
-                        <Layers className="w-3 h-3 text-[#7C6CF0]" />
+                      <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-[#94A3B8]">
+                        <Layers className="w-3 h-3 text-[#8E82F5]" />
                         Network
                       </div>
                       <p className="mt-2 text-[15px] font-black text-white truncate">
@@ -887,12 +894,12 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               {/* ---------------- RIGHT COLUMN ---------------- */}
               <div className="space-y-4 min-w-0">
                 {/* ============ QUICK ACTIONS (2x4 grid) ============ */}
-                <Card className="p-4 sm:p-5 !bg-[#0D0819]" delay={0.1}>
+                <Card className="p-4 sm:p-5 !bg-[#141828]" delay={0.1}>
                   <div
                     className="pointer-events-none absolute inset-0"
                     style={{
                       background:
-                        "radial-gradient(70% 55% at 50% 0%, rgba(124,58,237,0.08) 0%, rgba(7,4,15,0) 70%)",
+                        "radial-gradient(78% 64% at 50% 0%, rgba(108,92,224,0.12) 0%, rgba(30,32,64,0.08) 40%, rgba(10,13,20,0) 72%), radial-gradient(40% 52% at 6% 44%, rgba(142,130,245,0.05) 0%, rgba(10,13,20,0) 60%), radial-gradient(110% 90% at 50% 108%, rgba(13,17,25,0.9) 0%, rgba(13,17,25,0) 62%)",
                     }}
                   />
                   <SectionLabel icon={<Zap className="w-3.5 h-3.5" />}>
@@ -919,7 +926,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                         <button
                           type="button"
                           onClick={() => setActivityAllOpen(true)}
-                          className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#A78BFA] hover:text-white transition-colors duration-200 cursor-pointer"
+                          className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#C0BAF5] hover:text-white transition-colors duration-200 cursor-pointer"
                         >
                           View All Activity
                         </button>
@@ -929,12 +936,12 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                     Recent Activity
                   </SectionLabel>
 
-                  <Card className="divide-y divide-white/[0.04] !bg-[#0A0612]" delay={0.12}>
+                  <Card className="divide-y divide-white/[0.04] !bg-[#131724]" delay={0.12}>
                     <div
                       className="pointer-events-none absolute inset-0"
                       style={{
                         background:
-                          "radial-gradient(60% 60% at 85% 15%, rgba(124,58,237,0.06) 0%, rgba(5,3,12,0) 70%)",
+                          "radial-gradient(55% 56% at 88% 10%, rgba(108,92,224,0.10) 0%, rgba(10,13,20,0) 66%), radial-gradient(32% 42% at 4% 70%, rgba(87,73,212,0.07) 0%, rgba(10,13,20,0) 60%)",
                       }}
                     />
                     {historyLoading && paymentRecords.length === 0 ? (
@@ -956,7 +963,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                           <Clock3 className="w-5 h-5 text-[#475569]" />
                         </div>
                         <p className="text-[12px] font-bold text-[#94A3B8]">No transactions yet</p>
-                        <p className="text-[10px] text-[#64748B] mt-1">
+                        <p className="text-[10px] text-[#94A3B8] mt-1">
                           Your sent &amp; received USDC will appear here.
                         </p>
                       </div>
@@ -988,7 +995,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                                   {counterparty ? `@${counterparty}` : shortAddress(counterpartyWallet)}
                                 </span>
                               </p>
-                              <p className="text-[9.5px] font-mono text-[#64748B] mt-0.5 flex items-center gap-1.5 truncate">
+                              <p className="text-[9.5px] font-mono text-[#94A3B8] mt-0.5 flex items-center gap-1.5 truncate">
                                 {formatActivityDate(record.timestamp)}
                                 <span className="text-[#334155]">•</span> Arc
                                 {txUrl && (
@@ -998,7 +1005,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                                       href={txUrl}
                                       target="_blank"
                                       rel="noreferrer noopener"
-                                      className="text-[#6C5CE0] hover:text-[#A78BFA] transition-colors inline-flex items-center gap-0.5 min-h-0"
+                                      className="text-[#8E82F5] hover:text-[#D2CDF9] transition-colors inline-flex items-center gap-0.5 min-h-0"
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       {shortHash(record.transactionHash)} <ExternalLink className="w-2.5 h-2.5" />
@@ -1037,11 +1044,11 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
 
       {/* ==================== STICKY MOBILE SEND BAR ==================== */}
       {address && (
-        <div className="lg:hidden absolute bottom-0 inset-x-0 z-20 p-3 bg-gradient-to-t from-[#080B14] via-[#080B14]/95 to-transparent">
+        <div className="lg:hidden absolute bottom-0 inset-x-0 z-20 p-3 bg-gradient-to-t from-[#0C1119] via-[#0C1119]/95 to-transparent">
           <button
             type="button"
             onClick={openSendPicker}
-            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#6C5CE0] via-[#7C6CF0] to-[#8B5CF6] text-white text-sm font-bold shadow-[0_10px_30px_rgba(108,92,224,0.35)] inline-flex items-center justify-center gap-2 active:scale-[0.99] transition-transform cursor-pointer"
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#5749D4] via-[#6C5CE0] to-[#8E82F5] text-white text-sm font-bold shadow-[0_12px_36px_-8px_rgba(108,92,224,0.6)] inline-flex items-center justify-center gap-2 active:scale-[0.99] transition-transform cursor-pointer"
           >
             <ArrowUpRight className="w-4 h-4" />
             Send USDC
@@ -1060,16 +1067,16 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSendPickerOpen(false)}
-              className="absolute inset-0 bg-[#070A12]/85 backdrop-blur-md"
+              className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, y: 40, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 30, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 380, damping: 32 }}
-              className="relative w-full sm:max-w-md bg-[#0D1120]/95 border border-white/[0.08] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden"
+              className="relative w-full sm:max-w-md bg-[#0C121B]/95 border border-white/[0.08] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden"
             >
-              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-28 bg-[#6C5CE0]/20 blur-[60px] rounded-full pointer-events-none" />
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-28 bg-[#6C5CE0]/22 blur-[60px] rounded-full pointer-events-none" />
               <div className="relative p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[15px] font-black text-white">Send USDC</h3>
@@ -1083,13 +1090,13 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                 </div>
 
                 <div className="relative mb-3">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#64748B]" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8]" />
                   <input
                     autoFocus
                     value={sendPickerQuery}
                     onChange={(e) => setSendPickerQuery(e.target.value)}
                     placeholder="Search your MICA contacts…"
-                    className="w-full bg-black/40 border border-white/[0.08] focus:border-[#6C5CE0]/60 rounded-xl pl-9 pr-3 py-2.5 text-[12px] text-white placeholder:text-white/25 focus:outline-none transition-all"
+                    className="w-full bg-black/40 border border-white/[0.08] focus:border-[#8E82F5]/60 rounded-xl pl-9 pr-3 py-2.5 text-[12px] text-white placeholder:text-white/25 focus:outline-none transition-all"
                   />
                 </div>
 
@@ -1097,7 +1104,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                   {filteredFriends.length === 0 ? (
                     <div className="py-10 text-center">
                       <p className="text-[12px] font-bold text-[#94A3B8]">No MICA contacts found</p>
-                      <p className="text-[10px] text-[#64748B] mt-1 px-8">
+                      <p className="text-[10px] text-[#94A3B8] mt-1 px-8">
                         Add friends in chat first — transfers require a contact with a verified
                         MICA wallet.
                       </p>
@@ -1116,7 +1123,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                           }}
                           className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
                             eligible
-                              ? "bg-white/[0.02] border-white/[0.05] hover:bg-[#6C5CE0]/10 hover:border-[#6C5CE0]/40 cursor-pointer"
+                              ? "bg-white/[0.02] border-white/[0.05] hover:bg-[#6C5CE0]/12 hover:border-[#8E82F5]/40 cursor-pointer"
                               : "opacity-40 cursor-not-allowed border-transparent"
                           }`}
                         >
@@ -1124,18 +1131,18 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                             src={f.avatarUrl}
                             alt={f.displayName || f.username}
                             referrerPolicy="no-referrer"
-                            className="w-9 h-9 rounded-full object-cover border border-[#6C5CE0]/30 bg-[#0D111D] shrink-0"
+                            className="w-9 h-9 rounded-full object-cover border border-[#8E82F5]/28 bg-[#161A2B] shrink-0"
                           />
                           <div className="min-w-0 flex-1 text-left">
                             <p className="text-[12px] font-bold text-white truncate">
                               {f.displayName || f.username}
                             </p>
-                            <p className="text-[9.5px] font-mono text-[#64748B] truncate">
+                            <p className="text-[9.5px] font-mono text-[#94A3B8] truncate">
                               @{f.username} · {shortAddress(f.walletAddress)}
                             </p>
                           </div>
                           {eligible ? (
-                            <ChevronRight className="w-4 h-4 text-[#64748B]" />
+                            <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
                           ) : (
                             <span className="text-[8.5px] font-mono uppercase tracking-wider text-amber-400/70">
                               No wallet
@@ -1173,14 +1180,14 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setReceiveOpen(false)}
-              className="absolute inset-0 bg-[#070A12]/85 backdrop-blur-md"
+              className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, y: 40, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 30, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 380, damping: 32 }}
-              className="relative w-full sm:max-w-sm bg-[#0D1120]/95 border border-white/[0.08] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden"
+              className="relative w-full sm:max-w-sm bg-[#0C121B]/95 border border-white/[0.08] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden"
             >
               <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-28 bg-emerald-400/10 blur-[60px] rounded-full pointer-events-none" />
               <div className="relative p-6 text-center">
@@ -1200,13 +1207,13 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                   Circle are coming soon.
                 </p>
                 <div className="mt-4 p-3 rounded-xl bg-black/40 border border-white/[0.07] break-all">
-                  <code className="text-[10.5px] font-mono text-[#C4B5FD] select-all leading-relaxed">{address}</code>
+                  <code className="text-[10.5px] font-mono text-[#D6D2FA] select-all leading-relaxed">{address}</code>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={handleCopy}
-                    className="py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.09] text-[#D8CCFF] text-[11px] font-bold hover:bg-white/[0.08] transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
+                    className="py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.09] text-[#D6D2FA] text-[11px] font-bold hover:bg-white/[0.08] transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
                   >
                     {copiedAddress ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     {copiedAddress ? "Copied" : "Copy Address"}
@@ -1215,7 +1222,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                     href={`${ARC_NETWORK.blockExplorerUrl}/address/${address}`}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="py-2.5 rounded-xl bg-[#6C5CE0]/15 border border-[#6C5CE0]/30 text-[#A78BFA] text-[11px] font-bold hover:bg-[#6C5CE0]/25 hover:text-white transition-all inline-flex items-center justify-center gap-1.5"
+                    className="py-2.5 rounded-xl bg-[#6C5CE0]/16 border border-[#8E82F5]/30 text-[#D2CDF9] text-[11px] font-bold hover:bg-[#6C5CE0]/25 hover:text-white transition-all inline-flex items-center justify-center gap-1.5"
                   >
                     <ExternalLink className="w-3.5 h-3.5" /> Explorer
                   </a>
@@ -1235,17 +1242,17 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setComingSoon(null)}
-              className="absolute inset-0 bg-[#070A12]/85 backdrop-blur-md"
+              className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.94, y: 14 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 14 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="relative w-full max-w-xs bg-[#0D1120]/95 border border-white/[0.08] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] p-6 text-center"
+              className="relative w-full max-w-xs bg-[#0C121B]/95 border border-white/[0.08] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] p-6 text-center"
             >
-              <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6C5CE0]/25 to-[#8B5CF6]/[0.08] border border-[#6C5CE0]/35 flex items-center justify-center">
-                <Clock3 className="w-6 h-6 text-[#A78BFA]" />
+              <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6C5CE0]/25 to-[#8E82F5]/[0.08] border border-[#8E82F5]/35 flex items-center justify-center">
+                <Clock3 className="w-6 h-6 text-[#D2CDF9]" />
               </div>
               <h3 className="mt-4 text-[15px] font-black text-white">{comingSoon.title}</h3>
               <ComingSoonBadge />
@@ -1256,7 +1263,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               <button
                 type="button"
                 onClick={() => setComingSoon(null)}
-                className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-[#6C5CE0] to-[#7C6CF0] text-white text-[11px] font-bold uppercase tracking-widest hover:brightness-110 transition-all cursor-pointer"
+                className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-[#5749D4] to-[#8E82F5] text-white text-[11px] font-bold uppercase tracking-widest hover:brightness-110 transition-all cursor-pointer"
               >
                 Got it
               </button>
@@ -1274,14 +1281,14 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setActivityAllOpen(false)}
-              className="absolute inset-0 bg-[#070A12]/85 backdrop-blur-md"
+              className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 30 }}
               transition={{ type: "spring", stiffness: 380, damping: 34 }}
-              className="relative w-full sm:max-w-lg bg-[#0D1120]/95 border border-white/[0.08] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden max-h-[85vh] flex flex-col"
+              className="relative w-full sm:max-w-lg bg-[#0C121B]/95 border border-white/[0.08] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden max-h-[85vh] flex flex-col"
             >
               <div className="flex items-center justify-between p-5 border-b border-white/[0.06] shrink-0">
                 <h3 className="text-[15px] font-black text-white">All Activity</h3>
@@ -1318,7 +1325,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                             {counterparty ? `@${counterparty}` : shortAddress(record.transactionHash)}
                           </span>
                         </p>
-                        <p className="text-[9px] font-mono text-[#64748B] mt-0.5">
+                        <p className="text-[9px] font-mono text-[#94A3B8] mt-0.5">
                           {formatActivityDate(record.timestamp)} · Arc · Completed
                           {txUrl && (
                             <>
@@ -1327,7 +1334,7 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
                                 href={txUrl}
                                 target="_blank"
                                 rel="noreferrer noopener"
-                                className="text-[#6C5CE0] hover:text-[#A78BFA]"
+                                className="text-[#8E82F5] hover:text-[#D2CDF9]"
                               >
                                 View tx
                               </a>
@@ -1364,14 +1371,14 @@ export default function CircleWalletDashboard({ onBack }: CircleWalletDashboardP
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setDetailsOpen(false)}
-              className="absolute inset-0 bg-[#070A12]/85 backdrop-blur-md"
+              className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
             />
             <motion.aside
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 360, damping: 34 }}
-              className="absolute right-0 top-0 bottom-0 w-full sm:w-[400px] bg-[#0D1120] border-l border-white/[0.07] shadow-[-20px_0_60px_rgba(0,0,0,0.5)] flex flex-col"
+              className="absolute right-0 top-0 bottom-0 w-full sm:w-[400px] bg-[#0C121B] border-l border-white/[0.07] shadow-[-20px_0_60px_rgba(0,0,0,0.5)] flex flex-col"
             >
               <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
                 <h3 className="text-[15px] font-black text-white">Wallet Details</h3>
@@ -1430,13 +1437,13 @@ const DetailRow: React.FC<{
   const [copied, setCopied] = useState(false);
   return (
     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-      <p className="text-[8.5px] font-mono font-bold uppercase tracking-[0.16em] text-[#64748B]">
+      <p className="text-[8.5px] font-mono font-bold uppercase tracking-[0.16em] text-[#94A3B8]">
         {label}
       </p>
       <div className="flex items-center justify-between gap-2 mt-1">
         <p
           className={`text-[11.5px] break-all ${mono ? "font-mono" : "font-bold"} ${
-            dimmed ? "text-[#64748B] italic" : "text-[#D8CCFF]"
+            dimmed ? "text-[#94A3B8] italic" : "text-[#D2CDF9]"
           }`}
           title={hint || value}
         >

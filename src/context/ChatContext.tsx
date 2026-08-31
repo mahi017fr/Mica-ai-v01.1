@@ -83,7 +83,7 @@ interface ChatContextType {
   // transaction pipeline.
   circleWallet: CircleWalletSession;
   ensureCircleWallet: () => Promise<any>;
-  getCircleSigningContext: () => Promise<{ provider: CircleEip1193Provider; from: string }>;
+  getCircleSigningContext: (expectedAddress?: string) => Promise<{ provider: CircleEip1193Provider; from: string }>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
