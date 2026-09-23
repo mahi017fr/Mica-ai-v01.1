@@ -8,10 +8,17 @@ import CallHistory from "./CallHistory";
 import DealRoom from "./DealRoom";
 import CircleWalletDashboard from "./CircleWalletDashboard";
 import SendUsdcModal from "./SendUsdcModal";
+import BdtSendModal from "./BdtSendModal";
+import { useAppCurrency, CURRENCY_OPTIONS } from "../context/CurrencyContext";
 import BlockUserModal, { BlockModalMode } from "./BlockUserModal";
+import UnfriendConfirmModal from "./UnfriendConfirmModal";
+import AddFriendModal from "./AddFriendModal";
 import { useBlock } from "../context/BlockContext";
 import { getBlockMessage } from "../utils/blocking";
 import { ArcPaymentReceipt } from "../payments";
+import { db } from "../firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { normalizeBdMobile } from "../payments/bdt";
 // @ts-ignore
 import micaLogo from "../assets/images/micalogo.png";
 
@@ -29,7 +36,7 @@ import {
   Sparkles,
   ArrowLeft,
   ChevronRight,
-  Activity,
+  ChevronDown,
   Upload,
   Loader2,
   Lock,
@@ -44,12 +51,12 @@ import {
   Github,
   Twitter,
   Smile,
-  Globe,
   Camera,
   ExternalLink,
   Settings,
   MessageCircle,
   UsersRound,
+  UserMinus,
   Bell,
   BellOff,
   CornerUpLeft,
@@ -60,13 +67,18 @@ import {
   Pause,
   Bot,
   Coins,
+  Banknote,
   Cpu,
   CreditCard,
   Trash2,
   Pencil,
   Phone,
+  Plus,
   Video,
   Handshake,
+  Home,
+  Blocks,
+  Library,
 } from "lucide-react";
 
 interface VoiceMessagePlayerProps {
@@ -227,108 +239,372 @@ const DEFAULT_STICKERS = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* MICA Inbox welcome — clean branded greeting with a typewriter name  */
+/* MICA Inbox welcome — clean AI chat landing (greeting + AI input)    */
 /* ------------------------------------------------------------------ */
 
-const InboxWelcome: React.FC<{ displayName: string }> = ({ displayName }) => {
-  const fullName = (displayName || "").trim() || "there";
-  const [text, setText] = useState("");
-  const [phase, setPhase] = useState<"typing" | "hold" | "deleting">("typing");
+interface InboxAiMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+const InboxWelcome: React.FC<{
+  displayName: string;
+  username?: string;
+  avatarUrl?: string;
+  onOpenSettings?: () => void;
+  onNotify?: (text: string) => void;
+}> = ({ displayName, username, avatarUrl, onOpenSettings, onNotify }) => {
+  const name = (displayName || "").trim() || "there";
+  const [messages, setMessages] = useState<InboxAiMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const hasConversation = messages.length > 0;
+  const userAvatar =
+    avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${username || "user"}`;
+
+  // The single set of AI utility shortcuts — centered directly under the
+  // main MICA chat input. Library/Plugins/Create Image have no backend yet,
+  // so they surface a quiet "coming soon" toast; Settings opens the real page.
+  const utilityActions = [
+    { label: "Library", Icon: Library, run: () => onNotify?.("Library is coming soon") },
+    { label: "Plugins", Icon: Blocks, run: () => onNotify?.("Plugins are coming soon") },
+    { label: "Create Image", Icon: ImageIcon, run: () => onNotify?.("AI image generation is coming soon") },
+    { label: "Settings", Icon: Settings, run: () => onOpenSettings?.() },
+  ];
+
+  // Reset only this MICA AI chat session — returns to the empty greeting
+  // screen. Leave Firebase, wallets, peer conversations, and settings alone.
+  const handleNewSession = () => {
+    setMessages([]);
+    setInput("");
+    setIsThinking(false);
+  };
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (phase === "typing") {
-      if (text.length < fullName.length) {
-        timer = setTimeout(() => setText(fullName.slice(0, text.length + 1)), 88);
-      } else {
-        timer = setTimeout(() => setPhase("hold"), 1900);
-      }
-    } else if (phase === "hold") {
-      timer = setTimeout(() => setPhase("deleting"), 700);
-    } else {
-      if (text.length > 0) {
-        timer = setTimeout(() => setText(fullName.slice(0, text.length - 1)), 42);
-      } else {
-        timer = setTimeout(() => setPhase("typing"), 900);
-      }
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, isThinking]);
+
+  // After the first message the composer remounts at the bottom of the screen —
+  // bring focus back to it so the user can keep typing without clicking.
+  useEffect(() => {
+    if (hasConversation) {
+      const t = setTimeout(() => inputRef.current?.focus(), 350);
+      return () => clearTimeout(t);
     }
-    return () => clearTimeout(timer);
-  }, [phase, text, fullName]);
+  }, [hasConversation]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || isThinking) return;
+
+    const userMsg: InboxAiMessage = { id: `u_${Date.now()}`, role: "user", content: text };
+    const nextMessages = [...messages, userMsg];
+    setMessages(nextMessages);
+    setInput("");
+    setIsThinking(true);
+
+    try {
+      const apiMessages = nextMessages.map((m) => ({ role: m.role, content: m.content }));
+
+      // Reuses the existing Groq proxy already used across the app (AIBuddy, ChatContext,
+      // deal advisory) — no new AI provider or duplicate service introduced.
+      const res = await fetch("/api/bot/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: apiMessages,
+          systemInstruction:
+            "You are Mica, the in-app AI assistant for MICA. Be warm, sharp, and genuinely " +
+            "helpful with whatever the user brings up — questions, work, ideas, deals, or casual chat. " +
+            "Keep replies concise, natural, and easy to read. Default to English, but if the user writes " +
+            "in another language, reply in that language too.",
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+      const data = await res.json();
+      const rawContent: string = data.choices?.[0]?.message?.content?.trim() || "";
+
+      // The serverless path asks the model for a strict {"reply": "...", "emotion": "..."}
+      // JSON object (see api/bot/chat.ts). Parse that out; on any deviation fall back to the
+      // raw text so a parsing hiccup never breaks the chat.
+      let replyText = rawContent || "Sorry, I didn't quite catch that — can you say it again?";
+      try {
+        const parsed = JSON.parse(rawContent);
+        if (parsed && typeof parsed.reply === "string" && parsed.reply.trim()) {
+          replyText = parsed.reply.trim();
+        }
+      } catch {
+        // Not JSON — the raw text is the reply.
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        { id: `a_${Date.now()}`, role: "assistant", content: replyText },
+      ]);
+    } catch (err) {
+      console.error("Mica AI chat failed:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err_${Date.now()}`,
+          role: "assistant",
+          content: "Hmm, I couldn't respond just now. Mind trying again in a moment?",
+        },
+      ]);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const assistantAvatar = (
+    <div className="shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#8B5CF6] flex items-center justify-center ring-1 ring-white/10 shadow-[0_0_14px_rgba(124,58,237,0.4)]">
+      <img src={micaLogo} alt="MICA" className="w-4 h-4 object-contain rounded-full" />
+    </div>
+  );
+
+  const modelSelector = (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setModelMenuOpen((o) => !o)}
+        title="AI model"
+        className="flex items-center gap-1.5 h-9 pl-3 pr-2 rounded-full bg-white/[0.04] border border-white/[0.06] text-xs font-semibold text-[#F8FAFC] hover:bg-white/[0.08] hover:border-[#8B5CF6]/30 transition-all cursor-pointer"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] shadow-[0_0_6px_rgba(139,92,246,0.8)]" />
+        Groq
+        <ChevronDown className="w-3.5 h-3.5 text-[#5B6B8C]" />
+      </button>
+      <AnimatePresence>
+        {modelMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setModelMenuOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.96 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              className="absolute right-0 top-full mt-2 z-40 w-60 rounded-2xl bg-[#12172A]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-1.5"
+            >
+              <p className="px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest text-[#5B6B8C]">
+                Model
+              </p>
+              <div className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-white/[0.04] border border-[#8B5CF6]/40 text-white text-xs font-semibold">
+                <span className="flex items-center gap-2 truncate min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] shrink-0" />
+                  Groq · llama-3.3-70b-versatile
+                </span>
+                <Check className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
+              </div>
+              <p className="px-2.5 pt-2 pb-1 text-[10px] text-[#5B6B8C] leading-relaxed">
+                Low-latency inference · 70B-parameter model
+              </p>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
+  const inputBar = (
+    <form
+      onSubmit={handleSend}
+      className="flex items-center gap-1 w-full rounded-full bg-[#0D111D]/80 backdrop-blur-xl border border-white/10 pl-1.5 pr-2 py-1.5 shadow-[0_18px_50px_-20px_rgba(0,0,0,0.85)] focus-within:border-[#8B5CF6]/50 focus-within:shadow-[0_0_50px_rgba(124,58,237,0.22),0_18px_50px_-20px_rgba(0,0,0,0.85)] transition-all duration-300"
+    >
+      <button
+        type="button"
+        title="Attach files (coming soon)"
+        className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[#5B6B8C] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+      >
+        <Plus className="w-4.5 h-4.5" />
+      </button>
+      <input
+        ref={inputRef}
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Ask MICA anything..."
+        autoComplete="off"
+        className="flex-1 min-w-0 bg-transparent text-sm sm:text-[15px] text-[#F8FAFC] placeholder-[#526080] focus:outline-none py-2"
+      />
+      {modelSelector}
+      <div className="w-px h-5 bg-white/[0.08] mx-0.5 shrink-0" />
+      <button
+        type="button"
+        title="Voice input (coming soon)"
+        className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[#5B6B8C] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+      >
+        <Mic className="w-4.5 h-4.5" />
+      </button>
+    </form>
+  );
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-6 select-none relative overflow-hidden">
-      {/* Soft purple ambient glow blobs */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(70% 55% at 50% 20%, rgba(124,58,237,0.16) 0%, rgba(76,29,149,0.06) 45%, rgba(5,3,12,0) 75%), radial-gradient(50% 45% at 88% 80%, rgba(139,92,246,0.10) 0%, rgba(5,3,12,0) 70%), radial-gradient(140% 130% at 50% 50%, rgba(5,3,12,0) 35%, rgba(2,1,6,0.9) 100%)",
-        }}
-      />
-      <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[34rem] h-64 bg-[#6D28D9]/[0.18] blur-[120px] rounded-full" />
-      <div className="pointer-events-none absolute bottom-0 right-0 w-72 h-72 bg-[#8B5CF6]/[0.12] blur-[130px] rounded-full" />
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#0D111D] relative">
+      {/* Subtle navy + faint ambient purple glow drifting behind the centered
+          welcome content — very calm, no strong purple wash. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="mica-bg-drift absolute left-1/2 top-1/2 w-[38rem] h-[38rem] rounded-full bg-[#1E3A8A]/[0.09] blur-[150px]" />
+        <div className="mica-bg-drift-2 absolute left-1/2 top-1/2 w-[24rem] h-[24rem] rounded-full bg-[#7C3AED]/[0.07] blur-[130px]" />
+      </div>
 
-      {/* Floating particles */}
-      {[
-        { top: "18%", left: "14%", d: 0 },
-        { top: "30%", left: "86%", d: 1.2 },
-        { top: "70%", left: "12%", d: 0.6 },
-        { top: "80%", left: "88%", d: 1.8 },
-        { top: "50%", left: "50%", d: 0.9 },
-        { top: "12%", left: "60%", d: 1.4 },
-        { top: "62%", left: "28%", d: 2.2 },
-      ].map((p, i) => (
-        <span
-          key={i}
-          className="pointer-events-none absolute w-1.5 h-1.5 rounded-full bg-[#A78BFA]/70 blur-[1px] animate-pulse"
-          style={{ top: p.top, left: p.left, animationDelay: `${p.d}s` }}
-        />
-      ))}
-
-      {/* Centered glass welcome card */}
-      <motion.div
-        initial={{ opacity: 0, y: 18, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-xl rounded-3xl border border-[#8B5CF6]/25 bg-[#0B0716]/70 backdrop-blur-2xl px-6 sm:px-10 py-10 sm:py-12 text-center shadow-[0_0_80px_rgba(124,58,237,0.18),0_30px_80px_-30px_rgba(0,0,0,0.9)]"
+      {/* New Session — resets the current MICA AI chat session back to the
+          empty greeting state. Never touches user data, wallets, or peer chats. */}
+      <button
+        type="button"
+        onClick={handleNewSession}
+        title="Start a new MICA AI session"
+        className="mica-new-session absolute top-4 right-4 sm:top-7 sm:right-7 z-30 flex items-center gap-1.5 rounded-full bg-[#12172A]/70 border border-[#8B5CF6]/25 backdrop-blur-md pl-2.5 pr-3.5 py-1.5 text-xs font-semibold text-[#E8EAF2] min-h-0 cursor-pointer"
       >
-        {/* top sheen */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#A78BFA]/60 to-transparent"
-        />
-        <div
-          className="pointer-events-none absolute inset-0 rounded-3xl"
-          style={{
-            background:
-              "radial-gradient(90% 70% at 50% 0%, rgba(124,58,237,0.12) 0%, rgba(7,4,15,0) 60%)",
-          }}
-        />
+        <Plus className="w-3.5 h-3.5 text-[#A78BFA]" />
+        New Session
+      </button>
 
-        <div className="relative">
-          {/* MICA logo */}
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#8B5CF6] shadow-[0_0_30px_rgba(124,58,237,0.45)]">
-            <img src={micaLogo} alt="MICA" className="w-9 h-9 object-contain rounded-lg" />
-          </div>
+      <div className="flex-1 flex flex-col min-h-0 relative z-10">
+        <AnimatePresence mode="wait">
+          {hasConversation ? (
+            <motion.div
+              key="inbox-ai-chat"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="flex-1 flex flex-col min-h-0"
+            >
+              <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-8 lg:px-12 pt-14 sm:pt-16 pb-6 sm:pb-8"
+              >
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {messages.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`flex items-start gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}
+                    >
+                      {m.role === "assistant" ? (
+                        assistantAvatar
+                      ) : (
+                        <img
+                          src={userAvatar}
+                          alt="You"
+                          referrerPolicy="no-referrer"
+                          className="shrink-0 w-7 h-7 rounded-full object-cover ring-1 ring-white/10 bg-[#0B0F17]"
+                        />
+                      )}
+                      <div className={`min-w-0 max-w-[85%] sm:max-w-[75%] ${m.role === "user" ? "flex justify-end" : ""}`}>
+                        <p
+                          className={`text-sm leading-relaxed whitespace-pre-wrap break-words px-4 py-3 ${
+                            m.role === "user"
+                              ? "bg-gradient-to-tr from-[#7C3AED] to-[#6C5CE0] text-white rounded-[22px] rounded-tr-sm"
+                              : "bg-[#161A2B]/90 border border-white/[0.06] text-[#E8EAF2] rounded-[22px] rounded-tl-sm"
+                          }`}
+                        >
+                          {m.content}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {isThinking && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-start gap-3"
+                    >
+                      {assistantAvatar}
+                      <div className="bg-[#161A2B]/90 border border-white/[0.06] rounded-[22px] rounded-tl-sm px-4 py-3.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce" />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="inbox-ai-empty"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="flex-1 relative min-h-0"
+            >
+              {/* Centered greeting + subtitle + composer + AI utility shortcuts */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-8 text-center min-h-0">
+                <motion.h1
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+                  className="text-[1.7rem] sm:text-4xl lg:text-[2.75rem] font-semibold tracking-tight text-[#E8EAF2] leading-[1.15]"
+                >
+                  Hi&nbsp;
+                  <span className="mica-name-shimmer">{name}</span>
+                  , let's get into it
+                </motion.h1>
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
+                  className="mt-3 sm:mt-4 max-w-md sm:max-w-lg text-sm sm:text-[15px] text-[#7E8AA6] leading-relaxed"
+                >
+                  Your AI copilot for Web3, chats, deals and everything you're building.
+                </motion.p>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  className="mt-7 sm:mt-8 w-full max-w-3xl"
+                >
+                  {inputBar}
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.34, ease: [0.22, 1, 0.36, 1] }}
+                  className="mt-4 sm:mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5"
+                >
+                  {utilityActions.map(({ label, Icon, run }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={run}
+                      className="min-h-0 inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-[#F8FAFC] hover:text-[#A78BFA] transition-colors duration-200 cursor-pointer"
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-          <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-            <span className="bg-gradient-to-r from-[#A78BFA] via-[#D8CCFF] to-[#8B5CF6] bg-clip-text text-transparent">
-              Welcome to MICA,{" "}
-            </span>
-            <span className="text-white">&ldquo;</span>
-            <span className="bg-gradient-to-r from-[#C084FC] via-[#E9D5FF] to-[#A78BFA] bg-clip-text text-transparent whitespace-nowrap">
-              {text}
-            </span>
-            <span
-              className="inline-block w-[2px] h-[1em] align-middle ml-0.5 bg-[#C084FC] animate-pulse"
-            />
-            <span className="text-white">&ldquo;</span>
-          </h1>
-
-          <p className="mt-4 text-xs sm:text-sm text-[#8A96B8] font-medium tracking-wide">
-            Your conversations. Your network. Your space.
-          </p>
-        </div>
-      </motion.div>
+      {/* Bottom composer once a conversation has started */}
+      <AnimatePresence>
+        {hasConversation && (
+          <motion.div
+            key="inbox-ai-composer"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="relative z-20 shrink-0 w-full px-4 sm:px-8 pb-5 sm:pb-7 pt-3"
+          >
+            <div className="mx-auto w-full max-w-3xl">{inputBar}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -357,6 +633,7 @@ export default function ChatDashboard() {
     completeOnboarding,
     updatePrimaryWallet,
     logPaymentMessage,
+    logBdtTransfer,
     appNotifications,
     chatSessions,
     dismissNotification,
@@ -364,7 +641,10 @@ export default function ChatDashboard() {
     setTypingStatus,
     triggerBotResponse,
     circleWallet,
+    unfriendUser,
   } = useChat();
+
+  const { isBdtMode, currency, setCurrency, symbol, formatMoney } = useAppCurrency();
 
   const { startCall } = useCall();
 
@@ -471,6 +751,7 @@ export default function ChatDashboard() {
   // Profile Edit Modal States
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
+  const [showAddFriend, setShowAddFriend] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [avatarSeed, setAvatarSeed] = useState("");
   const [avatarStyle, setAvatarStyle] = useState("bottts");
@@ -483,6 +764,10 @@ export default function ChatDashboard() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [changingWallet, setChangingWallet] = useState(false);
+  // BDT private payment profile (payout number) — stored in user_pay_profiles.
+  // The number is private: never shown to other users anywhere in the app.
+  const [payProfileMobile, setPayProfileMobile] = useState("");
+  const [payProfileLoading, setPayProfileLoading] = useState(false);
 
   // New Preferences & Payment States
   const [notificationSounds, setNotificationSounds] = useState(() => {
@@ -569,6 +854,8 @@ export default function ChatDashboard() {
 
   // Arc USDC "Send USDC" payment popup (Chat Profile Details -> Pay)
   const [showUsdcPaymentModal, setShowUsdcPaymentModal] = useState(false);
+  // Native BDT send popup (Chat Profile Details -> Pay in BDT mode)
+  const [showBdtSendModal, setShowBdtSendModal] = useState(false);
 
   // Inbox-style UI state (contact search, notes, block/transfer session controls)
   const [inboxSearchQuery, setInboxSearchQuery] = useState("");
@@ -587,6 +874,10 @@ export default function ChatDashboard() {
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [blockConfirmMode, setConfirmBlockMode] = useState<BlockModalMode>("block");
   const [blockConfirmTarget, setBlockConfirmTarget] = useState<{ uid: string; displayName: string } | null>(null);
+
+  // Unfriend confirmation modal state (removes the friendship only, never chat history)
+  const [unfriendConfirmOpen, setUnfriendConfirmOpen] = useState(false);
+  const [unfriendConfirmTarget, setUnfriendConfirmTarget] = useState<{ uid: string; displayName: string } | null>(null);
   const [mutedChatIds, setMutedChatIds] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("mica_muted_chat_ids");
@@ -665,6 +956,34 @@ export default function ChatDashboard() {
     setBlockConfirmTarget(null);
   };
 
+  // Unfriend flow: prompt, then remove the friendship only. The conversation,
+  // messages, media and chat history are deliberately left untouched so a
+  // future re-friend reuses the existing thread.
+  const handleToggleUnfriend = (uid: string, displayName: string) => {
+    setUnfriendConfirmTarget({ uid, displayName });
+    setUnfriendConfirmOpen(true);
+  };
+
+  const handleConfirmUnfriend = async () => {
+    if (!unfriendConfirmTarget) return;
+    const { uid, displayName } = unfriendConfirmTarget;
+    try {
+      await unfriendUser(uid);
+      showToast(`${displayName} has been removed from your friends`, "success");
+      // The friendship listener refreshes the contacts list automatically. If
+      // we just unfriended the user shown in the profile panel, close it —
+      // their chat thread stays open and intact.
+      if (activeChatFriend?.uid === uid) {
+        setShowDetailsSidebar(false);
+      }
+    } catch (err) {
+      showToast("Could not unfriend this user. Please try again.", "error");
+    } finally {
+      setUnfriendConfirmOpen(false);
+      setUnfriendConfirmTarget(null);
+    }
+  };
+
   // Guarded wrappers that refuse communication with a blocked user (either
   // direction) while keeping the underlying features (calls, payments) fully
   // intact otherwise.
@@ -690,7 +1009,39 @@ export default function ChatDashboard() {
       );
       return;
     }
+    if (isBdtMode) {
+      setShowBdtSendModal(true);
+      return;
+    }
     setShowUsdcPaymentModal(true);
+  };
+
+  // Opens the composer/mobile-toolbar payment action: native BDT transfer in
+  // BDT mode, otherwise the simulated SOL "Web3 Secure Payment" popup.
+  const handleOpenSendMoney = (mobile = false) => {
+    setShowDeployModal(false);
+    if (mobile) setShowMobileToolbar(false);
+    if (isBdtMode) {
+      setShowBdtSendModal(true);
+      return;
+    }
+    setShowPaymentModal(true);
+  };
+
+  // After a successful BDT transfer: log it as a system pill in the chat and
+  // confirm with a toast. Never touches crypto payment records.
+  const handleBdtSendSuccess = (amount: number) => {
+    if (!activeChatId || !currentUser || !userProfile || !activeChatFriend) return;
+    try {
+      void logBdtTransfer({
+        chatId: activeChatId,
+        amount,
+        recipientUsername: activeChatFriend.username,
+      });
+    } catch (err) {
+      console.error("Failed to persist BDT transfer message:", err);
+    }
+    showToast(`${formatMoney(amount)} sent to @${activeChatFriend.username}`, "success");
   };
 
   const handleTransferChat = (targetFriendId: string, targetName: string) => {
@@ -1028,9 +1379,11 @@ export default function ChatDashboard() {
   const [viewChatOnMobile, setViewChatOnMobile] = useState(false);
 
   // Dynamic Tab state representing bottom navigation (mimics uploaded interface)
-  const [activeTab, setActiveTab] = useState<"chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom" | "wallet">("chats");
+  const [activeTab, setActiveTab] = useState<"home" | "chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom" | "wallet">("home");
 
-  const handleSelectTab = (tab: "chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom" | "wallet") => {
+  const handleSelectTab = (tab: "home" | "chats" | "calls" | "friends" | "notifications" | "settings" | "analytics" | "dealroom" | "wallet") => {
+    // Access protection: the crypto wallet view does not exist in BDT mode.
+    if (tab === "wallet" && isBdtMode) tab = "home";
     setActiveTab(tab);
     setViewChatOnMobile(false);
     
@@ -1046,10 +1399,13 @@ export default function ChatDashboard() {
           setAvatarType("custom");
         } else {
           setCustomAvatarUrl("");
-          setAvatarType("bottts");
+          setAvatarType("dicebear");
         }
       }
       setShowSettingsPage(true);
+      setActiveChatId(null);
+    } else if (tab === "home") {
+      setShowSettingsPage(false);
       setActiveChatId(null);
     } else {
       setShowSettingsPage(false);
@@ -1062,6 +1418,16 @@ export default function ChatDashboard() {
     window.addEventListener("navigate-dealroom", handler);
     return () => window.removeEventListener("navigate-dealroom", handler);
   }, []);
+
+  // BDT mode: leave the crypto wallet view (if active) and close any open
+  // crypto payment popups. Purely a view/access guard — no data is touched.
+  useEffect(() => {
+    if (!isBdtMode) return;
+    if (activeTab === "wallet") setActiveTab("home");
+    if (showUsdcPaymentModal) setShowUsdcPaymentModal(false);
+    if (showPaymentModal) setShowPaymentModal(false);
+    if (showDeployModal) setShowDeployModal(false);
+  }, [isBdtMode, activeTab, showUsdcPaymentModal, showPaymentModal, showDeployModal]);
 
   // Dynamic Non-blocking top corner Toast indicators
   const [toastMsg, setToastMsg] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
@@ -1332,6 +1698,69 @@ export default function ChatDashboard() {
       showToast("Failed to change wallet: " + (err.message || err), "error");
     } finally {
       setChangingWallet(false);
+    }
+  };
+
+  // Load my private BDT payout profile (mobile number) once per session.
+  useEffect(() => {
+    let cancelled = false;
+    const loadPayProfile = async () => {
+      if (!currentUser?.uid) return;
+      try {
+        const snap = await getDoc(doc(db, "user_pay_profiles", currentUser.uid));
+        if (!cancelled && snap.exists()) {
+          const mobile = (snap.data()?.mobile as string) ?? "";
+          setPayProfileMobile(mobile);
+        }
+      } catch {
+        // Rules/offline — leave the field untouched; never break settings.
+      }
+    };
+    void loadPayProfile();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.uid]);
+
+  // Save my private BDT payout number. Validated + normalized client-side with
+  // the same contract the backend uses; a blank value removes it.
+  const handleSavePayProfile = async () => {
+    if (!currentUser?.uid) return;
+    setPayProfileLoading(true);
+    try {
+      const raw = payProfileMobile.trim();
+      if (!raw) {
+        await setDoc(doc(db, "user_pay_profiles", currentUser.uid), {
+          uid: currentUser.uid,
+          mobile: "",
+          method: "BKASH",
+          verified: false,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+        setPayProfileMobile("");
+        showToast("Payment number removed.", "info");
+        return;
+      }
+      const normalized = normalizeBdMobile(raw);
+      if (!normalized) {
+        showToast("Enter a valid Bangladesh mobile number (e.g. 01XXXXXXXXX).", "error");
+        return;
+      }
+      await setDoc(doc(db, "user_pay_profiles", currentUser.uid), {
+        uid: currentUser.uid,
+        mobile: normalized,
+        method: "BKASH",
+        verified: false,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      setPayProfileMobile(normalized);
+      showToast("Payment number saved securely.", "success");
+    } catch (err: any) {
+      console.error("Save pay profile failed:", err);
+      showToast("Failed to save payment number: " + (err.message || err), "error");
+    } finally {
+      setPayProfileLoading(false);
     }
   };
 
@@ -1731,14 +2160,15 @@ export default function ChatDashboard() {
 
           <div className="flex flex-col items-center gap-2 w-full px-2">
             {([
-              { key: "chats", label: "Inbox", icon: MessageSquare },
+              { key: "home", label: "Home", icon: Home },
               { key: "calls", label: "Calls", icon: Phone },
-              { key: "friends", label: "Add Friend", icon: UsersRound },
               { key: "notifications", label: "NOTIFICATION", icon: Bell },
               { key: "dealroom", label: "Deal Room", icon: Handshake },
               { key: "wallet", label: "Wallet", icon: Wallet },
               { key: "settings", label: "Settings", icon: Settings },
-            ] as { key: "chats" | "calls" | "friends" | "notifications" | "dealroom" | "wallet" | "settings"; label: string; icon: any }[]).map(
+            ] as { key: "home" | "chats" | "calls" | "friends" | "notifications" | "dealroom" | "wallet" | "settings"; label: string; icon: any }[]).filter(
+              (item) => !(isBdtMode && item.key === "wallet")
+            ).map(
               (item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.key;
@@ -1828,7 +2258,7 @@ export default function ChatDashboard() {
               </div>
             </div>
 
-            {userProfile.walletAddress ? (
+            {userProfile.walletAddress && !isBdtMode ? (
               <span 
                 onClick={() => {
                   navigator.clipboard.writeText(userProfile.walletAddress);
@@ -1844,35 +2274,26 @@ export default function ChatDashboard() {
               </span>
             ) : (
               <span className="text-[10px] font-mono text-sky-300/40 bg-[#6C5CE0]/5 px-2.5 py-1 rounded border border-white/5">
-                No Wallet Linked
+                {isBdtMode ? `${symbol} Mode` : "No Wallet Linked"}
               </span>
             )}
           </div>
         )}
 
         {/* INBOX HEADER (matches reference image title + search + compose) */}
-        {activeTab === "chats" && (
+        {(activeTab === "chats" || activeTab === "home") && (
           <div className="px-4 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-black tracking-widest text-[#F8FAFC] uppercase">Inbox</h2>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleSelectTab("analytics")}
-                  title="View inbox analytics"
-                  className="p-1.5 rounded-lg text-[#6C5CE0] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
-                >
-                  <Activity className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectTab("friends")}
-                  title="Start a new conversation"
-                  className="p-1.5 rounded-lg text-[#6C5CE0] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddFriend(true)}
+                title="Add a new friend"
+                className="min-h-0 inline-flex items-center gap-1.5 text-[#F8FAFC] text-[10px] font-semibold hover:text-[#A78BFA] transition-colors duration-200 cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Add Friend
+              </button>
             </div>
             <div className="relative mb-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6C5CE0]" />
@@ -1908,7 +2329,7 @@ export default function ChatDashboard() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
           <AnimatePresence mode="wait">
           {/* CASE 1: Chats Tab (View Conversation List) */}
-          {activeTab === "chats" && (
+          {(activeTab === "chats" || activeTab === "home") && (
             <motion.div
               key="sidebar_chats_pane"
               initial={{ opacity: 0, y: 8 }}
@@ -2459,7 +2880,27 @@ export default function ChatDashboard() {
 
         {/* Persistent High-Fidelity Bottom Navigation Bar (matches uploaded image layout) */}
         <div className="md:hidden bg-[#0D111D] border-t border-white/5 px-4 sm:px-6 py-2 flex items-center justify-between shrink-0 h-16 shadow-[0_-8px_35px_rgba(0,0,0,0.6)] z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]" id="bottom_navbar_tabs">
-          <div className="grid grid-cols-7 w-full h-full my-auto items-center">
+          <div className="grid grid-cols-8 w-full h-full my-auto items-center">
+            {/* Home Tab Button */}
+            <button
+              onClick={() => handleSelectTab("home")}
+              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
+              title="Mica AI Home"
+            >
+              <div className="relative p-1.5 rounded-xl transition-all duration-200">
+                <Home
+                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                    activeTab === "home"
+                      ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                  }`}
+                />
+                {activeTab === "home" && (
+                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                )}
+              </div>
+            </button>
+
             {/* Chats Tab Button */}
             <button
               onClick={() => handleSelectTab("chats")}
@@ -2553,6 +2994,7 @@ export default function ChatDashboard() {
             </button>
 
             {/* Wallet Tab Button */}
+            {!isBdtMode && (
             <button
               onClick={() => handleSelectTab("wallet")}
               className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
@@ -2571,6 +3013,7 @@ export default function ChatDashboard() {
                 )}
               </div>
             </button>
+            )}
 
             {/* Settings/Menu Tab Button */}
             <button
@@ -2674,6 +3117,64 @@ export default function ChatDashboard() {
                 <div className="max-w-7xl mx-auto">
                   <form onSubmit={handleSaveProfile} className="space-y-5">
                     
+                    {/* Currency & Payment Environment — global MICA mode selector */}
+                    <div className="bg-[#12172A]/60 border border-white/10 p-4.5 sm:p-5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
+                      <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xs font-black text-sky-100 hover:text-white uppercase tracking-widest font-mono">
+                            Currency & Payment Environment
+                          </h3>
+                          <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                            Choose how MICA handles payments and money across the app.
+                          </p>
+                        </div>
+                        <Coins className="w-4 h-4 text-sky-300 shrink-0" />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {CURRENCY_OPTIONS.map((opt) => {
+                          const active = currency === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setCurrency(opt.value)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-bold font-mono transition-all cursor-pointer ${
+                                active
+                                  ? "bg-[#6C5CE0]/15 border-[#6C5CE0]/60 text-white shadow-[0_0_14px_rgba(108,92,224,0.18)]"
+                                  : "bg-[#0B0F17]/50 border-white/[0.06] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/40"
+                              }`}
+                            >
+                              <span className={active ? "text-emerald-400" : "text-[#6C5CE0]"}>
+                                {opt.value === "BDT" ? "৳" : opt.value}
+                              </span>
+                              <span className="uppercase tracking-widest">{opt.value}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex items-start gap-2.5 bg-[#0B0F17]/70 border border-white/5 rounded-xl px-3.5 py-2.5">
+                        <ShieldCheck className="w-4 h-4 text-[#6C5CE0] mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-[#94A3B8] leading-relaxed">
+                          {isBdtMode ? (
+                            <>
+                              <span className="text-white font-bold">Using MICA in BDT mode.</span>{" "}
+                              The Wallet, Arc/Circle USDC controls and on-chain payment terms are
+                              hidden — payments, send checks and Deal Room funding use{" "}
+                              <span className="text-white font-bold">Bangladeshi Taka (৳)</span>.
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-white font-bold">Using MICA in Web3 mode.</span>{" "}
+                              Payments run through the {currency} token layer on Arc Network with
+                              your verified wallet.
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    
                     {/* Bento Layout Grid: 3-columns for no scrolling on desktop */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
                       
@@ -2737,7 +3238,7 @@ export default function ChatDashboard() {
                                   Primary Wallet
                                 </span>
                                 <span className="truncate block mt-0.5 text-[#94A3B8] font-mono text-[8px]">
-                                  {userProfile?.walletAddress ? `${userProfile.walletAddress.substring(0, 6)}...${userProfile.walletAddress.substring(userProfile.walletAddress.length - 4)}` : "None configured"}
+                                  {isBdtMode ? "—" : userProfile?.walletAddress ? `${userProfile.walletAddress.substring(0, 6)}...${userProfile.walletAddress.substring(userProfile.walletAddress.length - 4)}` : "None configured"}
                                 </span>
                               </div>
                               <div className="p-2 bg-[#0B0F17] rounded-lg border border-white/[0.06]">
@@ -3087,6 +3588,7 @@ export default function ChatDashboard() {
                             </div>
                           </div>
 
+                          {!isBdtMode && (
                           <div>
                             <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
                               Primary Wallet (Privy Verified)
@@ -3133,9 +3635,11 @@ export default function ChatDashboard() {
                               The primary wallet is set by Privy after signing a connection — addresses are never entered manually.
                             </p>
                           </div>
+                          )}
                         </div>
 
-                        {/* Form Bento Section 4: Web3 Wallet & Payment Management */}
+                        {/* Form Bento Section 4: Web3 Wallet & Payment Management (hidden in BDT mode) */}
+                        {!isBdtMode ? (
                         <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
                           <div className="border-b border-white/5 pb-2 flex items-center justify-between">
                             <div>
@@ -3221,6 +3725,90 @@ export default function ChatDashboard() {
                             </div>
                           </div>
                         </div>
+                        ) : (
+                        <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem]">
+                          <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                            <div>
+                              <h3 className="text-xs font-black text-sky-100 uppercase tracking-widest font-mono">
+                                Payment Settings
+                              </h3>
+                              <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                                BDT payment methods & private payout number.
+                              </p>
+                            </div>
+                            <Banknote className="w-3.5 h-3.5 text-sky-300" />
+                          </div>
+
+                          {/* Payment methods — bKash active; others coming soon */}
+                          <div>
+                            <label className="block text-[#94A3B8] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
+                              Payment Method
+                            </label>
+                            <div className="space-y-1.5">
+                              <button
+                                type="button"
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-left cursor-default"
+                              >
+                                <span className="text-[10px] font-bold text-emerald-300">bKash</span>
+                                <span className="text-[8px] font-mono text-emerald-400/90 uppercase">Active</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#0B0F17]/50 border border-white/5 text-left opacity-60 cursor-not-allowed"
+                              >
+                                <span className="text-[10px] font-bold text-[#94A3B8]">Nagad</span>
+                                <span className="text-[8px] font-mono text-[#6C5CE0] uppercase">Coming Soon</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#0B0F17]/50 border border-white/5 text-left opacity-60 cursor-not-allowed"
+                              >
+                                <span className="text-[10px] font-bold text-[#94A3B8]">Rocket</span>
+                                <span className="text-[8px] font-mono text-[#6C5CE0] uppercase">Coming Soon</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Private payout number — validated + normalized */}
+                          <div>
+                            <label className="block text-[#94A3B8] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
+                              Mobile Number (for receiving payments)
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-[#0B0F17]/70 border border-white/[0.06] focus-within:border-[#6C5CE0]/50 rounded-xl px-3 py-2.5 flex items-center">
+                                <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0 mr-2" />
+                                <input
+                                  type="tel"
+                                  value={payProfileMobile}
+                                  onChange={(e) => setPayProfileMobile(e.target.value.replace(/[^0-9+]/g, ""))}
+                                  placeholder="01XXXXXXXXX"
+                                  className="flex-1 bg-transparent text-xs text-white placeholder:text-slate-600 focus:outline-none font-mono"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleSavePayProfile}
+                                disabled={payProfileLoading}
+                                className="bg-[#12172A]/80 hover:bg-[#6C5CE0]/10 border border-white/10 hover:border-[#6C5CE0]/40 text-sky-100 py-2.5 px-3 rounded-xl text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {payProfileLoading ? (
+                                  <Loader2 className="w-3 h-3 animate-spin text-sky-300" />
+                                ) : (
+                                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                                )}
+                                SAVE
+                              </button>
+                            </div>
+                            <p className="flex items-start gap-1.5 text-[8px] text-[#6C5CE0]/80 mt-1.5 leading-relaxed pl-0.5">
+                              <Lock className="w-3 h-3 shrink-0 mt-px" />
+                              Stored privately and never shown to other users. Set the number to
+                              allow others to send you money via bKash.
+                            </p>
+                          </div>
+                        </div>
+                        )}
                       </div>
 
                     </div>
@@ -3268,7 +3856,7 @@ export default function ChatDashboard() {
                 </div>
               </div>
             </motion.div>
-          ) : activeTab === "wallet" ? (
+          ) : !isBdtMode && activeTab === "wallet" ? (
             <CircleWalletDashboard onBack={handleBackToChats} />
           ) : activeTab === "dealroom" ? (
             <DealRoom onBack={handleBackToChats} />
@@ -3342,7 +3930,7 @@ export default function ChatDashboard() {
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    {activeChatFriend.walletAddress && (
+                    {activeChatFriend.walletAddress && !isBdtMode && (
                       <span 
                         onClick={() => {
                           navigator.clipboard.writeText(activeChatFriend.walletAddress);
@@ -4203,9 +4791,7 @@ export default function ChatDashboard() {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        setShowPaymentModal(true);
-                                        setShowDeployModal(false);
-                                        setShowMobileToolbar(false);
+                                        handleOpenSendMoney(true);
                                       }}
                                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                                     >
@@ -4291,8 +4877,7 @@ export default function ChatDashboard() {
                           <button
                             type="button"
                             onClick={() => {
-                              setShowPaymentModal(true);
-                              setShowDeployModal(false);
+                              handleOpenSendMoney();
                             }}
                             title="Send Web3 Payment Token"
                             className="relative w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-b from-emerald-500/25 to-emerald-500/[0.04] border border-emerald-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] text-emerald-300 hover:text-emerald-200 hover:border-emerald-400/70 hover:from-emerald-500/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(34, 197, 94,0.45)] hover:scale-[1.08] active:scale-95 transition-all duration-200 cursor-pointer"
@@ -4489,8 +5074,8 @@ export default function ChatDashboard() {
                             </span>
                           </div>
 
-                          {/* Pay — opens the Arc USDC payment popup */}
-                          <div className="relative group">
+                          {/* Pay — opens the native BDT send popup in BDT mode, otherwise Arc USDC */}
+                            <div className="relative group">
                             <button
                               type="button"
                               onClick={() => handleOpenUsdcPayment()}
@@ -4504,7 +5089,7 @@ export default function ChatDashboard() {
                               <Coins className="w-[18px] h-[18px]" strokeWidth={2} />
                             </button>
                             <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
-                              Send USDC
+                              {isBdtMode ? "Send Money" : "Send USDC"}
                             </span>
                           </div>
 
@@ -4527,6 +5112,21 @@ export default function ChatDashboard() {
                             </button>
                             <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
                               {blockedUids.includes(activeChatFriend.uid) ? "Unblock User" : "Block User"}
+                            </span>
+                          </div>
+
+                          {/* Unfriend — removes the friendship only; chat history stays intact */}
+                          <div className="relative group">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUnfriend(activeChatFriend.uid, activeChatFriend.displayName)}
+                              aria-label="Unfriend"
+                              className="w-11 h-11 rounded-xl flex items-center justify-center border border-red-500/25 bg-red-500/[0.06] text-red-400/90 hover:text-red-300 hover:bg-red-500/15 hover:border-red-500/45 hover:scale-[1.05] active:scale-95 transition-all duration-200 cursor-pointer"
+                            >
+                              <UserMinus className="w-[18px] h-[18px]" strokeWidth={2} />
+                            </button>
+                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
+                              Unfriend
                             </span>
                           </div>
                         </div>
@@ -4592,7 +5192,7 @@ export default function ChatDashboard() {
                       </div>
 
                       {/* Cryptocurrency address card */}
-                      {activeChatFriend.walletAddress && (
+                      {activeChatFriend.walletAddress && !isBdtMode && (
                         <div className="space-y-1.5">
                           <span className="text-[9px] text-[#6C5CE0] font-bold uppercase tracking-wider block">
                             Cryptocurrency Wallet
@@ -4627,7 +5227,13 @@ export default function ChatDashboard() {
               </AnimatePresence>
             </div>
           ) : (
-            <InboxWelcome displayName={userProfile?.displayName || ""} />
+            <InboxWelcome
+              displayName={userProfile?.displayName || ""}
+              username={userProfile?.username || ""}
+              avatarUrl={userProfile?.avatarUrl || ""}
+              onOpenSettings={() => handleSelectTab("settings")}
+              onNotify={(text) => showToast(text, "info")}
+            />
           )}
         </AnimatePresence>
       </div>
@@ -4694,9 +5300,9 @@ export default function ChatDashboard() {
         )}
       </AnimatePresence>
 
-      {/* AI Agent Deployment Modal overlay */}
+      {/* AI Agent Deployment Modal overlay (crypto-only — hidden in BDT mode) */}
       <AnimatePresence>
-        {showDeployModal && (
+        {!isBdtMode && showDeployModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
@@ -4851,19 +5457,31 @@ export default function ChatDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Arc USDC Send USDC payment popup (Chat Profile Details -> Pay) */}
-      <SendUsdcModal
-        open={showUsdcPaymentModal}
+      {/* Arc USDC Send USDC payment popup (Chat Profile Details -> Pay) — crypto mode only */}
+      {!isBdtMode && (
+        <SendUsdcModal
+          open={showUsdcPaymentModal}
+          senderProfile={userProfile}
+          senderWallet={
+            circleWallet.status === "linked"
+              ? circleWallet.address
+              : userProfile?.circleWalletAddress ?? null
+          }
+          recipient={activeChatFriend}
+          chatId={activeChatId}
+          onClose={() => setShowUsdcPaymentModal(false)}
+          onPaymentSuccess={handleUsdcPaymentSuccess}
+        />
+      )}
+
+      {/* Native BDT send popup (Chat Profile Details -> Pay in BDT mode) */}
+      <BdtSendModal
+        open={showBdtSendModal}
         senderProfile={userProfile}
-        senderWallet={
-          circleWallet.status === "linked"
-            ? circleWallet.address
-            : userProfile?.circleWalletAddress ?? null
-        }
         recipient={activeChatFriend}
         chatId={activeChatId}
-        onClose={() => setShowUsdcPaymentModal(false)}
-        onPaymentSuccess={handleUsdcPaymentSuccess}
+        onClose={() => setShowBdtSendModal(false)}
+        onSendSuccess={handleBdtSendSuccess}
       />
 
       {/* Block / Unblock confirmation modal (Chat Profile Details -> Block) */}
@@ -4878,9 +5496,26 @@ export default function ChatDashboard() {
         onConfirm={handleConfirmBlockAction}
       />
 
-      {/* Web3 Secure Payment Modal overlay */}
+      {/* Unfriend confirmation modal (Chat Profile Details -> Unfriend) */}
+      <UnfriendConfirmModal
+        open={unfriendConfirmOpen}
+        displayName={unfriendConfirmTarget?.displayName || ""}
+        onCancel={() => {
+          setUnfriendConfirmOpen(false);
+          setUnfriendConfirmTarget(null);
+        }}
+        onConfirm={handleConfirmUnfriend}
+      />
+
+      {/* Add Friend modal (Inbox header -> Add Friend) */}
+      <AddFriendModal
+        open={showAddFriend}
+        onClose={() => setShowAddFriend(false)}
+      />
+
+      {/* Web3 Secure Payment Modal overlay (crypto-only — hidden in BDT mode) */}
       <AnimatePresence>
-        {showPaymentModal && (
+        {!isBdtMode && showPaymentModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}

@@ -2,6 +2,7 @@ import React from "react";
 import { FileText, Lock, Check, PenLine } from "lucide-react";
 import { DealDoc, DealRole, fmtUsdc } from "../../deals/types";
 import { roleConsented } from "../../deals/dealStatusMachine";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import { ActionButton, MicaBubble, Section, RoleTag, WalletChip } from "./dealUi";
 
 export function DealAgreement({
@@ -15,6 +16,7 @@ export function DealAgreement({
   onGenerate: () => void;
   myRole: DealRole | null;
 }) {
+  const { isBdtMode, formatMoney } = useAppCurrency();
   const agreement = deal?.agreement;
   const terms = deal?.terms;
 
@@ -53,7 +55,7 @@ export function DealAgreement({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
           <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Price</p>
-          <p className="text-[12px] font-mono font-bold text-white mt-0.5">{fmtUsdc(terms.amount)} USDC</p>
+          <p className="text-[12px] font-mono font-bold text-white mt-0.5">{isBdtMode ? formatMoney(terms.amount) : `${fmtUsdc(terms.amount)} USDC`}</p>
         </div>
         <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
           <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Collateral</p>
@@ -61,7 +63,7 @@ export function DealAgreement({
         </div>
         <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
           <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Network</p>
-          <p className="text-[12px] font-mono font-bold text-white mt-0.5">Arc · USDC</p>
+          <p className="text-[12px] font-mono font-bold text-white mt-0.5">{isBdtMode ? "BDT · Taka" : "Arc · USDC"}</p>
         </div>
       </div>
 
@@ -101,6 +103,7 @@ export function DealConsent({
   onAccept: () => void;
   myRole: DealRole | null;
 }) {
+  const { isBdtMode } = useAppCurrency();
   const agreement = deal?.agreement;
   if (!agreement) return null;
   const consent = deal?.consent;
@@ -147,11 +150,11 @@ export function DealConsent({
       )}
       {locked && (
         <p className="text-[11px] text-emerald-300 font-medium flex items-center gap-1.5">
-          <Lock className="w-3.5 h-3.5" /> Agreement locked and immutable. Escrow funding can begin.
+          <Lock className="w-3.5 h-3.5" /> Agreement locked and immutable.{isBdtMode ? " The BDT payment can begin." : " Escrow funding can begin."}
         </p>
       )}
       <p className="text-[9px] text-[#94A3B8]">
-        Your wallet:{" "}
+        {isBdtMode ? "Payment method: " : "Your wallet: "}
         <WalletChip address={myRole === "seller" ? deal?.sellerWallet : deal?.buyerWallet} />
       </p>
     </Section>

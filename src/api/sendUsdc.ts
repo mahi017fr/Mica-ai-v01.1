@@ -70,16 +70,44 @@ async function postSendUsdc(body: PostBody): Promise<ServerSendTransaction> {
   }
 
   if (!res.ok || data?.ok !== true) {
-    throw new SendUsdcApiError(
-      data?.error || `Transfer failed (${res.status}).`,
-      data?.code || "SERVER_ERROR"
-    );
+    const code = data?.code || "SERVER_ERROR";
+    const error = data?.error || `Transfer failed (${res.status}).`;
+    // Safe diagnostic — no Authorization header, no token, no secrets.
+    console.error("[SendUsdc] server rejected send", { httpStatus: res.status, code, error });
+    throw new SendUsdcApiError(error, code);
   }
   return data.transaction as ServerSendTransaction;
 }
 
 const TERMINAL_POLL_MS = 120_000; // give the chain ~2 minutes total
 const POLL_INTERVAL_MS = 3_000;
+
+/**
+ * Produce a valid RFC 4122 UUID v4 idempotency key.
+ *
+ * Circle's Developer-Controlled Wallet API REQUIRES the idempotency key to be
+ * a UUID (it rejects anything else with "API parameter invalid"). `crypto.randomUUID()`
+ * is preferred, but must not be assumed present — the fallback builds a
+ * standards-compliant v4 UUID manually so the request is never rejected by
+ * Circle on key format.
+ */
+function makeIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10xx
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
 
 /**
  * Submit a USDC transfer and poll until Circle reports a terminal state.
@@ -93,10 +121,7 @@ export async function sendUsdcViaServer(params: {
   chatId?: string | null;
   onStep?: (step: string) => void;
 }): Promise<ServerSendTransaction> {
-  const idempotencyKey =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  const idempotencyKey = makeIdempotencyKey();
 
   const deadline = Date.now() + TERMINAL_POLL_MS;
   let firstRound = true;

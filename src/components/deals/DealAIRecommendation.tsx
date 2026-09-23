@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { RefreshCw, FileText, Send } from "lucide-react";
 import { DealDoc, DealRole, fmtUsdc } from "../../deals/types";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import { ActionButton, MicaBubble, Section, inputCls } from "./dealUi";
 
 interface Props {
@@ -20,6 +21,7 @@ export default function DealAIRecommendation({
   onAskMica,
   myRole,
 }: Props) {
+  const { isBdtMode, formatMoney } = useAppCurrency();
   const ai = deal?.ai;
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export default function DealAIRecommendation({
       {ai ? (
         <div className="space-y-3">
           <MicaBubble
-            text={`${ai.recommendation}\n\nMechanism: ${ai.mechanism} · ${fmtUsdc(deal?.terms?.amount)} USDC`}
+            text={`${ai.recommendation}\n\nMechanism: ${ai.mechanism} · ${isBdtMode ? formatMoney(deal?.terms?.amount) : `${fmtUsdc(deal?.terms?.amount)} USDC`}`}
           />
 
           {ai.source === "local_fallback" && (
@@ -115,7 +117,9 @@ export default function DealAIRecommendation({
         </div>
       ) : (
         <p className="text-[11px] text-[#94A3B8]">
-          Define the deal above and Mica will recommend the safest escrow structure.
+          {isBdtMode
+            ? "Define the deal above and Mica will recommend the safest payment structure."
+            : "Define the deal above and Mica will recommend the safest escrow structure."}
         </p>
       )}
 

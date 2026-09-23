@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { motion } from "motion/react";
 import { CheckCircle2, Loader2, X, XCircle } from "lucide-react";
 import { useDealGuideContext } from "../../../deals/DealGuideContext";
+import { useAppCurrency } from "../../../context/CurrencyContext";
 import DealAIRecommendation from "../DealAIRecommendation";
 import { DealAgreement, DealConsent } from "../DealAgreement";
 import DealFunding from "../DealFunding";
@@ -15,7 +16,8 @@ const TERMINAL = ["CANCELLED", "EXPIRED", "COMPLETED", "RESOLVED"];
 
 export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
   const guide = useDealGuideContext();
-  const { deal, derivedState, busy, busyMessage, error, clearError, myRole, reviewRemaining, wallet, regenerateAnalysis, generateAgreement, acceptAgreement, beginFunding, fundLeg, refundMyLeg, cancelDeal, continueToReview, markDeliveredAndStartReview, release, triggerAutoRelease, disputeDeal, askMica } = guide;
+  const { isBdtMode } = useAppCurrency();
+  const { deal, derivedState, busy, busyMessage, error, clearError, myRole, reviewRemaining, wallet, regenerateAnalysis, generateAgreement, acceptAgreement, beginFunding, fundLeg, bdtPay, refundMyLeg, cancelDeal, continueToReview, markDeliveredAndStartReview, release, triggerAutoRelease, disputeDeal, askMica } = guide;
 
   const state = derivedState;
   const showFunding = ["LOCKED", "AWAITING_FUNDING", "FUNDING", "FUNDED", "ACTIVE", "DELIVERED"].includes(state || "");
@@ -46,10 +48,10 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
         <div className="flex items-start justify-between px-6 py-5 border-b border-white/[0.07] shrink-0 bg-gradient-to-b from-[#12172A]/65 to-transparent">
           <div className="flex items-center gap-3">
             <div>
-              <span className="inline-block mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#9B8AFB]">Arc escrow workspace</span>
+              <span className="inline-block mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#9B8AFB]">{isBdtMode ? "BDT payment workspace" : "Arc escrow workspace"}</span>
               <h2 className="text-[18px] font-extrabold leading-tight text-[#F8FAFC] tracking-[-0.025em]">Live Deal Panel</h2>
               <p className="mt-1 text-[11px] text-[#8F9BB2]">
-                {guide.buyerName || "Buyer"} ↔ {guide.sellerName || "Seller"} · Arc USDC Escrow
+                {guide.buyerName || "Buyer"} ↔ {guide.sellerName || "Seller"} · {isBdtMode ? "BDT Payment" : "Arc USDC Escrow"}
               </p>
             </div>
           </div>
@@ -78,15 +80,21 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
                   {state && !TERMINAL.includes(state) && (
                     <InfoBanner>
                       {state === "SETUP"
-                        ? "Define the deal. Mica will analyze it and draft a dual-signed agreement held in an Arc USDC escrow."
+                        ? isBdtMode
+                          ? "Define the deal. Mica will analyze it and draft a dual-signed agreement with payments settled in Bangladeshi Taka (BDT)."
+                          : "Define the deal. Mica will analyze it and draft a dual-signed agreement held in an Arc USDC escrow."
                         : state === "BUYER_REVIEW" || state === "AUTO_RELEASE_DUE"
-                        ? "The buyer has 24 hours to review the delivery. If no action is taken, the escrow auto-releases to the seller."
+                        ? isBdtMode
+                          ? "The buyer has 24 hours to review the delivery. If no action is taken, the payment auto-releases to the seller."
+                          : "The buyer has 24 hours to review the delivery. If no action is taken, the escrow auto-releases to the seller."
                         : state === "DISPUTED"
                         ? "Dispute active — the auto-release clock is paused and funds are frozen."
                         : state === "NEGOTIATING" || state === "AWAITING_ACCEPTANCE"
                         ? "Review Mica's protection plan, then both parties accept the final agreement."
                         : state === "FUNDED" || state === "ACTIVE" || state === "DELIVERED"
-                        ? "Both deposits are secured. The seller delivers, then the buyer reviews within 24h."
+                        ? isBdtMode
+                          ? "The BDT payment is secured. The seller delivers, then the buyer reviews within 24h."
+                          : "Both deposits are secured. The seller delivers, then the buyer reviews within 24h."
                         : undefined}
                     </InfoBanner>
                   )}
@@ -133,6 +141,7 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
                       myRole={myRole}
                       onBeginFunding={beginFunding}
                       onFund={fundLeg}
+                      onBdtPay={bdtPay}
                       onRefundMyLeg={refundMyLeg}
                       onCancel={cancelDeal}
                       onNext={continueToReview}
@@ -167,7 +176,7 @@ export default function DealPanelPopup({ onClose }: { onClose: () => void }) {
 
               {error && <ErrorBanner message={error} onClose={clearError} />}
 
-              {deal?.escrow?.custodyMode === "seam" && (
+              {deal?.escrow?.custodyMode === "seam" && !isBdtMode && (
                 <WarnBanner>
                   Seam mode: escrow contract not deployed yet. The full workflow, agreement, and
                   consent flow work end-to-end, but real on-chain funding / release is enabled once

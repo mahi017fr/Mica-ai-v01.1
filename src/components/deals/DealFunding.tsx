@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Coins, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { DealDoc, DealRole, fmtUsdc } from "../../deals/types";
 import { canFund, isDisputed } from "../../deals/dealStatusMachine";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import {
   ArcBalanceStatus,
   ARC_NETWORK,
@@ -36,6 +37,7 @@ interface Props {
   myRole: DealRole | null;
   onBeginFunding: () => void;
   onFund: (role: DealRole) => void;
+  onBdtPay?: () => void;
   onRefundMyLeg: () => void;
   onCancel: (note: string) => void;
   onNext: () => void;
@@ -59,11 +61,13 @@ export default function DealFunding({
   myRole,
   onBeginFunding,
   onFund,
+  onBdtPay = () => {},
   onRefundMyLeg,
   onCancel,
   onNext,
   wallet,
 }: Props) {
+  const { isBdtMode, formatMoney } = useAppCurrency();
   const escrow = deal?.escrow;
   const escrowCreation = (deal as (DealDoc & { escrowCreation?: { claimedBy?: string } }) | null)?.escrowCreation;
   const terms = deal?.terms;
@@ -77,6 +81,89 @@ export default function DealFunding({
   const bothDepositsConfirmed =
     escrow?.funding?.buyer?.status === "confirmed" &&
     escrow?.funding?.seller?.status === "confirmed";
+
+  // ─── BDT MODE ─────────────────────────────────────────────────────────────
+  // Native payment experience: no wallets, no on-chain escrow, no tx hashes.
+  if (isBdtMode) {
+    const paid = bothDepositsConfirmed;
+    const amount = terms?.amount ?? 0;
+    return (
+      <Section title="Deal Payment" subtitle="Payment is settled natively in Bangladeshi Taka (BDT).">
+        <div className="grid gap-2.5">
+          <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Amount</span>
+            <p className="text-[16px] font-mono font-black text-white">{formatMoney(amount)}</p>
+          </div>
+
+          {terms?.description && (
+            <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between gap-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] shrink-0">Service</span>
+              <p className="text-[11px] font-medium text-[#E0DAFF] text-right truncate">{terms.description}</p>
+            </div>
+          )}
+
+          <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Payment Method</span>
+            <span className="px-2 py-0.5 rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 text-[9px] font-mono font-bold">
+              BDT
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Payment Status</span>
+            <span className={`px-2 py-0.5 rounded-md border font-mono text-[9px] font-bold uppercase ${paid ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25" : "bg-amber-500/10 text-amber-300 border-amber-500/25"}`}>
+              {paid ? "Paid" : "Payment Pending"}
+            </span>
+          </div>
+
+          {paid && (
+            <div className="p-3 rounded-xl bg-emerald-500/[0.05] border border-emerald-500/15 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Funded Amount</span>
+              <p className="text-[15px] font-mono font-black text-emerald-300">{formatMoney(amount)}</p>
+            </div>
+          )}
+
+          {!paid && myRole === "buyer" && (
+            <ActionButton onClick={onBdtPay} disabled={!!busy} busy={busy === "bdt_pay"} variant="success" className="w-full">
+              <Coins className="w-3.5 h-3.5" />
+              Pay {formatMoney(amount)}
+            </ActionButton>
+          )}
+
+          {!paid && myRole !== "buyer" && (
+            <InfoBanner>Waiting for the buyer to complete the BDT payment.</InfoBanner>
+          )}
+
+          {paid && myRole === "seller" && (
+            <ActionButton onClick={onNext} disabled={!!busy} busy={busy === "continueToReview"} variant="success" className="w-full">
+              Continue Payment
+            </ActionButton>
+          )}
+
+          {paid && myRole !== "seller" && (
+            <InfoBanner>Payment complete. Waiting for the seller to continue.</InfoBanner>
+          )}
+        </div>
+
+        {canCancel && (
+          <div className="flex items-end gap-2 pt-1">
+            <input
+              type="text"
+              value={cancelNote}
+              onChange={(e) => setCancelNote(e.target.value)}
+              placeholder="Optional cancel reason…"
+              className="flex-1 bg-[#12172A] border border-white/[0.08] rounded-xl px-3 py-2 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500/50 transition-all"
+            />
+            <ActionButton onClick={() => onCancel(cancelNote.trim())} disabled={!!busy} busy={busy === "cancel"} variant="danger">
+              Cancel Deal
+            </ActionButton>
+          </div>
+        )}
+
+        <p className="text-[9px] text-[#94A3B8]">Network: BDT · Asset: Bangladeshi Taka</p>
+      </Section>
+    );
+  }
 
   if (bothDepositsConfirmed && (deal?.state === "FUNDED" || deal?.state === "ACTIVE" || deal?.state === "DELIVERED")) {
     return (

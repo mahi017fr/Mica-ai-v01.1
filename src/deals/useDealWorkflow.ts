@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteField, serverTimestamp } from "firebase/firestore";
 import { useChat } from "../context/ChatContext";
+import { useAppCurrency } from "../context/CurrencyContext";
+import { createDealFunding } from "../api/bdt";
 import { ARC_NETWORK } from "../payments/arcNetwork";
 import {
   createDeal,
@@ -29,6 +31,7 @@ import {
   DealDoc,
   DealRole,
   DealTerms,
+  REVIEW_WINDOW_MS,
   fmtUsdc,
 } from "./types";
 import { analyzeDeal, draftAgreement, askMicaAboutDeal, askDisputeAdvice } from "./micaDealService";
@@ -64,6 +67,10 @@ export function useDealWorkflow(params: DealWorkflowParams) {
   // signing is routed through the server. There is no browser/Privy signing in
   // the payment path anymore.
   const { circleWallet, getCircleSigningContext } = useChat();
+
+  // Global payment environment — BDT mode runs the deal payment layer natively
+  // (no wallets, no on-chain escrow), crypto modes keep the Arc USDC escrow.
+  const { isBdtMode, formatMoney } = useAppCurrency();
 
   // Shape the wallet object consumed by the workflow (and by DealFunding) to
   // mirror the old `{ getSigningContext, primaryAddress }` seam.
@@ -209,7 +216,10 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     [deal]
   );
 
-  const amountLabel = useMemo(() => fmtUsdc(deal?.terms?.amount), [deal?.terms?.amount]);
+  const amountLabel = useMemo(
+    () => (isBdtMode ? formatMoney(deal?.terms?.amount ?? 0) : fmtUsdc(deal?.terms?.amount)),
+    [deal?.terms?.amount, isBdtMode, formatMoney]
+  );
 
   const runAction = useCallback(
     async (key: string, fn: () => Promise<void>, onDone?: () => void) => {
@@ -488,6 +498,22 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     await runAction("beginFunding", async () => {
       if (!myRole) throw new Error("Only a deal participant can create the escrow contract.");
       if (!currentUid) return;
+      if (isBdtMode) {
+        // BDT mode: no on-chain escrow — open the payment leg instead.
+        const escrow = {
+          custodyMode: "bdt" as const,
+          factoryTxHash: null as string | null,
+          escrowAddress: null,
+          createdAt: nowIso(),
+          funding: {
+            buyer: { status: "pending" as const },
+            seller: { status: "pending" as const },
+          },
+        };
+        await transitionDeal(roomId, current.dealId, "LOCKED", "AWAITING_FUNDING", { escrow });
+        await postDealSystemMessage(roomId, "💳 BDT payment opened. Waiting for the buyer to pay.");
+        return;
+      }
       const claimed = await claimEscrowCreation(roomId, current.dealId, currentUid);
       if (!claimed) throw new Error("Escrow creation has already been started by the other participant.");
       try {
@@ -612,13 +638,80 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     [runAction, roomId, wallet, amountFor]
   );
 
+  // BDT mode Deal funding: the buyer initiates a DEAL FUNDING HOLD (server-side,
+  // escrow-style) — the buyer's funds are NOT sent straight to the seller's
+  // personal bKash number. The deal is only marked FUNDED after the backend
+  // verifies the hold. A missing merchant holding capability (or any provider
+  // failure) NEVER fakes funding: the deal stays in AWAITING_FUNDING and the
+  // error is surfaced.
+  const bdtPay = useCallback(async () => {
+    const current = dealRef.current;
+    if (!current?.terms || !isBdtMode || myRole !== "buyer") return;
+    const amount = current.terms.amount;
+    await runAction("bdt_pay", async () => {
+      const state = current.state;
+      // FUNDED is intentionally excluded: re-running funding on an already-held
+      // deal would create a DUPLICATE funding hold. Refund/re-fund flows use
+      // their own separate handlers.
+      if (!["LOCKED", "AWAITING_FUNDING", "FUNDING"].includes(state)) return;
+      if (state === "LOCKED" || current.escrow?.custodyMode !== "bdt") {
+        await transitionDeal(roomId, current.dealId, state, "AWAITING_FUNDING", {
+          escrow: {
+            custodyMode: "bdt",
+            factoryTxHash: null,
+            escrowAddress: null,
+            createdAt: nowIso(),
+            funding: {
+              buyer: { status: "pending" },
+              seller: { status: "pending" },
+            },
+          },
+        });
+      }
+      if (!current.sellerUid) throw new Error("No seller on this deal — payment cannot be processed.");
+
+      // Deal funding hold → backend verification. This throws on
+      // BDT_DEAL_PAYMENTS_NOT_CONFIGURED / provider failure, leaving the deal
+      // in AWAITING_FUNDING (never falsely FUNDED, never a direct seller payout).
+      setBusyMessage("Creating the deal funding hold…");
+      const funding = await createDealFunding({
+        dealRoomId: roomId,
+        dealId: current.dealId,
+        amount,
+      });
+
+      const at = nowIso();
+      await patchDeal(roomId, current.dealId, {
+        "escrow.funding.buyer.status": "confirmed",
+        "escrow.funding.buyer.amount": amount,
+        "escrow.funding.buyer.at": at,
+        "escrow.funding.buyer.txHash": null,
+        "escrow.funding.buyer.fundingId": funding.fundingId,
+        "escrow.funding.buyer.fundingStatus": funding.status,
+        "escrow.funding.seller.status": "confirmed",
+        "escrow.funding.seller.amount": 0,
+        "escrow.funding.seller.at": at,
+        "escrow.funding.seller.txHash": null,
+        state: "FUNDED",
+      });
+      await postDealSystemMessage(
+        roomId,
+        `💳 BDT deal funding of ${formatMoney(amount)} verified. The buyer's funds are held until delivery is approved — the seller can now deliver.`
+      );
+    });
+  }, [runAction, roomId, isBdtMode, myRole, formatMoney]);
+
   const markDeliveredAndStartReview = useCallback(async () => {
     const current = dealRef.current;
     if (!current?.escrow || myRole !== "seller") return;
     await runAction("deliver", async () => {
       let reviewTxHash: string | null = null;
       let deadline: number | null = null;
-      if (current.escrow!.custodyMode === "contract" && current.escrow!.escrowAddress) {
+      if (isBdtMode) {
+        // BDT mode: funds are managed natively — the 24h review window is a
+        // plain deadline, no on-chain transaction, no wallet check.
+        deadline = (Date.now() + REVIEW_WINDOW_MS) / 1000;
+      } else if (current.escrow!.custodyMode === "contract" && current.escrow!.escrowAddress) {
         setBusyMessage("Starting the 24h review window on-chain…");
         const chain = await fetchEscrowOnChainStatus(current.escrow!.escrowAddress, current.buyerWallet || "", current.sellerWallet || "");
         if (!chain?.funded) throw new Error("Escrow is not fully funded on Arc Testnet yet.");
@@ -675,6 +768,19 @@ export function useDealWorkflow(params: DealWorkflowParams) {
         await transitionDeal(roomId, current.dealId, state, "BUYER_REVIEW");
         state = "BUYER_REVIEW";
       }
+      if (isBdtMode) {
+        // BDT mode: buyer release settles the deal natively — no on-chain call.
+        await transitionDeal(roomId, current.dealId, state, "COMPLETED", {
+          "escrow.releasedAt": nowIso(),
+          "escrow.releaseMethod": "buyer_release",
+          result: { method: "buyer_release", at: nowIso(), txHash: null },
+        });
+        await postDealSystemMessage(
+          roomId,
+          `💸 Buyer approved delivery. ${formatMoney(current.terms?.amount ?? 0)} released to the seller. Deal completed.`
+        );
+        return;
+      }
       if (current.escrow!.custodyMode === "seam" || !current.escrow!.escrowAddress) {
         throw new Error("On-chain release unavailable (escrow contract not deployed).");
       }
@@ -723,6 +829,25 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     const state = current.state;
     if (state !== "AUTO_RELEASE_DUE" && state !== "BUYER_REVIEW") return;
     await runAction("autoRelease", async () => {
+      if (isBdtMode) {
+        if (state === "BUYER_REVIEW" && !reviewElapsed) {
+          throw new Error("The 24-hour review window has not elapsed yet.");
+        }
+        const at = nowIso();
+        await transitionDeal(roomId, current.dealId, state, "RELEASE_PENDING", {
+          "escrow.releaseTxHash": null,
+        });
+        await transitionDeal(roomId, current.dealId, "RELEASE_PENDING", "COMPLETED", {
+          "escrow.releasedAt": at,
+          "escrow.releaseMethod": "auto_release",
+          result: { method: "auto_release", at, txHash: null },
+        });
+        await postDealSystemMessage(
+          roomId,
+          `⏱ Review window elapsed without action. Payment released to the seller.`
+        );
+        return;
+      }
       if (current.escrow!.custodyMode === "seam" || !current.escrow!.escrowAddress) {
         throw new Error("On-chain auto-release unavailable (escrow contract not deployed).");
       }
@@ -785,6 +910,16 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     const leg = current.escrow.funding[myRole];
     if (!leg || (leg.status !== "confirmed" && leg.status !== "submitted")) return;
     await runAction("refundLeg", async () => {
+      if (isBdtMode) {
+        // BDT mode: claw back the native payment — no on-chain refund.
+        await patchDeal(roomId, current.dealId, {
+          [`escrow.funding.${myRole}.status`]: "refunded",
+          [`escrow.funding.${myRole}.at`]: nowIso(),
+          [`escrow.funding.${myRole}.txHash`]: null,
+        });
+        await postDealSystemMessage(roomId, `${myRole === "buyer" ? "Buyer" : "Seller"} clawed back their BDT payment.`);
+        return;
+      }
       if (current.escrow!.custodyMode === "seam" || !current.escrow!.escrowAddress) {
         throw new Error("On-chain refund unavailable (escrow contract not deployed).");
       }
@@ -851,6 +986,7 @@ export function useDealWorkflow(params: DealWorkflowParams) {
     acceptAgreement,
     beginFunding,
     fundLeg,
+    bdtPay,
     markDeliveredAndStartReview,
     continueToReview,
     release,

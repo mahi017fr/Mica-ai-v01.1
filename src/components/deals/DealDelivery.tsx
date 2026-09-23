@@ -1,6 +1,7 @@
 import React from "react";
 import { PackageCheck, Clock, CheckCircle2 } from "lucide-react";
 import { DealDoc, DealRole } from "../../deals/types";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import { ActionButton, InfoBanner, Section } from "./dealUi";
 
 export default function DealDelivery({
@@ -14,6 +15,7 @@ export default function DealDelivery({
   myRole: DealRole | null;
   onDeliver: () => void;
 }) {
+  const { isBdtMode } = useAppCurrency();
   const state = deal?.state;
   const show =
     state === "FUNDED" || state === "ACTIVE" || state === "DELIVERED" || state === "BUYER_REVIEW";
@@ -40,7 +42,9 @@ export default function DealDelivery({
           </ActionButton>
           <p className="text-[10px] text-[#94A3B8] flex items-center gap-1.5">
             <Clock className="w-3 h-3 text-[#6C5CE0]" />
-            This signs an on-chain transaction that starts the buyer's 24-hour review window.
+            {isBdtMode
+              ? "This starts the buyer's 24-hour review window."
+              : "This signs an on-chain transaction that starts the buyer's 24-hour review window."}
           </p>
         </div>
       ) : (

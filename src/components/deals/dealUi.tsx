@@ -2,6 +2,7 @@ import React from "react";
 import micaLogo from "../../assets/images/micalogo.png";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 import { DealStatus, DEAL_STATUS_LABELS, DealRole, shortAddress } from "../../deals/types";
+import { useAppCurrency } from "../../context/CurrencyContext";
 
 export function formatMs(ms: number): string {
   if (ms <= 0) return "0:00:00";
@@ -88,6 +89,13 @@ export function RoleTag({ role }: { role: DealRole }) {
 }
 
 export function WalletChip({ address }: { address?: string | null }) {
+  const { isBdtMode } = useAppCurrency();
+  if (isBdtMode)
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-mono text-emerald-300">
+        BDT
+      </span>
+    );
   if (!address) return <span className="text-[10px] font-mono text-[#94A3B8]">—</span>;
   return (
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#161A2B] border border-white/10 text-[9px] font-mono text-[#94A3B8]">

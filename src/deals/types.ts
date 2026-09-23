@@ -29,7 +29,7 @@ export type DealStatus =
 
 export type DealRole = "buyer" | "seller";
 
-export type EscrowCustodyMode = "contract" | "seam";
+export type EscrowCustodyMode = "contract" | "seam" | "bdt";
 
 export interface DealTerms {
   dealType: string;

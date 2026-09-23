@@ -6,6 +6,7 @@
 import { ChatProvider, useChat } from "./context/ChatContext";
 import { CallProvider } from "./context/CallContext";
 import { BlockProvider } from "./context/BlockContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
 import { PrivyProvider } from "@privy-io/react-auth";
 import AuthPage from "./components/AuthPage";
 import ChatDashboard from "./components/ChatDashboard";
@@ -53,14 +54,17 @@ export default function App() {
           accentColor: "#6C5CE0",
         },
         embeddedWallets: {
-          createOnLogin: "all-users",
+          ethereum: { createOnLogin: "all-users" },
+          solana: { createOnLogin: "all-users" },
         },
       }}
     >
       <ChatProvider>
         <BlockProvider>
           <CallProvider>
-            <MainAppContent />
+            <CurrencyProvider>
+              <MainAppContent />
+            </CurrencyProvider>
           </CallProvider>
         </BlockProvider>
       </ChatProvider>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Timer, CheckCircle2, Rocket, ShieldCheck, Flag } from "lucide-react";
 import { DealDoc, DealRole } from "../../deals/types";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import { ActionButton, Section, WarnBanner, formatMs } from "./dealUi";
 
 export default function DealReview({
@@ -20,6 +21,7 @@ export default function DealReview({
   onAutoRelease: () => void;
   onReport: (reason: string) => void;
 }) {
+  const { isBdtMode } = useAppCurrency();
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const hasReviewDeadline = !!deal?.escrow?.reviewDeadlineAt;
@@ -33,14 +35,14 @@ export default function DealReview({
 
   if (completed) {
     return (
-      <Section title="7 · Settlement" subtitle="The escrow settled.">
+      <Section title="7 · Settlement" subtitle={isBdtMode ? "The BDT payment settled." : "The escrow settled."}>
         <div className="flex items-center gap-2 text-emerald-300">
           <CheckCircle2 className="w-4 h-4" />
           <p className="text-[12px] font-bold">
             Deal completed — {deal?.escrow?.releaseMethod === "auto_release" ? "auto-released to the seller" : "released by the buyer"}.
           </p>
         </div>
-        {deal?.escrow?.releasedAt && (
+        {!isBdtMode && deal?.escrow?.releasedAt && (
           <p className="text-[10px] font-mono text-[#94A3B8]">
             {deal.escrow.releaseTxHash ? `tx ${deal.escrow.releaseTxHash}` : ""}
           </p>
@@ -57,9 +59,9 @@ export default function DealReview({
       subtitle="Approve the delivery, or dispute before the window ends."
     >
       <div className="grid gap-1.5 text-[11px] text-emerald-300">
-        <p className="flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> Escrow fully funded</p>
+        <p className="flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> {isBdtMode ? "BDT payment secured" : "Escrow fully funded"}</p>
         <p className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5" /> Deal moved to review</p>
-        <p className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5" /> Funds locked in escrow</p>
+        <p className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5" /> {isBdtMode ? "Funds held in payment" : "Funds locked in escrow"}</p>
       </div>
       <div className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/[0.05]">
         <Timer className="w-5 h-5 text-[#A78BFA]" />
@@ -75,9 +77,8 @@ export default function DealReview({
 
       {state === "AUTO_RELEASE_DUE" && (
         <WarnBanner>
-          The buyer did not respond within 24 hours. The escrow can now be auto-released to the
-          seller — anyone can trigger it, and the contract enforces that it cannot be triggered
-          early.
+          The buyer did not respond within 24 hours. The {isBdtMode ? "payment" : "escrow"} can now be auto-released to the
+          seller — anyone can trigger it{isBdtMode ? "." : ", and the contract enforces that it cannot be triggered early."}
         </WarnBanner>
       )}
 
@@ -109,13 +110,13 @@ export default function DealReview({
       {myRole === "seller" && !elapsed && (
         <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <p className="text-[11px] font-bold text-white">WAITING FOR BUYER RELEASE</p>
-          <p className="text-[10px] text-[#94A3B8] mt-1">The buyer can release the funds during the review period. If no dispute is opened before the deadline, auto-release becomes available under the escrow contract.</p>
+          <p className="text-[10px] text-[#94A3B8] mt-1">The buyer can release the funds during the review period.{isBdtMode ? " If no dispute is opened before the deadline, auto-release becomes available." : " If no dispute is opened before the deadline, auto-release becomes available under the escrow contract."}</p>
         </div>
       )}
 
       {myRole !== "buyer" && !elapsed && (
         <p className="text-[10px] text-[#94A3B8]">
-          Waiting for the buyer to review. If the buyer does nothing for 24h, the escrow
+          Waiting for the buyer to review. If the buyer does nothing for 24h, the {isBdtMode ? "payment" : "escrow"}
           auto-releases to the seller.
         </p>
       )}

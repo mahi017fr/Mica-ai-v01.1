@@ -322,3 +322,60 @@ body {
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 0.8; }
 }
+
+/* ==========================================================================
+   MICA Home · AI landing accents (name shimmer, utility pills, chips)
+   Only white + soft purple, slow, premium, low distraction.
+   ========================================================================== */
+
+/* Animated white→soft-purple shimmer across the greeting's display name */
+@keyframes mica-name-shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.mica-name-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    #ffffff 0%,
+    #ffffff 22%,
+    #a78bfa 42%,
+    #ddd0ff 50%,
+    #a78bfa 58%,
+    #ffffff 78%,
+    #ffffff 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: mica-name-shimmer 8s linear infinite;
+}
+
+/* New Session button — dark pill, subtle purple border, glow on hover */
+.mica-new-session {
+  transition: border-color 250ms ease, background-color 250ms ease, box-shadow 250ms ease, transform 250ms ease;
+}
+.mica-new-session:hover {
+  border-color: rgba(139, 92, 246, 0.55);
+  background-color: rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.22), 0 0 6px rgba(139, 92, 246, 0.2);
+}
+
+/* Slow, calm atmospheric glow drift behind the empty-state composer.
+   Keeps the navy/purple centered while gently breathing. */
+@keyframes mica-bg-drift {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-46%, -52%) scale(1.06); }
+}
+.mica-bg-drift {
+  animation: mica-bg-drift 16s ease-in-out infinite;
+}
+
+@keyframes mica-bg-drift-2 {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.98); }
+  50%      { transform: translate(-54%, -47%) scale(1.1); }
+}
+.mica-bg-drift-2 {
+  animation: mica-bg-drift-2 18s ease-in-out infinite;
+}

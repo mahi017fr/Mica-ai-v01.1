@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowRight, Loader2, PanelRight, Sparkles } from "lucide-react";
 import { useDealGuideContext } from "../../../deals/DealGuideContext";
+import { useAppCurrency } from "../../../context/CurrencyContext";
 import DealProgress from "./DealProgress";
 import DealInfoPopup from "./DealInfoPopup";
 import RecommendationPopup from "./RecommendationPopup";
@@ -12,6 +13,7 @@ const LOCKED_ONWARD = ["LOCKED", "AWAITING_FUNDING", "FUNDING", "FUNDED", "ACTIV
 const TERMINAL = ["CANCELLED", "EXPIRED", "COMPLETED", "RESOLVED"];
 
 function AnalyzingPopup({ onClose }: { onClose: () => void }) {
+  const { isBdtMode } = useAppCurrency();
   return (
     <div
       className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
@@ -31,7 +33,7 @@ function AnalyzingPopup({ onClose }: { onClose: () => void }) {
           <p className="text-[13px] font-black text-white">Mica is analyzing your deal…</p>
         </div>
         <p className="text-[10px] text-[#94A3B8] text-center">
-          Drafting a recommendation and the safest escrow structure for both parties.
+          Drafting a recommendation and the safest {isBdtMode ? "payment structure" : "escrow structure"} for both parties.
         </p>
         <button
           type="button"

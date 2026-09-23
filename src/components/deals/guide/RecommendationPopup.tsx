@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Edit3, Send, ShieldCheck, X } from "lucide-react";
 import { useDealGuideContext } from "../../../deals/DealGuideContext";
 import { fmtUsdc } from "../../../deals/types";
+import { useAppCurrency } from "../../../context/CurrencyContext";
 import { ActionButton, MicaBubble, inputCls } from "../dealUi";
 
 export default function RecommendationPopup({
@@ -13,6 +14,7 @@ export default function RecommendationPopup({
   onRequestChanges: () => void;
 }) {
   const guide = useDealGuideContext();
+  const { isBdtMode, formatMoney } = useAppCurrency();
   const { deal, busy, myRole, regenerateAnalysis, acceptProtection, askMica } = guide;
   const ai = deal?.ai;
 
@@ -66,7 +68,7 @@ export default function RecommendationPopup({
           {ai ? (
             <div className="space-y-3">
               <MicaBubble
-                text={`${ai.recommendation}\n\nMechanism: ${ai.mechanism} · ${fmtUsdc(deal?.terms?.amount)} USDC`}
+                text={`${ai.recommendation}\n\nMechanism: ${ai.mechanism} · ${isBdtMode ? formatMoney(deal?.terms?.amount) : `${fmtUsdc(deal?.terms?.amount)} USDC`}`}
               />
 
               {ai.source === "local_fallback" && (

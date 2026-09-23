@@ -65,10 +65,10 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
       setError("");
 
       try {
-        const walletAddress = user.wallet?.address ||
-          user.linkedAccounts?.find(
-            (a: any) => a.type === "wallet" || a.type === "ethereum_wallet"
-          )?.address;
+        const linkedWallet = user.linkedAccounts?.find(
+          (a) => a.type === "wallet"
+        ) as { address?: string } | undefined;
+        const walletAddress = user.wallet?.address || linkedWallet?.address;
 
         if (!walletAddress) {
           throw new Error("No wallet address found. Please connect a wallet.");

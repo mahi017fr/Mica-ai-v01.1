@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Check, Handshake, Loader2 } from "lucide-react";
 import { useDealGuideContext } from "../../../deals/DealGuideContext";
+import { useAppCurrency } from "../../../context/CurrencyContext";
 import { RoleTag } from "../dealUi";
 import micaLogo from "../../../assets/images/micalogo.png";
 
@@ -17,6 +18,7 @@ export function ReadyDealGate() {
 
 export default function ReadyDealCard() {
   const guide = useDealGuideContext();
+  const { isBdtMode } = useAppCurrency();
   const { myRole, myReady, bothReady, buyerReady, sellerReady, confirmReady, unready, buyerName, sellerName } = guide;
 
   const Row = ({ role, name, ready }: { role: "buyer" | "seller"; name?: string; ready: boolean }) => (
@@ -56,8 +58,9 @@ export default function ReadyDealCard() {
         </div>
 
         <p className="relative text-[11px] text-[#D8DDF0] leading-[1.7]">
-          I&apos;ll mediate this deal live — draft a dual-signed agreement, hold the USDC in an Arc
-          escrow, and release it only when both sides are happy. Are you both ready to deal?
+          {isBdtMode
+            ? "I'll mediate this deal live — draft a dual-signed agreement, secure the payment in Bangladeshi Taka (BDT), and release it only when both sides are happy. Are you both ready to deal?"
+            : "I'll mediate this deal live — draft a dual-signed agreement, hold the USDC in an Arc escrow, and release it only when both sides are happy. Are you both ready to deal?"}
         </p>
 
         <div className="relative space-y-2">

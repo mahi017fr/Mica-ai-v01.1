@@ -29,6 +29,12 @@ import {
 
 const IDEMPOTENCY_COLLECTION = "usdc_send_idempotency";
 
+// Safe, secret-free per-step trace for POST /api/wallet/send-usdc. Never logs
+// the Authorization header, Firebase ID token, Circle credentials or private keys.
+function logStep(step: string, detail: Record<string, unknown> = {}) {
+  console.log("[SendUsdc]", JSON.stringify({ step, ...detail }));
+}
+
 // Per-invocation polling budget — deliberately below Vercel's function
 // timeout. If Circle has not reached a terminal state in time, the response is
 // ok:true with a PENDING status and the client re-posts the SAME idempotency
@@ -229,6 +235,13 @@ export async function handleSendUsdc(
     } catch {
       throw new SendUsdcError("UNAUTHORIZED", "Invalid or expired Firebase ID token.", 401);
     }
+    logStep("send_usdc_received_request", {
+      uidLen: senderUid.length,
+      hasRecipient: isValidUid(body.recipientUid),
+      hasAmount: typeof body.amount === "string" && body.amount.length > 0,
+      hasIdempotencyKey: isValidIdempotencyKey(body.idempotencyKey),
+      hasChatId: typeof body.chatId === "string" && body.chatId.length > 0,
+    });
 
     // ── 2. Validate request shape ────────────────────────────────────
     if (!isValidUid(body.recipientUid)) {
@@ -248,18 +261,30 @@ export async function handleSendUsdc(
     //    Uses the centralized resolver — creates a wallet if the sender doesn't
     //    have one yet.
     const senderWallet = await resolveUserCircleWallet(senderUid);
+    logStep("sender_wallet_resolved", {
+      hasWalletId: Boolean(senderWallet.walletId),
+      walletIdLen: senderWallet.walletId.length,
+      hasAddress: Boolean(senderWallet.address.includes("0x")),
+      addressLen: senderWallet.address.length,
+    });
 
     // ── 4. Resolve RECIPIENT from their Firebase UID.
     //    Uses resolveCircleWallet which repairs the Firestore mapping if the
     //    Circle wallet exists but Firestore is missing the mapping.
     const recipientWallet = await resolveCircleWallet(recipientUid);
     if (!recipientWallet) {
+      logStep("recipient_wallet_not_found", { recipientUidLen: recipientUid.length });
       return {
         httpStatus: 400,
         body: { ok: false, code: "RECIPIENT_WALLET_NOT_FOUND", error: "This account doesn't have a MICA wallet yet." },
       };
     }
     const recipientAddress = recipientWallet.address;
+    logStep("recipient_wallet_resolved", {
+      hasAddress: Boolean(recipientAddress.includes("0x")),
+      addressLen: recipientAddress.length,
+      sameAsSender: recipientAddress.toLowerCase() === senderWallet.address.toLowerCase(),
+    });
 
     // ── 5. Idempotency record (create-or-load, race-free).
     const created = await firestoreCreate(IDEMPOTENCY_COLLECTION, body.idempotencyKey, {
@@ -295,11 +320,22 @@ export async function handleSendUsdc(
       }
 
       // Server-side balance check immediately before the ONLY submission.
-      const rawBalance = await readUsdcRawBalance(senderWallet.address);
+      logStep("balance_check_start", { amountDecimal: parsedAmount.decimal, amountUnits: parsedAmount.units.toString() });
+      let rawBalance: bigint;
+      try {
+        rawBalance = await readUsdcRawBalance(senderWallet.address);
+      } catch (err: any) {
+        const message = err?.message ? String(err.message).slice(0, 300) : "Could not read the sender's USDC balance.";
+        console.error("[SendUsdc] balance read failed:", message);
+        await firestoreSetStatus(body.idempotencyKey, { status: "FAILED" });
+        throw new SendUsdcError("BALANCE_CHECK_FAILED", `Could not verify your USDC balance: ${message}`, 502);
+      }
       if (rawBalance < parsedAmount.units) {
+        logStep("balance_insufficient", { amountUnits: parsedAmount.units.toString(), balanceUnits: rawBalance.toString() });
         await firestoreSetStatus(body.idempotencyKey, { status: "FAILED" });
         throw new SendUsdcError("INSUFFICIENT_FUNDS", "Insufficient USDC balance for this transfer.", 400);
       }
+      logStep("balance_check_ok", { amountUnits: parsedAmount.units.toString() });
 
       try {
         const result = await createCircleUsdcTransfer({
@@ -310,8 +346,14 @@ export async function handleSendUsdc(
           idempotencyKey: body.idempotencyKey, // Circle-side exactly-once guard
         });
         circleTransactionId = result.transactionId;
+        logStep("circle_createTransaction_ok", { transactionId: circleTransactionId, blockchain: "ARC-TESTNET", state: result.state });
       } catch (err: any) {
         const message = err?.message ? String(err.message).slice(0, 300) : "Circle transfer failed.";
+        // Never log the Circle API key / entity secret — only the error code + message.
+        logStep("circle_createTransaction_failed", {
+          errorCode: err?.code ?? err?.statusCode ?? null,
+          httpStatus: err?.statusCode ?? err?.response?.status ?? null,
+        });
         console.error("[SendUsdc] createTransaction failed:", message);
         // Mark FAILED so a retry can safely re-claim; Circle's idempotency key
         // guarantees this never produced two blockchain writes.
@@ -331,14 +373,35 @@ export async function handleSendUsdc(
     const deadline = Date.now() + POLL_BUDGET_MS;
     let state = "";
     let txHash: string | null = existing?.transactionHash ?? null;
+    let pollError: string | null = null;
     while (Date.now() < deadline) {
-      const current = await getCircleTransaction(circleTransactionId);
+      let current: { state: string; txHash: string | null } | null = null;
+      try {
+        current = await getCircleTransaction(circleTransactionId!);
+      } catch (err: any) {
+        // Transient Circle read failure — remember it but keep polling; only
+        // reject if we never reach a terminal state. Never logs secrets.
+        pollError = err?.message ? String(err.message).slice(0, 200) : "poll failed";
+        console.error("[SendUsdc] getTransaction poll error:", pollError);
+      }
       if (current) {
+        pollError = null;
         state = current.state;
         txHash = current.txHash ?? txHash;
         if (state === "COMPLETE" || ["FAILED", "DENIED", "CANCELLED"].includes(state)) break;
       }
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    }
+    if (state && state !== "UNKNOWN") {
+      logStep("circle_transaction_terminal", { transactionId: circleTransactionId, state, hasTxHash: Boolean(txHash) });
+    } else if (pollError) {
+      logStep("circle_poll_never_terminal", { transactionId: circleTransactionId, pollError });
+    }
+    if (!state && pollError) {
+      // A real Circle read failure (not just a pending write) prevented any
+      // status check — surface it clearly so the caller sees the actual error.
+      await firestoreSetStatus(body.idempotencyKey, { status: "FAILED" });
+      throw new SendUsdcError("CIRCLE_POLL_ERROR", `Could not confirm the transfer status: ${pollError}`, 502);
     }
 
     // ── 8. Terminal handling.
@@ -375,10 +438,12 @@ export async function handleSendUsdc(
     return successBody({ circleTransactionId, txHash, amount: parsedAmount.decimal, sender: senderWallet.address, recipient: recipientAddress }, "PENDING");
   } catch (err: unknown) {
     if (err instanceof SendUsdcError) {
+      logStep("send_usdc_failed", { code: err.code, httpStatus: err.httpStatus });
       return { httpStatus: err.httpStatus, body: { ok: false, error: err.message, code: err.code } };
     }
     const message = err instanceof Error ? err.message : String(err ?? "unknown error");
     console.error("[SendUsdc] Unexpected error:", message.slice(0, 300));
+    logStep("send_usdc_unexpected", { httpStatus: 500 });
     return {
       httpStatus: 500,
       body: { ok: false, error: "Internal error while sending USDC.", code: "SERVER_ERROR" },
@@ -453,4 +518,5 @@ async function writePaymentHistoryOnce(info: {
   };
   if (info.chatId) payload.chatId = info.chatId;
   await firestoreSet(`payments/payment_${info.key}`, payload);
+  logStep("payment_history_written", { recipientUidLen: info.recipientUid.length, hasChatId: Boolean(info.chatId) });
 }

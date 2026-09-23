@@ -59,12 +59,18 @@ interface ChatContextType {
   sendFriendRequest: (receiverId: string) => Promise<void>;
   acceptFriendRequest: (requestId: string) => Promise<void>;
   declineFriendRequest: (requestId: string) => Promise<void>;
+  unfriendUser: (friendUid: string) => Promise<void>;
   sendMessage: (text: string, imageUrl?: string, replyTo?: { id: string; senderUsername: string; text: string }, audioUrl?: string, isSticker?: boolean) => Promise<void>;
   logPaymentMessage: (info: {
     chatId: string;
     amount: number;
     recipientUsername: string;
     transactionHash: string;
+  }) => Promise<void>;
+  logBdtTransfer: (info: {
+    chatId: string;
+    amount: number;
+    recipientUsername: string;
   }) => Promise<void>;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
@@ -848,6 +854,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Remove an existing friendship. This ONLY deletes the accepted friend_requests
+  // relationship record — the chats document, all messages, media and chat
+  // history are intentionally left untouched so a future re-friend reuses them.
+  const unfriendUser = async (friendUid: string) => {
+    if (!currentUser) return;
+    const path = "friend_requests";
+    try {
+      // The relationship doc is keyed by "<senderId>_<receiverId>" in either
+      // direction, so resolve whichever variant exists and delete it.
+      for (const requestId of [
+        `${currentUser.uid}_${friendUid}`,
+        `${friendUid}_${currentUser.uid}`,
+      ]) {
+        const reqRef = doc(db, path, requestId);
+        const reqSnap = await getDoc(reqRef);
+        if (reqSnap.exists()) {
+          await deleteDoc(reqRef);
+        }
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  };
+
   // Send Chat Message plus images & audio voice notes
   const sendMessage = async (
     text: string,
@@ -980,6 +1010,64 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           direction: "sent",
           status: "succeeded",
           transactionHash,
+        },
+      });
+
+      await updateDoc(doc(db, "chats", chatId), {
+        lastMessage: text,
+        lastMessageAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, messagesCollection);
+    }
+  };
+
+  // Insert a payment system message after a successful BDT (fiat) transfer.
+  // Rendered as the same system pill as crypto payments, but carries the
+  // native "bdt" asset so it is never confused with an on-chain record.
+  const logBdtTransfer = async (info: {
+    chatId: string;
+    amount: number;
+    recipientUsername: string;
+  }) => {
+    if (!currentUser || !userProfile) return;
+    const { chatId, amount, recipientUsername } = info;
+    const messagesCollection = `chats/${chatId}/messages`;
+    const text = `You sent ৳${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} to @${recipientUsername}.`;
+
+    try {
+      const chatDocRef = doc(db, "chats", chatId);
+      const chatDocSnap = await getDoc(chatDocRef);
+      if (!chatDocSnap.exists()) {
+        const ids = chatId.split("_");
+        if (ids.includes(currentUser.uid)) {
+          await setDoc(chatDocRef, {
+            id: chatId,
+            participants: ids.sort(),
+            lastMessage: text,
+            lastMessageAt: new Date().toISOString(),
+          }, { merge: true });
+        }
+      }
+
+      await addDoc(collection(db, messagesCollection), {
+        senderId: currentUser.uid,
+        senderUsername: userProfile.username,
+        text,
+        imageUrl: "",
+        audioUrl: "",
+        isSticker: false,
+        isSystem: true,
+        seen: false,
+        timestamp: new Date().toISOString(),
+        payment: {
+          amount,
+          asset: "bdt",
+          network: "bdt",
+          recipientUsername,
+          direction: "sent",
+          status: "succeeded",
+          transactionHash: null,
         },
       });
 
@@ -1398,8 +1486,10 @@ Keep your response warm, concise, and match the language of the incoming message
         sendFriendRequest,
         acceptFriendRequest,
         declineFriendRequest,
+        unfriendUser,
         sendMessage,
         logPaymentMessage,
+        logBdtTransfer,
         editMessage,
         toggleReaction,
         deleteMessage,

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { DealDoc, DealTerms } from "../../deals/types";
 import { DEAL_TYPE_SUGGESTIONS } from "../../deals/micaDealService";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import { ActionButton, FieldLabel, Section, WarnBanner, inputCls } from "./dealUi";
 
 const AMOUNT_RE = /^\d+(\.\d{1,6})?$/;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function DealSetup({ deal, busy, onSave }: Props) {
+  const { isBdtMode } = useAppCurrency();
   const [dealType, setDealType] = useState(deal?.terms?.dealType || "");
   const [description, setDescription] = useState(deal?.terms?.description || "");
   const [amount, setAmount] = useState(deal?.terms?.amount ? String(deal.terms.amount) : "");
@@ -109,7 +111,7 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <FieldLabel>Amount (USDC)</FieldLabel>
+          <FieldLabel>{isBdtMode ? "Amount (BDT)" : "Amount (USDC)"}</FieldLabel>
           <input
             type="text"
             inputMode="decimal"
@@ -131,7 +133,7 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
             100% of deal amount
           </div>
           <p className="text-[9px] leading-relaxed text-[#7F8BA3] mt-1.5">
-            Both buyer and seller post the same collateral into the escrow.
+            Both buyer and seller post the same collateral {isBdtMode ? "toward this deal." : "into the escrow."}
           </p>
         </div>
       </div>

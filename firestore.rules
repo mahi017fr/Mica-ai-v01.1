@@ -99,6 +99,55 @@ service cloud.firestore {
       );
     }
 
+    // Private BDT payment profiles.
+    // The mobile/payout number is ALWAYS private: only the owner (or the
+    // server, which bypasses rules) may read or write it. Other users get a
+    // boolean via POST /api/bdt/recipient-check — never the number.
+    match /user_pay_profiles/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['uid', 'mobile', 'method', 'verified', 'updatedAt'])
+        && request.resource.data.uid == userId
+        && request.resource.data.method == 'BKASH'
+        && ('mobile' in request.resource.data)
+        && (request.resource.data.mobile == '' || request.resource.data.mobile.matches('^\\+8801[0-9]{9}$'));
+      allow update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['uid', 'mobile', 'method', 'verified', 'updatedAt'])
+        && request.resource.data.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'uid', 'mobile', 'method', 'verified', 'updatedAt'
+        ])
+        && ('mobile' in request.resource.data)
+        && (request.resource.data.mobile == '' || request.resource.data.mobile.matches('^\\+8801[0-9]{9}$'))
+        && ('method' in request.resource.data) && request.resource.data.method == 'BKASH';
+      allow delete: if false;
+    }
+
+    // BDT transfers — authoritative records, written ONLY by the server
+    // (admin SDK bypasses these rules). Sender and recipient may read.
+    match /transfers/{transferId} {
+      allow read: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid
+      );
+      allow create, update, delete: if false;
+    }
+
+    // BDT transfer idempotency locks — server-internal, never touchable.
+    match /bdt_transfer_idempotency/{key} {
+      allow read, write: if false;
+    }
+
+    // BDT Deal Room funding holds — escrow-STYLE records written ONLY by the
+    // server. Buyer and seller may read their own hold; no client writes.
+    match /deal_funding/{fundingId} {
+      allow read: if isSignedIn() && (
+        resource.data.buyerUid == request.auth.uid ||
+        resource.data.sellerUid == request.auth.uid
+      );
+      allow create, update, delete: if false;
+    }
+
     // Payments collection (Arc + Circle USDC transfers).
     // Sender creates the record; only the sender and recipient may read it.
     match /payments/{paymentId} {

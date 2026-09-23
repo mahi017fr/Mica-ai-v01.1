@@ -7,6 +7,17 @@ import { v2 as cloudinary } from "cloudinary";
 import formidable from "formidable";
 import { handleEnsureWallet } from "./api/_lib/circleWalletService";
 import { handleSendUsdc } from "./api/_lib/sendUsdcService";
+import {
+  handleBdtCreateTransfer,
+  handleBdtGetTransfer,
+  handleBdtRecipientCheck,
+} from "./api/_lib/bdtPayoutService";
+import {
+  handleDealFundingCreate,
+  handleDealFundingRefund,
+  handleDealFundingSettlement,
+  handleDealFundingStatus,
+} from "./api/_lib/bdtDealPaymentService";
 
 function logDiag(entry: Record<string, unknown>) {
   console.log("[WALLET_DIAG]", JSON.stringify(entry));
@@ -54,6 +65,98 @@ async function startServer() {
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // BDT DEAL ROOM funding — escrow-STYLE holding, SEPARATE from Send Money.
+  // The buyer's deal funds are held (never paid straight to the seller); a
+  // real merchant holding capability must be configured or these return
+  // BDT_DEAL_PAYMENTS_NOT_CONFIGURED. No fake escrow, no direct seller payout.
+  app.post("/api/bdt/deal-funding", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleDealFundingCreate(req.headers.authorization, req.body ?? {});
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      console.error("[POST /api/bdt/deal-funding] OUTER ERROR:", String(err?.message || err).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error creating deal funding.", code: "SERVER_ERROR" });
+    }
+  });
+
+  app.get("/api/bdt/deal-funding/:fundingId", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleDealFundingStatus(req.headers.authorization, req.params.fundingId);
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      console.error("[GET /api/bdt/deal-funding/:id] OUTER ERROR:", String(err?.message || err).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error reading deal funding.", code: "SERVER_ERROR" });
+    }
+  });
+
+  app.post("/api/bdt/deal-funding/:fundingId/settlement", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleDealFundingSettlement(req.headers.authorization, req.params.fundingId);
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      console.error("[POST /api/bdt/deal-funding/:id/settlement] OUTER ERROR:", String(err?.message || err).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error settling deal funding.", code: "SERVER_ERROR" });
+    }
+  });
+
+  app.post("/api/bdt/deal-funding/:fundingId/refund", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleDealFundingRefund(req.headers.authorization, req.params.fundingId);
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      console.error("[POST /api/bdt/deal-funding/:id/refund] OUTER ERROR:", String(err?.message || err).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error refunding deal funding.", code: "SERVER_ERROR" });
+    }
+  });
+
+  // BDT Send Money — does the recipient have a payable number? (boolean only,
+  // the number itself is private and only ever read server-side).
+  app.post("/api/bdt/recipient-check", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleBdtRecipientCheck(req.headers.authorization, req.body ?? {});
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      console.error("[POST /api/bdt/recipient-check] OUTER ERROR:", String(err?.message || err).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error checking the recipient.", code: "SERVER_ERROR" });
+    }
+  });
+
+  // BDT Send Money — idempotent transfer + real bKash payout (server-side).
+  app.post("/api/bdt/transfers", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleBdtCreateTransfer(req.headers.authorization, req.body ?? {});
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      console.error("[POST /api/bdt/transfers] OUTER ERROR:", String(err?.message || err).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error while processing the transfer.", code: "SERVER_ERROR" });
+    }
+  });
+
+  // BDT Send Money — read transfer state (sender or recipient only).
+  app.get("/api/bdt/transfers/:transferId", async (req, res) => {
+    res.type("application/json");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    try {
+      const result = await handleBdtGetTransfer(req.headers.authorization, req.params.transferId);
+      return res.status(result.httpStatus).json(result.body);
+    } catch (err: any) {
+      console.error("[GET /api/bdt/transfers/:id] OUTER ERROR:", String(err?.message || err).slice(0, 200));
+      return res.status(500).json({ ok: false, error: "Internal error reading the transfer.", code: "SERVER_ERROR" });
+    }
   });
 
   // Circle Developer-Controlled Wallet: ensure one wallet per uid.

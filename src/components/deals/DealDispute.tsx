@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Scale, PauseCircle, Send } from "lucide-react";
 import { DealDoc, DealRole } from "../../deals/types";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import { ActionButton, MicaBubble, Section, RoleTag, WarnBanner, inputCls } from "./dealUi";
 
 const DISPUTABLE = ["FUNDING", "FUNDED", "ACTIVE", "DELIVERED", "BUYER_REVIEW", "AUTO_RELEASE_DUE", "RELEASE_PENDING"];
@@ -18,6 +19,7 @@ export default function DealDispute({
   onDispute: (reason: string) => void;
   onAskMica: (q: string) => Promise<string>;
 }) {
+  const { isBdtMode } = useAppCurrency();
   const disputed = deal?.escrow?.dispute;
   const state = deal?.state || "";
   const canOpen = !disputed && DISPUTABLE.includes(state) && !!myRole;
@@ -49,6 +51,8 @@ export default function DealDispute({
       subtitle={
         disputed
           ? "The auto-release clock is PAUSED and funds are frozen."
+          : isBdtMode
+          ? "Pause the deal and flag a problem."
           : "Pause the escrow and flag a problem with the deal."
       }
     >
@@ -62,14 +66,14 @@ export default function DealDispute({
             <p className="text-[11px] text-red-200 leading-relaxed">“{disputed.reason}”</p>
             <p className="text-[9px] font-mono text-[#94A3B8]">
               {disputed.at ? new Date(disputed.at).toLocaleString() : ""}
-              {disputed.txHash ? ` · tx ${disputed.txHash.slice(0, 12)}…` : ""}
+              {!isBdtMode && disputed.txHash ? ` · tx ${disputed.txHash.slice(0, 12)}…` : ""}
             </p>
           </div>
 
           <WarnBanner>
-            Disputes are advisory-assisted but resolved off-chain. The escrow contract has no
-            arbiter configured, so funds stay locked until both parties agree on a manual
-            resolution. No one can move the funds unilaterally.
+            {isBdtMode
+              ? "Disputes are advisory-assisted but resolved off-payment. The BDT payment stays frozen until both parties agree on a resolution. No one can move the funds unilaterally."
+              : "Disputes are advisory-assisted but resolved off-chain. The escrow contract has no arbiter configured, so funds stay locked until both parties agree on a manual resolution. No one can move the funds unilaterally."}
           </WarnBanner>
 
           <div className="space-y-2">
@@ -111,7 +115,7 @@ export default function DealDispute({
             className="w-full"
           >
             <PauseCircle className="w-3.5 h-3.5" />
-            Pause Escrow & Open Dispute
+            {isBdtMode ? "Pause Deal & Open Dispute" : "Pause Escrow & Open Dispute"}
           </ActionButton>
           <p className="text-[10px] text-[#94A3B8] flex items-center gap-1.5">
             <Scale className="w-3 h-3 text-red-400" />

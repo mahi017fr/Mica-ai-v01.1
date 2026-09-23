@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Edit3, Loader2, Sparkles, X, XCircle } from "lucide-react";
 import { useDealWorkflow } from "../../deals/useDealWorkflow";
 import { DealRole } from "../../deals/types";
+import { useAppCurrency } from "../../context/CurrencyContext";
 import { TIMELINE, timelineIndex } from "../../deals/dealStatusMachine";
 import DealTimeline from "./DealTimeline";
 import DealSetup from "./DealSetup";
@@ -49,6 +50,7 @@ export default function DealWorkflow({
     sellerName,
   });
 
+  const { isBdtMode } = useAppCurrency();
   const { deal, derivedState, busy, busyMessage, error, clearError, myRole } = wf;
   const [showSetup, setShowSetup] = useState(true);
 
@@ -96,7 +98,7 @@ export default function DealWorkflow({
               <div>
                 <h2 className="text-[14px] font-black text-white tracking-wide">AI-Guided Deal Agreement</h2>
                 <p className="text-[10px] text-[#94A3B8]">
-                  {buyerName || "Buyer"} ↔ {sellerName || "Seller"} · Arc USDC Escrow
+                  {buyerName || "Buyer"} ↔ {sellerName || "Seller"} · {isBdtMode ? "BDT Payment" : "Arc USDC Escrow"}
                 </p>
               </div>
             </div>
@@ -129,9 +131,13 @@ export default function DealWorkflow({
                     {derivedState && !TERMINAL.includes(derivedState) && (
                       <InfoBanner>
                         {derivedState === "SETUP"
-                          ? "Define the deal. Mica will analyze it and draft a dual-signed agreement held in an Arc USDC escrow."
+                          ? isBdtMode
+                            ? "Define the deal. Mica will analyze it and draft a dual-signed agreement with payments settled in Bangladeshi Taka (BDT)."
+                            : "Define the deal. Mica will analyze it and draft a dual-signed agreement held in an Arc USDC escrow."
                           : derivedState === "BUYER_REVIEW" || derivedState === "AUTO_RELEASE_DUE"
-                          ? "The buyer has 24 hours to review the delivery. If no action is taken, the escrow auto-releases to the seller."
+                          ? isBdtMode
+                            ? "The buyer has 24 hours to review the delivery. If no action is taken, the payment auto-releases to the seller."
+                            : "The buyer has 24 hours to review the delivery. If no action is taken, the escrow auto-releases to the seller."
                           : derivedState === "DISPUTED"
                           ? "Dispute active — the auto-release clock is paused and funds are frozen."
                           : undefined}
@@ -194,6 +200,7 @@ export default function DealWorkflow({
                         myRole={myRole}
                         onBeginFunding={wf.beginFunding}
                         onFund={wf.fundLeg}
+                        onBdtPay={wf.bdtPay}
                         onRefundMyLeg={wf.refundMyLeg}
                         onCancel={wf.cancelDeal}
                         onNext={wf.continueToReview}
@@ -228,7 +235,7 @@ export default function DealWorkflow({
 
                 {error && <ErrorBanner message={error} onClose={clearError} />}
 
-                {deal?.escrow?.custodyMode === "seam" && (
+                {deal?.escrow?.custodyMode === "seam" && !isBdtMode && (
                   <WarnBanner>
                     Seam mode: escrow contract not deployed yet. The full workflow, agreement, and
                     consent flow work end-to-end, but real on-chain funding / release is enabled once
