@@ -123,6 +123,31 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // MCP Connections — SERVER-ONLY.
+    //
+    // These documents hold user-supplied MCP endpoint credentials encrypted at
+    // rest with AES-256-GCM. They must be unreachable from the browser:
+    //   - The client never reads or writes this collection directly. All access
+    //     goes through /api/mcp/*, which authenticates with a Firebase ID token
+    //     and is executed with the Admin SDK (which bypasses these rules).
+    //   - The `users/{uid}` -> mcp_connections link is intentionally NOT modelled
+    //     here; keeping the docs in their own collection avoids the `users`
+    //     read rule (`allow read: if isSignedIn()`) ever exposing them.
+    //
+    // `secretCiphertext` never leaves the server: the API returns only a boolean
+    // `hasSecret`, never the value, in either direction.
+    match /mcp_connections/{connectionId} {
+      allow read: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+
+      // Defensive: deny any hypothetical nested path as well.
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
     // BDT transfers — authoritative records, written ONLY by the server
     // (admin SDK bypasses these rules). Sender and recipient may read.
     match /transfers/{transferId} {

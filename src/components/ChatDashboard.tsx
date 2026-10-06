@@ -13,6 +13,9 @@ import { useAppCurrency, CURRENCY_OPTIONS } from "../context/CurrencyContext";
 import BlockUserModal, { BlockModalMode } from "./BlockUserModal";
 import UnfriendConfirmModal from "./UnfriendConfirmModal";
 import AddFriendModal from "./AddFriendModal";
+import McpConnectionsSection from "./settings/McpConnectionsSection";
+import McpConnectionsPopup from "./settings/McpConnectionsPopup";
+import { mcpAgentChat, listMcpConnections, McpApiError } from "../api/mcp";
 import { useBlock } from "../context/BlockContext";
 import { getBlockMessage } from "../utils/blocking";
 import { ArcPaymentReceipt } from "../payments";
@@ -246,6 +249,142 @@ interface InboxAiMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** True only for a brand-new Agent reply, so the typing reveal runs once
+   *  and never replays for messages already on screen. */
+  animate?: boolean;
+}
+
+/** Agent model label shown to the user — never the raw provider identifier. */
+const AGENT_MODEL_LABEL = "GPT-OSS 120B";
+
+/**
+ * Progressive reveal for a freshly received Agent reply. The backend stays
+ * non-streaming — this only uncovers the completed text at a natural pace:
+ * short replies appear quickly, long ones reveal efficiently (never a slow
+ * character-by-character crawl). It runs once per message, never blocks the
+ * composer, and never touches parent state while it runs.
+ */
+const AgentTypewriter: React.FC<{
+  text: string;
+  onTick?: () => void;
+  render?: (visible: string) => React.ReactNode;
+}> = ({ text, onTick, render }) => {
+  const total = text.length;
+  const [shown, setShown] = useState(0);
+  const tickRef = useRef(onTick);
+  tickRef.current = onTick;
+  const renderRef = useRef(render);
+  renderRef.current = render;
+
+  useEffect(() => {
+    const durationMs = Math.min(1800, Math.max(350, total * 1.5));
+    let start: number | null = null;
+    let raf = 0;
+    const step = (ts: number) => {
+      if (start === null) start = ts;
+      const progress = Math.min(1, (ts - start) / durationMs);
+      setShown(Math.ceil(progress * total));
+      tickRef.current?.();
+      if (progress < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
+
+  const visible = text.slice(0, shown);
+  return <>{renderRef.current ? renderRef.current(visible) : visible}</>;
+};
+
+type AgentContentPart =
+  | { type: "text"; value: string }
+  | { type: "code"; value: string; lang: string };
+
+/**
+ * Split an assistant reply into prose and fenced code blocks. The fence
+ * markers themselves are never rendered, so a reply that is still revealing
+ * never shows stray backticks.
+ */
+function parseAgentContent(text: string): AgentContentPart[] {
+  const parts: AgentContentPart[] = [];
+  const chunks = text.split("```");
+  chunks.forEach((chunk, index) => {
+    if (index % 2 === 0) {
+      if (chunk) parts.push({ type: "text", value: chunk });
+      return;
+    }
+    const nl = chunk.indexOf("\n");
+    const lang = nl >= 0 ? chunk.slice(0, nl).trim() : "";
+    const body = nl >= 0 ? chunk.slice(nl + 1) : chunk;
+    parts.push({ type: "code", value: body.replace(/\n$/, ""), lang });
+  });
+  return parts;
+}
+
+/** Copies the exact block content, then confirms briefly before resetting. */
+const CopyCodeButton: React.FC<{ text: string }> = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      // Fallback for contexts where the async clipboard API is unavailable.
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch {
+        ok = false;
+      }
+    }
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.06] hover:bg-white/[0.12] active:bg-white/[0.16] border border-white/10 text-[11px] font-medium text-white transition-colors cursor-pointer"
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+};
+
+/** Prose stays prose; fenced code becomes a MICA-styled block with Copy. */
+function renderAgentContent(text: string): React.ReactNode {
+  return parseAgentContent(text).map((part, i) =>
+    part.type === "text" ? (
+      <span key={`t_${i}`} className="whitespace-pre-wrap break-words">
+        {part.value}
+      </span>
+    ) : (
+      <div
+        key={`c_${i}`}
+        className="block my-2 overflow-hidden rounded-xl border border-white/10 bg-[#0B0F17]/85"
+      >
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-white/[0.07]">
+          <span className="text-[10px] font-medium text-[#5B6B8C]">{part.lang || "Code"}</span>
+          <CopyCodeButton text={part.value} />
+        </div>
+        <pre className="px-3 py-2.5 text-xs leading-relaxed text-[#D7DEEA] overflow-x-auto">
+          <code>{part.value}</code>
+        </pre>
+      </div>
+    )
+  );
 }
 
 const InboxWelcome: React.FC<{
@@ -254,12 +393,24 @@ const InboxWelcome: React.FC<{
   avatarUrl?: string;
   onOpenSettings?: () => void;
   onNotify?: (text: string) => void;
-}> = ({ displayName, username, avatarUrl, onOpenSettings, onNotify }) => {
+  /** True while the MCP Connections popup is open — used to refresh the
+   *  Agent Mode indicator right after the user connects a server. */
+  mcpPopupOpen?: boolean;
+}> = ({ displayName, username, avatarUrl, onOpenSettings, onNotify, mcpPopupOpen }) => {
   const name = (displayName || "").trim() || "there";
   const [messages, setMessages] = useState<InboxAiMessage[]>([]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  // Agent Mode — when ON, this chat talks to POST /api/mcp/agent/chat and the
+  // backend may call the user's connected MCP tools server-side. When OFF the
+  // chat behaves exactly as before (plain /api/bot/chat). MICA Agent is the
+  // default experience: it runs on GPT-OSS 120B with the user's own MCP server.
+  const [agentMode, setAgentMode] = useState(true);
+  const [agentConnection, setAgentConnection] = useState<{
+    name: string;
+    connected: boolean;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -269,7 +420,8 @@ const InboxWelcome: React.FC<{
 
   // The single set of AI utility shortcuts — centered directly under the
   // main MICA chat input. Library/Plugins/Create Image have no backend yet,
-  // so they surface a quiet "coming soon" toast; Settings opens the real page.
+  // so they surface a quiet "coming soon" toast; Settings opens the MCP
+  // Connections popup right over this dashboard (it never navigates away).
   const utilityActions = [
     { label: "Library", Icon: Library, run: () => onNotify?.("Library is coming soon") },
     { label: "Plugins", Icon: Blocks, run: () => onNotify?.("Plugins are coming soon") },
@@ -299,6 +451,34 @@ const InboxWelcome: React.FC<{
     }
   }, [hasConversation]);
 
+  // Which MCP server the Agent will use — only the name is ever shown (e.g.
+  // "MICA Agent · AGP"). Credentials never reach this component.
+  const refreshAgentInfo = async () => {
+    try {
+      const list = await listMcpConnections();
+      const byRecency = (a: (typeof list)[number], b: (typeof list)[number]) =>
+        String(b.lastTestedAt ?? b.createdAt ?? "").localeCompare(
+          String(a.lastTestedAt ?? a.createdAt ?? "")
+        );
+      const connected = list.filter((c) => c.status === "connected").sort(byRecency);
+      const pick = connected[0] ?? [...list].sort(byRecency)[0];
+      setAgentConnection(pick ? { name: pick.name, connected: connected.length > 0 } : null);
+    } catch {
+      // Signed out / offline — the selector simply shows "MICA Agent".
+      setAgentConnection(null);
+    }
+  };
+
+  useEffect(() => {
+    if (agentMode) void refreshAgentInfo();
+  }, [agentMode]);
+
+  // The MCP Connections popup is where a server gets connected — reload the
+  // indicator as soon as it closes so a newly connected server shows up.
+  useEffect(() => {
+    if (!mcpPopupOpen && agentMode) void refreshAgentInfo();
+  }, [mcpPopupOpen]);
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
@@ -310,21 +490,102 @@ const InboxWelcome: React.FC<{
     setInput("");
     setIsThinking(true);
 
-    try {
-      const apiMessages = nextMessages.map((m) => ({ role: m.role, content: m.content }));
+    const apiMessages = nextMessages.map((m) => ({ role: m.role, content: m.content }));
+    const systemInstruction =
+      "You are Mica, the in-app AI assistant for MICA. Be warm, sharp, and genuinely " +
+      "helpful with whatever the user brings up — questions, work, ideas, deals, or casual chat. " +
+      "Keep replies concise, natural, and easy to read. Default to English, but if the user writes " +
+      "in another language, reply in that language too.";
 
-      // Reuses the existing Groq proxy already used across the app (AIBuddy, ChatContext,
-      // deal advisory) — no new AI provider or duplicate service introduced.
+    // Agent Mode reply style: a concise human assistant whose tool access is
+    // invisible. The normal chat keeps its own instruction above, unchanged.
+    const agentSystemInstruction =
+      "You are Mica, the in-app assistant for MICA, with access to the user's connected tools. " +
+      "Answer the actual question directly and concisely: one to four short paragraphs, or a " +
+      "compact list when a list is clearer. For simple questions, one or two sentences. " +
+      "Skip filler: no openers like Sure, Absolutely or Of course, no introductions that restate " +
+      "the request, no closers like Let me know if you'd like anything else, and never repeat " +
+      "what the user already knows. " +
+      "When a tool returns a lot of data, summarize the useful parts instead of dumping the raw " +
+      "result, and only show complete raw output when the user explicitly asks for it. Present " +
+      "lists of items compactly rather than as large tables. " +
+      "Write like a person: plain sentences with normal commas and periods. Do not use markdown " +
+      "bold, em dashes, arrows, emoji, quotation marks used as decoration, or other decorative " +
+      "symbols. Use simple headings, numbered or bulleted lists, and fenced code blocks only when " +
+      "they genuinely help readability. " +
+      "Put anything the user may want to reuse, such as commands, addresses, URLs, JSON or " +
+      "config snippets, inside a fenced code block. " +
+      "Default to English; if the user writes in another language, reply in that language.";
+
+    // ── Agent Mode ──────────────────────────────────────────────────────
+    // ON: every message goes to the MCP agent endpoint, which loads the
+    // user's own connection, decrypts the credential server-side, lists the
+    // tools and lets the model call them (GPT-OSS 120B). No silent
+    // fallback here — the mode the user picked is the mode they get.
+    if (agentMode) {
+      try {
+        const agent = await mcpAgentChat({
+          messages: apiMessages,
+          systemInstruction: agentSystemInstruction,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `a_${Date.now()}`,
+            role: "assistant",
+            content:
+              agent.reply || "I couldn't put that together just now. Mind trying again?",
+            animate: true,
+          },
+        ]);
+      } catch (agentErr) {
+        // Technical codes stay in the server logs — the chat only ever shows
+        // a calm, human sentence.
+        const code = agentErr instanceof McpApiError ? agentErr.code : "";
+        const naturalErrors: Record<string, string> = {
+          NO_MCP_CONNECTION:
+            "I don't have a server connected yet. Open Settings, connect one, and I can start using it.",
+          UNAUTHORIZED: "Please sign in again to keep using the Agent.",
+          NETWORK_ERROR:
+            "I couldn't reach MICA just now. Check your connection and try again in a moment.",
+          LLM_RATE_LIMITED:
+            "I'm handling a lot of requests right now. Give me a few seconds and try again.",
+          LLM_TIMEOUT: "That took a little too long. Mind trying again?",
+          LLM_ERROR: "I couldn't reach my model just now. Mind trying again in a moment?",
+          LLM_NOT_CONFIGURED: "The Agent isn't set up on this account yet.",
+          MCP_CONNECT_FAILED:
+            "I couldn't reach your connected server just now. Mind trying again in a moment?",
+          MCP_LIST_TOOLS_FAILED:
+            "I couldn't read what your connected server offers right now. Try again in a moment?",
+          SERVER_ERROR: "Something went wrong on my end. Mind trying again?",
+        };
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err_${Date.now()}`,
+            role: "assistant",
+            content:
+              naturalErrors[code] ||
+              "Agent Mode couldn't finish that just now. Mind trying again in a moment?",
+            animate: true,
+          },
+        ]);
+      } finally {
+        setIsThinking(false);
+      }
+      return;
+    }
+
+    // ── Normal MICA chat (unchanged) ────────────────────────────────────
+    // Reuses the existing Groq proxy already used across the app (AIBuddy, ChatContext,
+    // deal advisory) — no new AI provider or duplicate service introduced.
+    try {
       const res = await fetch("/api/bot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: apiMessages,
-          systemInstruction:
-            "You are Mica, the in-app AI assistant for MICA. Be warm, sharp, and genuinely " +
-            "helpful with whatever the user brings up — questions, work, ideas, deals, or casual chat. " +
-            "Keep replies concise, natural, and easy to read. Default to English, but if the user writes " +
-            "in another language, reply in that language too.",
+          systemInstruction,
         }),
       });
 
@@ -365,22 +626,41 @@ const InboxWelcome: React.FC<{
     }
   };
 
+  // Assistant avatar — the original MICA logo asset, exactly as it is: no
+  // badge, container, padding, border, shadow or letter fallback.
   const assistantAvatar = (
-    <div className="shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#8B5CF6] flex items-center justify-center ring-1 ring-white/10 shadow-[0_0_14px_rgba(124,58,237,0.4)]">
-      <img src={micaLogo} alt="MICA" className="w-4 h-4 object-contain rounded-full" />
-    </div>
+    <img
+      src={micaLogo}
+      alt="MICA"
+      className="shrink-0 w-7 h-7 object-contain"
+    />
   );
 
+  // ── Single mode selector: [ MICA Agent ▾ ] / [ MICA Chat ▾ ]
+  // One control picks the chat mode — the MCP-backed MICA Agent (default,
+  // GPT-OSS 120B) or the plain MICA chat (/api/bot/chat). The connected MCP
+  // server is named inline when there is one; no second button beside it.
   const modelSelector = (
     <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => setModelMenuOpen((o) => !o)}
-        title="AI model"
+        title="Chat mode"
         className="flex items-center gap-1.5 h-9 pl-3 pr-2 rounded-full bg-white/[0.04] border border-white/[0.06] text-xs font-semibold text-[#F8FAFC] hover:bg-white/[0.08] hover:border-[#8B5CF6]/30 transition-all cursor-pointer"
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] shadow-[0_0_6px_rgba(139,92,246,0.8)]" />
-        Groq
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${
+            agentMode
+              ? "bg-[#8B5CF6] shadow-[0_0_6px_rgba(139,92,246,0.8)]"
+              : "bg-[#34D399] shadow-[0_0_6px_rgba(52,211,153,0.7)]"
+          }`}
+        />
+        {agentMode ? "MICA Agent" : "MICA Chat"}
+        {agentMode && agentConnection?.connected && (
+          <span className="max-w-[84px] truncate font-medium text-[#8B93A8]">
+            · {agentConnection.name}
+          </span>
+        )}
         <ChevronDown className="w-3.5 h-3.5 text-[#5B6B8C]" />
       </button>
       <AnimatePresence>
@@ -392,21 +672,57 @@ const InboxWelcome: React.FC<{
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.96 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
-              className="absolute right-0 top-full mt-2 z-40 w-60 rounded-2xl bg-[#12172A]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-1.5"
+              className="absolute right-0 top-full mt-2 z-40 w-56 rounded-2xl bg-[#12172A]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-1.5"
             >
-              <p className="px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest text-[#5B6B8C]">
-                Model
+              <p className="px-2.5 py-1.5 text-[10px] font-medium text-[#5B6B8C]">
+                Chat mode
               </p>
-              <div className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-white/[0.04] border border-[#8B5CF6]/40 text-white text-xs font-semibold">
-                <span className="flex items-center gap-2 truncate min-w-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] shrink-0" />
-                  Groq · llama-3.3-70b-versatile
+              <button
+                type="button"
+                onClick={() => {
+                  setAgentMode(false);
+                  setModelMenuOpen(false);
+                }}
+                className={`w-full text-left px-2.5 py-2 rounded-xl transition-colors cursor-pointer ${
+                  !agentMode
+                    ? "bg-white/[0.04] border border-[#8B5CF6]/40"
+                    : "border border-transparent hover:bg-white/[0.05]"
+                }`}
+              >
+                <span className="flex items-center justify-between gap-2 text-white text-xs font-semibold">
+                  <span className="flex items-center gap-2 truncate min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] shrink-0" />
+                    MICA Chat
+                  </span>
+                  {!agentMode && <Check className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />}
                 </span>
-                <Check className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
-              </div>
-              <p className="px-2.5 pt-2 pb-1 text-[10px] text-[#5B6B8C] leading-relaxed">
-                Low-latency inference · 70B-parameter model
-              </p>
+                <span className="block pl-3.5 pt-0.5 text-[10px] text-[#5B6B8C] leading-relaxed">
+                  Standard chat
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAgentMode(true);
+                  setModelMenuOpen(false);
+                }}
+                className={`w-full text-left px-2.5 py-2 rounded-xl transition-colors cursor-pointer ${
+                  agentMode
+                    ? "bg-white/[0.04] border border-[#8B5CF6]/40"
+                    : "border border-transparent hover:bg-white/[0.05]"
+                }`}
+              >
+                <span className="flex items-center justify-between gap-2 text-white text-xs font-semibold">
+                  <span className="flex items-center gap-2 truncate min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] shrink-0" />
+                    MICA Agent
+                  </span>
+                  {agentMode && <Check className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />}
+                </span>
+                <span className="block pl-3.5 pt-0.5 text-[10px] text-[#5B6B8C] leading-relaxed">
+                  {AGENT_MODEL_LABEL}
+                </span>
+              </button>
             </motion.div>
           </>
         )}
@@ -500,15 +816,26 @@ const InboxWelcome: React.FC<{
                         />
                       )}
                       <div className={`min-w-0 max-w-[85%] sm:max-w-[75%] ${m.role === "user" ? "flex justify-end" : ""}`}>
-                        <p
-                          className={`text-sm leading-relaxed whitespace-pre-wrap break-words px-4 py-3 ${
-                            m.role === "user"
-                              ? "bg-gradient-to-tr from-[#7C3AED] to-[#6C5CE0] text-white rounded-[22px] rounded-tr-sm"
-                              : "bg-[#161A2B]/90 border border-white/[0.06] text-[#E8EAF2] rounded-[22px] rounded-tl-sm"
-                          }`}
-                        >
-                          {m.content}
-                        </p>
+                        {m.role === "user" ? (
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-4 py-3 bg-gradient-to-tr from-[#7C3AED] to-[#6C5CE0] text-white rounded-[22px] rounded-tr-sm">
+                            {m.content}
+                          </p>
+                        ) : (
+                          <div className="text-sm leading-relaxed break-words px-4 py-3 bg-[#161A2B]/90 border border-white/[0.06] text-[#E8EAF2] rounded-[22px] rounded-tl-sm">
+                            {m.animate ? (
+                              <AgentTypewriter
+                                text={m.content}
+                                render={renderAgentContent}
+                                onTick={() => {
+                                  const el = scrollRef.current;
+                                  if (el) el.scrollTop = el.scrollHeight;
+                                }}
+                              />
+                            ) : (
+                              renderAgentContent(m.content)
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -519,10 +846,17 @@ const InboxWelcome: React.FC<{
                       className="flex items-start gap-3"
                     >
                       {assistantAvatar}
-                      <div className="bg-[#161A2B]/90 border border-white/[0.06] rounded-[22px] rounded-tl-sm px-4 py-3.5 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.3s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.15s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce" />
+                      <div className="bg-[#161A2B]/90 border border-white/[0.06] rounded-[22px] rounded-tl-sm px-4 py-3.5">
+                        {agentMode && (
+                          <p className="mb-1.5 text-[11px] leading-relaxed text-[#5B6B8C]">
+                            Thinking
+                          </p>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.3s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.15s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce" />
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -751,6 +1085,9 @@ export default function ChatDashboard() {
   // Profile Edit Modal States
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
+  // Chat Dashboard "Settings" action → MCP Connections popup (never navigates
+  // to the global Settings page).
+  const [showMcpSettings, setShowMcpSettings] = useState(false);
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [avatarSeed, setAvatarSeed] = useState("");
@@ -1720,7 +2057,6 @@ export default function ChatDashboard() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.uid]);
 
   // Save my private BDT payout number. Validated + normalized client-side with
@@ -3174,6 +3510,12 @@ export default function ChatDashboard() {
                         </p>
                       </div>
                     </div>
+
+                    {/* MCP Connections — Settings -> MCP Connections.
+                        Self-contained: no nested <form>, every button inside is
+                        type="button", and its modal is portalled to <body>, so it
+                        can never submit or interfere with the profile form below. */}
+                    <McpConnectionsSection onNotify={showToast} />
                     
                     {/* Bento Layout Grid: 3-columns for no scrolling on desktop */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
@@ -5231,8 +5573,9 @@ export default function ChatDashboard() {
               displayName={userProfile?.displayName || ""}
               username={userProfile?.username || ""}
               avatarUrl={userProfile?.avatarUrl || ""}
-              onOpenSettings={() => handleSelectTab("settings")}
+              onOpenSettings={() => setShowMcpSettings(true)}
               onNotify={(text) => showToast(text, "info")}
+              mcpPopupOpen={showMcpSettings}
             />
           )}
         </AnimatePresence>
@@ -5511,6 +5854,15 @@ export default function ChatDashboard() {
       <AddFriendModal
         open={showAddFriend}
         onClose={() => setShowAddFriend(false)}
+      />
+
+      {/* MCP Connections popup (AI utility bar -> Settings). Opens over the
+          dashboard without navigating away; reuses the same MCP section,
+          modal and API as the global Settings page. */}
+      <McpConnectionsPopup
+        open={showMcpSettings}
+        onClose={() => setShowMcpSettings(false)}
+        onNotify={showToast}
       />
 
       {/* Web3 Secure Payment Modal overlay (crypto-only — hidden in BDT mode) */}

@@ -857,6 +857,37 @@ export async function firestoreCreate(
 }
 
 /**
+ * Delete a Firestore document. Returns true when a document was actually
+ * removed, false when the path was already empty.
+ */
+export async function firestoreDelete(collectionPath: string): Promise<boolean> {
+  const db = await getFirestore();
+  const ref = db.doc(collectionPath);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) return false;
+  await ref.delete();
+  return true;
+}
+
+/**
+ * List documents in a collection, optionally filtered by equality on a single
+ * field. Returns plain data objects (no Firestore Timestamp/GeoPoint wrappers),
+ * matching `firestoreGet`. Server-side only.
+ */
+export async function firestoreList(
+  collectionPath: string,
+  where?: { field: string; equals: string | number | boolean }
+): Promise<Array<Record<string, unknown>>> {
+  const db = await getFirestore();
+  let query = db.collection(collectionPath);
+  if (where) {
+    query = query.where(where.field, "==", where.equals);
+  }
+  const snapshot = await query.get();
+  return snapshot.docs.map((doc: any) => doc.data() as Record<string, unknown>);
+}
+
+/**
  * Run an atomic Firestore transaction. `fn` receives the raw Firestore
  * transaction object plus the Firestore instance (server-side only).
  */

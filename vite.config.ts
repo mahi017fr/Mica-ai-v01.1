@@ -9,6 +9,12 @@ import {defineConfig} from 'vite';
 import {Contract, JsonRpcProvider, formatUnits, getAddress} from 'ethers';
 import {handleEnsureWallet} from './api/_lib/circleWalletService';
 import {handleSendUsdc} from './api/_lib/sendUsdcService';
+import botChatHandler from './api/bot/chat';
+import {
+  dispatchMcpRoute,
+  resolveMcpRoute,
+  mcpRouteNotFound,
+} from './api/_lib/mcpConnectionsService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -146,9 +152,152 @@ function walletSendUsdcApi() {
   };
 }
 
+// Normal MICA chat (Groq) — /api/bot/chat in local dev.
+//
+// `npm run dev` runs Vite ONLY, so without this plugin every normal-chat call
+// 404s during development (there is no express server in that mode). It does
+// NOT reimplement the chat: it reuses the exact same handler file that Vercel
+// runs (api/bot/chat.ts), with only a JSON body parse and a small response
+// shim, because connect hands us an unparsed stream and a bare ServerResponse.
+// server.ts keeps its own copy of the same proxy for the built server.
+function botChatApi() {
+  const middleware = async (req: any, res: any, next: any) => {
+    const url = new URL(req.url || '/', 'http://localhost');
+    if (url.pathname !== '/api/bot/chat') return next();
+    const method = String(req.method || 'GET').toUpperCase();
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+
+    let body: any = {};
+    if (method === 'POST' || method === 'PATCH') {
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        const raw = Buffer.concat(chunks).toString('utf8');
+        body = raw ? JSON.parse(raw) : {};
+      } catch {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ok: false, error: 'Invalid JSON body.', code: 'INVALID_REQUEST'}));
+        return;
+      }
+    }
+
+    let statusCode = 200;
+    const shim: any = {
+      setHeader: (k: string, v: any) => res.setHeader(k, v),
+      status(code: number) { statusCode = code; return shim; },
+      json(obj: unknown) {
+        res.statusCode = statusCode;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify(obj));
+        return shim;
+      },
+      send(obj: unknown) { return shim.json(obj); },
+      end(data?: any) { res.statusCode = statusCode; res.end(data); return shim; },
+      sendStatus(code: number) { res.statusCode = code; res.end(); return shim; },
+    };
+
+    try {
+      await botChatHandler({...req, method, body, query: {}, cookies: {}}, shim);
+    } catch (error: any) {
+      console.error('[api/bot/chat] OUTER ERROR:', error?.name || typeof error);
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ok: false, error: 'Internal Server Error', code: 'SERVER_ERROR'}));
+      }
+    }
+  };
+  return {
+    name: 'bot-chat-api',
+    configureServer(server: any) { server.middlewares.use(middleware); },
+    configurePreviewServer(server: any) { server.middlewares.use(middleware); },
+  };
+}
+
+// MCP Connections — Settings -> MCP Connections in local dev.
+//
+// Same handlers as api/mcp/[...path].ts and server.ts, reached through the same
+// path-based dispatcher, so all three runtimes behave identically.
+// `npm run dev` runs Vite ONLY, so without this plugin every /api/mcp/* call
+// would 404 during development.
+function mcpConnectionsApi() {
+  const middleware = async (req: any, res: any, next: any) => {
+    const url = new URL(req.url || '/', 'http://localhost');
+    const prefix = '/api/mcp/';
+    if (!url.pathname.startsWith(prefix)) return next();
+
+    const segments = url.pathname.slice(prefix.length).split('/').filter(Boolean);
+    const method = String(req.method || 'GET').toUpperCase();
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+
+    const send = (status: number, body: Record<string, unknown>) => {
+      if (!res.headersSent) res.statusCode = status;
+      res.end(JSON.stringify(body));
+    };
+
+    if (method === 'OPTIONS') {
+      send(200, {ok: true});
+      return;
+    }
+
+    const resolved = resolveMcpRoute(method, segments);
+    if (!resolved) {
+      // Shared with api/mcp/[...path].ts so all runtimes agree on 404 vs 405.
+      const miss = mcpRouteNotFound(method, segments);
+      send(miss.httpStatus, miss.body);
+      return;
+    }
+
+    // Raw-body parse: there is no express.json() on the Vite dev server, so
+    // connect hands us the unparsed stream. Read it before any early return.
+    let body: Record<string, unknown> = {};
+    if (method === 'POST' || method === 'PATCH') {
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        const raw = Buffer.concat(chunks).toString('utf8');
+        body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+      } catch {
+        send(400, {ok: false, error: 'Invalid JSON body.', code: 'INVALID_REQUEST'});
+        return;
+      }
+    }
+
+    try {
+      const result = await dispatchMcpRoute(
+        resolved.key,
+        req.headers?.authorization || undefined,
+        resolved.id,
+        body
+      );
+      send(result.httpStatus, result.body);
+    } catch (error: any) {
+      // Log the error type only — never a message that could carry a secret
+      // echoed back from the user's MCP server.
+      console.error('[api/mcp] OUTER ERROR:', error?.name || typeof error);
+      send(500, {ok: false, error: 'Internal MCP service error.', code: 'SERVER_ERROR'});
+    }
+  };
+  return {
+    name: 'mcp-connections-api',
+    configureServer(server: any) { server.middlewares.use(middleware); },
+    configurePreviewServer(server: any) { server.middlewares.use(middleware); },
+  };
+}
+
 export default defineConfig(() => {
   return {
-    plugins: [arcBalanceApi(), walletEnsureApi(), walletSendUsdcApi(), react(), tailwindcss()],
+    plugins: [arcBalanceApi(), walletEnsureApi(), walletSendUsdcApi(), botChatApi(), mcpConnectionsApi(), react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

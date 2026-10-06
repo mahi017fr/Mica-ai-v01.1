@@ -18,6 +18,10 @@ import {
   handleDealFundingSettlement,
   handleDealFundingStatus,
 } from "./api/_lib/bdtDealPaymentService";
+import {
+  dispatchMcpRoute,
+  type McpRouteKey,
+} from "./api/_lib/mcpConnectionsService";
 
 function logDiag(entry: Record<string, unknown>) {
   console.log("[WALLET_DIAG]", JSON.stringify(entry));
@@ -210,6 +214,42 @@ async function startServer() {
     }
   });
 
+  // ── MCP Connections ──────────────────────────────────────────────────
+  // Settings -> MCP Connections. The browser holds no MCP secret: it sends a
+  // Firebase ID token, and the backend owns encryption + the outbound handshake.
+  // Same handlers as api/mcp/[...path].ts — no duplicated business logic.
+  const mcpHandler =
+    (key: McpRouteKey, getId: (req: any) => string | undefined) =>
+    async (req: any, res: any) => {
+      res.type("application/json");
+      res.setHeader("Cache-Control", "no-store, max-age=0");
+      try {
+        const result = await dispatchMcpRoute(
+          key,
+          req.headers.authorization ?? undefined,
+          getId(req),
+          (req.body ?? {}) as Record<string, unknown>
+        );
+        return res.status(result.httpStatus).json(result.body);
+      } catch (err: any) {
+        // Log the error type only — a raw message could echo a credential back
+        // from the user's MCP server.
+        console.error("[POST /api/mcp] OUTER ERROR:", err?.name || typeof err);
+        if (!res.headersSent) {
+          return res.status(500).json({ ok: false, error: "Internal MCP service error.", code: "SERVER_ERROR" });
+        }
+      }
+    };
+
+  app.get("/api/mcp/connections", mcpHandler("connections:list", () => undefined));
+  app.post("/api/mcp/connections", mcpHandler("connections:create", () => undefined));
+  app.patch("/api/mcp/connections/:id", mcpHandler("connections:update", (req) => req.params.id));
+  app.delete("/api/mcp/connections/:id", mcpHandler("connections:delete", (req) => req.params.id));
+  app.post("/api/mcp/connections/:id/test", mcpHandler("connections:test", (req) => req.params.id));
+  // MCP-enabled agent turn for the MICA AI Chat. Same dispatcher/handler as
+  // api/mcp/[...path].ts and vite.config.ts — MCP secrets stay server-side.
+  app.post("/api/mcp/agent/chat", mcpHandler("agent:chat", () => undefined));
+
   app.get("/api/arc-usdc-balance", async (req, res) => {
     res.type("application/json");
     res.setHeader("Cache-Control", "no-store, max-age=0");
@@ -247,7 +287,7 @@ async function startServer() {
           "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: [
             {
               role: "system",
