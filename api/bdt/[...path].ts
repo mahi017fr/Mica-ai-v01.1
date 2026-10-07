@@ -9,9 +9,12 @@
 //   POST /api/bdt/deal-funding/:id/settlement     -> handleDealFundingSettlement
 //   POST /api/bdt/deal-funding/:id/refund         -> handleDealFundingRefund
 //
-// Routing follows Vercel's file-based convention: a `[...path]` file in the
-// /api directory becomes a catch-all function served at its folder path. Each
-// segment of the requested URL is delivered via `req.query.path`.
+// Routing follows Vercel's file-based convention. NOTE: outside Next.js,
+// Vercel treats `[...path]` as a SINGLE dynamic segment, so deeper paths such
+// as /api/bdt/transfers/:id are forwarded here by `rewrites` in vercel.json
+// (the rewrite passes the full remaining path as `?path=<a/b/c>`). Segment
+// resolution below never splits on the segment count Vercel delivers to this
+// function; it always reconstructs the full original path.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import {
@@ -93,9 +96,9 @@ function resolveRoute(segments: string[]): { key: string; id: string | undefined
 function readPathSegments(req: VercelRequest): string[] {
   const raw = req.query.path;
   const segments = Array.isArray(raw)
-    ? raw
+    ? raw.flatMap((s) => s.split("/")).filter(Boolean)
     : typeof raw === "string" && raw.length > 0
-      ? [raw]
+      ? raw.split("/").filter(Boolean)
       : [];
   if (segments.length > 0) return segments;
   const urlPath = (req.url ?? "").split("?")[0];

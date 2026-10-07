@@ -1,17 +1,21 @@
-// Consolidated MCP Connections gateway — ONE Vercel Serverless Function for
-// every /api/mcp/* route. Public URLs are unchanged:
+// Consolidated MCP gateway — ONE Vercel Serverless Function for every
+// /api/mcp/* route. Public URLs are unchanged:
 //
 //   GET    /api/mcp/connections             -> list connections (safe fields only)
 //   POST   /api/mcp/connections             -> create a connection
 //   PATCH  /api/mcp/connections/:id         -> update a connection
 //   DELETE /api/mcp/connections/:id         -> delete a connection
 //   POST   /api/mcp/connections/:id/test    -> probe the MCP server, store status
+//   POST   /api/mcp/agent/chat              -> MCP-enabled agent chat turn
 //
 // Routing follows Vercel's file-based convention. NOTE: outside Next.js,
 // Vercel treats `[...path]` as a SINGLE dynamic segment (equivalent to
 // `[path]`), so this file only receives one segment (/api/mcp/<segment>).
-// Deeper paths such as /api/mcp/agent/chat are handled by dedicated
-// exact-path files (see api/mcp/agent/chat.ts).
+// Deeper paths such as /api/mcp/agent/chat or /api/mcp/connections/:id/test
+// are forwarded here by `rewrites` in vercel.json: the rewrite destination
+// passes the full remaining path as `?path=<a/b/c>`, and readPathSegments()
+// below splits it back into segments. Requests that reach the function
+// directly (single-segment paths) are parsed from req.url instead.
 //
 // This module is a thin transport shell. All logic — authentication, Firestore
 // access, encryption, SSRF validation and the MCP handshake — lives in
@@ -115,9 +119,9 @@ function jsonResponse(
 function readPathSegments(req: VercelRequest): string[] {
   const raw = req.query.path;
   const fromQuery = Array.isArray(raw)
-    ? raw
+    ? raw.flatMap((s) => s.split("/")).filter(Boolean)
     : typeof raw === "string" && raw.length > 0
-      ? [raw]
+      ? raw.split("/").filter(Boolean)
       : [];
   if (fromQuery.length > 0) return fromQuery;
 

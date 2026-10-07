@@ -25,6 +25,8 @@
     }
   ],
   "rewrites": [
+    { "source": "^/api/mcp/(.*)$", "destination": "/api/mcp/gateway?path=$1" },
+    { "source": "^/api/bdt/(.*)$", "destination": "/api/bdt/gateway?path=$1" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
