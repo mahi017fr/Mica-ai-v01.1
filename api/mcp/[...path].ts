@@ -7,9 +7,11 @@
 //   DELETE /api/mcp/connections/:id         -> delete a connection
 //   POST   /api/mcp/connections/:id/test    -> probe the MCP server, store status
 //
-// Routing follows Vercel's file-based convention: a `[...path]` file in /api
-// becomes a catch-all function served at its folder path. Each segment of the
-// requested URL is delivered via `req.query.path`.
+// Routing follows Vercel's file-based convention. NOTE: outside Next.js,
+// Vercel treats `[...path]` as a SINGLE dynamic segment (equivalent to
+// `[path]`), so this file only receives one segment (/api/mcp/<segment>).
+// Deeper paths such as /api/mcp/agent/chat are handled by dedicated
+// exact-path files (see api/mcp/agent/chat.ts).
 //
 // This module is a thin transport shell. All logic — authentication, Firestore
 // access, encryption, SSRF validation and the MCP handshake — lives in
@@ -126,7 +128,7 @@ function readPathSegments(req: VercelRequest): string[] {
     : [];
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export async function handler(req: VercelRequest, res: VercelResponse) {
   // ── Outermost guard: ANY uncaught error still returns JSON ───────────
   try {
     const segments = readPathSegments(req);
@@ -194,3 +196,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     jsonResponse(res, 500, { ok: false, error: "Internal MCP service error.", code: "SERVER_ERROR" });
   }
 }
+
+export default handler;
