@@ -379,3 +379,41 @@ body {
 .mica-bg-drift-2 {
   animation: mica-bg-drift-2 18s ease-in-out infinite;
 }
+
+/* Login page "Powered by" marquee — seamless right -> left loop.
+   The track holds the list twice; translating -50% lands exactly on the
+   second copy, so the restart is invisible. */
+@keyframes mica-poweredby-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.mica-poweredby-marquee {
+  animation: mica-poweredby-marquee 42s linear infinite;
+  will-change: transform;
+}
+
+/* ==========================================================================
+   Login page — subtle ambient animations (visual only; static look unchanged)
+   ========================================================================== */
+
+/* MICA logo: very slow, gentle fade/pulse */
+@keyframes mica-logo-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.9; }
+}
+.mica-logo-pulse {
+  animation: mica-logo-pulse 7s ease-in-out infinite;
+}
+
+/* Left-panel halftone dots: extremely slow ambient drift */
+@keyframes mica-dots-drift {
+  0%   { background-position: 0 0; }
+  50%  { background-position: 36px 28px; }
+  100% { background-position: 0 0; }
+}
+.mica-dots-drift {
+  animation: mica-dots-drift 140s linear infinite;
+}
+.mica-dots-drift-slow {
+  animation: mica-dots-drift 190s linear infinite reverse;
+}
