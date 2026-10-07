@@ -54,6 +54,14 @@ const LLM_RATE_LIMIT_DEFAULT_WAIT_MS = 3_000;
 const LLM_RATE_LIMIT_MAX_WAIT_MS = 10_000;
 const MCP_LIST_TIMEOUT_MS = 15_000;
 const MCP_CALL_TIMEOUT_MS = 25_000;
+/**
+ * `initialize` bound. Without it the handshake has no deadline at all, so an
+ * unresponsive MCP server holds a serverless invocation open until the
+ * platform kills it (the failure then arrives as an opaque 504 from the
+ * provider instead of a JSON error from this route). 15s is the same ceiling
+ * the connection probe already allows for a full handshake + tools/list.
+ */
+const MCP_CONNECT_TIMEOUT_MS = 15_000;
 
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_CONTENT_CHARS = 8_000;
@@ -68,6 +76,38 @@ const DEFAULT_SYSTEM =
   "Keep replies concise and easy to read, and reply in the language the user writes in.";
 
 const VALID_TOOL_NAME = /^[A-Za-z0-9_-]{1,64}$/;
+
+// ---------------------------------------------------------------------------
+// Diagnostics
+//
+// Every line is structured and secret-free. Allowed payload: booleans,
+// numbers, route/step labels, model names, connection IDs, and error
+// name/message/stack AFTER `redactSecrets()` (which is fed the decrypted MCP
+// secret as a redaction input). Never an API key, a token, or a credential.
+// ---------------------------------------------------------------------------
+
+function logDiag(entry: Record<string, unknown>): void {
+  try {
+    console.log("[mcp/agent]", JSON.stringify(entry));
+  } catch {
+    // Logging must never break the chat turn.
+  }
+}
+
+/** Exact error name/message/stack for the log, redacted and bounded. */
+function describeError(
+  err: unknown,
+  redactionInputs: Array<string | null | undefined> = []
+): { name: string; message: string; stack: string } {
+  const name = err instanceof Error ? err.name : typeof err;
+  const rawMessage = err instanceof Error ? err.message : String(err ?? "unknown error");
+  const rawStack = err instanceof Error && err.stack ? err.stack : "";
+  return {
+    name,
+    message: redactSecrets(rawMessage, redactionInputs),
+    stack: redactSecretsUnbounded(rawStack, redactionInputs).slice(0, 600),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Input sanitization
@@ -307,6 +347,14 @@ async function callGroq(
     const model = AGENT_MODELS[modelIndex];
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+    const startedAt = Date.now();
+    logDiag({
+      step: "groq_request_started",
+      model,
+      messageCount: messages.length,
+      toolCount: tools.length,
+      timeoutMs: LLM_TIMEOUT_MS,
+    });
     try {
       const res = await fetch(GROQ_CHAT_URL, {
         method: "POST",
@@ -329,10 +377,14 @@ async function callGroq(
         const errText = truncate(await res.text().catch(() => ""), 400);
         // Server-side only: keeps the real provider status/reason visible in
         // logs (sanitized) while clients receive a safe, generic message.
-        const safeLog = errText
-          .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
-          .replace(/eyJ[A-Za-z0-9._-]{20,}/g, "[TOKEN]");
-        console.error(`[mcp/agent] groq HTTP ${res.status}: ${safeLog.slice(0, 300)}`);
+        const safeLog = redactSecrets(errText, [apiKey]);
+        logDiag({
+          step: "groq_request_failed",
+          model,
+          httpStatus: res.status,
+          durationMs: Date.now() - startedAt,
+          providerText: safeLog.slice(0, 300),
+        });
         // Only an unavailable model advances to the next candidate.
         if ((res.status === 400 || res.status === 404) && /model_not_found|does not exist|not access/i.test(errText)) {
           modelIndex += 1;
@@ -364,14 +416,35 @@ async function callGroq(
       const data = (await res.json()) as { choices?: GroqTurn[] };
       const turn = data?.choices?.[0];
       if (!turn) throw new McpError("LLM_ERROR", "The AI model returned an empty response.", 502);
+      logDiag({
+        step: "groq_request_succeeded",
+        model,
+        durationMs: Date.now() - startedAt,
+        finishReason: typeof turn.finish_reason === "string" ? turn.finish_reason : null,
+        requestedToolCalls: Array.isArray(turn.message?.tool_calls)
+          ? turn.message.tool_calls.length
+          : 0,
+      });
       return { turn, model };
     } catch (err: unknown) {
       if (err instanceof McpError) throw err;
       const message = err instanceof Error ? err.message : String(err ?? "unknown error");
       if (/abort|timed ?out/i.test(message)) {
+        logDiag({
+          step: "groq_request_failed",
+          model,
+          durationMs: Date.now() - startedAt,
+          error: describeError(err, [apiKey]),
+          reason: "timeout",
+        });
         throw new McpError("LLM_TIMEOUT", "The AI model timed out. Please try again.", 504);
       }
-      console.error("[mcp/agent] groq request failed:", message.slice(0, 300));
+      logDiag({
+        step: "groq_request_failed",
+        model,
+        durationMs: Date.now() - startedAt,
+        error: describeError(err, [apiKey]),
+      });
       break;
     } finally {
       clearTimeout(timer);
@@ -399,6 +472,17 @@ export async function handleMcpAgentChat(
     const connectionId = readConnectionId(body?.connectionId);
 
     const apiKey = process.env.GROQ_API_KEY;
+    logDiag({
+      step: "agent_start",
+      hasGroqApiKey: Boolean(apiKey),
+      hasEncryptionKey: Boolean(process.env.MICA_SECRET_ENCRYPTION_KEY),
+      hasFirebaseProjectId: Boolean(process.env.FIREBASE_PROJECT_ID),
+      hasFirebaseClientEmail: Boolean(process.env.FIREBASE_CLIENT_EMAIL),
+      hasFirebasePrivateKey: Boolean(process.env.FIREBASE_PRIVATE_KEY),
+      hasApplicationDefaultCredentials: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS),
+      requestedConnectionId: connectionId ?? null,
+      userMessageCount: messages.length,
+    });
     if (!apiKey) {
       throw new McpError("LLM_NOT_CONFIGURED", "The AI model is not configured on the server.", 500);
     }
@@ -407,16 +491,37 @@ export async function handleMcpAgentChat(
     const { connection, target } = await prepareMcpAgentConnection(authHeader, connectionId);
     const redactionInputs = [target.secret];
     const activity: string[] = [];
+    // Connection id ONLY — never the endpoint URL, header name or secret.
+    const connectionIdSafe = connection.id;
 
     // 3–4. Open the MCP session (initialize + notifications/initialized).
+    logDiag({ step: "mcp_connect_started", connectionId: connectionIdSafe });
     let session: McpSession;
+    const connectedAt = Date.now();
     try {
-      session = await openMcpSession(target, { timeoutMs: null });
+      session = await openMcpSession(target, {
+        timeoutMs: null,
+        connectTimeoutMs: MCP_CONNECT_TIMEOUT_MS,
+      });
+      logDiag({
+        step: "mcp_connect_succeeded",
+        connectionId: connectionIdSafe,
+        durationMs: Date.now() - connectedAt,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err ?? "connection failed");
+      logDiag({
+        step: "mcp_connect_failed",
+        connectionId: connectionIdSafe,
+        durationMs: Date.now() - connectedAt,
+        error: describeError(err, redactionInputs),
+      });
+      const isTimeout = err instanceof Error && /abort|timed ?out/i.test(err.message);
       throw new McpError(
         "MCP_CONNECT_FAILED",
-        redactSecrets(message, redactionInputs) || "Could not connect to the MCP server.",
+        isTimeout
+          ? `The MCP server did not respond within ${MCP_CONNECT_TIMEOUT_MS / 1000} seconds.`
+          : redactSecrets(message, redactionInputs) || "Could not connect to the MCP server.",
         502
       );
     }
@@ -433,6 +538,11 @@ export async function handleMcpAgentChat(
         rawTools = Array.isArray(listed?.tools) ? listed.tools : [];
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err ?? "tools/list failed");
+        logDiag({
+          step: "mcp_tools_list_failed",
+          connectionId: connectionIdSafe,
+          error: describeError(err, redactionInputs),
+        });
         throw new McpError(
           "MCP_LIST_TOOLS_FAILED",
           redactSecrets(message, redactionInputs) || "Could not list tools on the MCP server.",
@@ -442,6 +552,12 @@ export async function handleMcpAgentChat(
 
       // 6. Convert MCP tools into the provider's function-tool format.
       const { tools, mcpNameOf, inventory } = buildToolCatalog(rawTools);
+      logDiag({
+        step: "mcp_tools_listed",
+        connectionId: connectionIdSafe,
+        toolCount: rawTools.length,
+        exposedToModel: tools.length,
+      });
       pushActivity(
         activity,
         `Using ${connection.name} → tools/list${rawTools.length ? ` (${rawTools.length} tools)` : ""}`
@@ -544,6 +660,14 @@ export async function handleMcpAgentChat(
       }
 
       // 10. Only safe, whitelist fields ever leave the server.
+      logDiag({
+        step: "agent_completed",
+        connectionId: connectionIdSafe,
+        toolCount: rawTools.length,
+        toolCalls,
+        rounds,
+        replyChars: reply.length,
+      });
       return {
         httpStatus: 200,
         body: {
@@ -564,11 +688,20 @@ export async function handleMcpAgentChat(
     }
   } catch (err: unknown) {
     if (err instanceof McpError) {
+      // `McpError` messages are either authored here or already redacted at
+      // the throw site, so name/code/message are all safe for the log.
+      logDiag({
+        step: "agent_error",
+        code: err.code,
+        status: err.httpStatus,
+        error: describeError(err),
+      });
       return { httpStatus: err.httpStatus, body: { ok: false, error: err.message, code: err.code } };
     }
-    // Log the error type only — a raw message could echo a value the MCP
-    // server reflected back.
-    console.error("[mcp/agent] unexpected error:", err instanceof Error ? err.name : typeof err);
+    // Unexpected failure: full (redacted) name/message/stack belongs in the
+    // server log so a production-only bug is visible; the client still gets a
+    // safe, generic message.
+    logDiag({ step: "agent_unexpected_error", error: describeError(err) });
     return {
       httpStatus: 500,
       body: { ok: false, error: "Internal MCP agent error.", code: "SERVER_ERROR" },

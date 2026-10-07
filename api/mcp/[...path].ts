@@ -25,6 +25,63 @@ import {
   mcpRouteNotFound,
   MCP_ROUTE_METHODS,
 } from "../_lib/mcpConnectionsService.js";
+import { redactSecrets, redactSecretsUnbounded } from "../_lib/mcpProbe.js";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Production diagnostics.
+//
+// A deployment failure is invisible from localhost: the browser only shows a
+// generic sentence, so the log is the only place that can tell a missing
+// environment variable apart from a rejected Firebase token.
+//
+// INVARIANTS — these lines must never contain:
+//   API keys, Firebase service-account material, MICA_SECRET_ENCRYPTION_KEY,
+//   MCP bearer tokens or decrypted MCP credentials.
+// Every value written here is a boolean, a number, a route segment, an error
+// name, or text that has passed through `redactSecrets()`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Server-side variables the MCP agent flow cannot run without. */
+const MCP_REQUIRED_ENV = [
+  "GROQ_API_KEY",
+  "MICA_SECRET_ENCRYPTION_KEY",
+  "FIREBASE_PROJECT_ID",
+  "FIREBASE_CLIENT_EMAIL",
+  "FIREBASE_PRIVATE_KEY",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+] as const;
+
+function logDiag(entry: Record<string, unknown>): void {
+  try {
+    console.log("[mcp/diag]", JSON.stringify(entry));
+  } catch {
+    // Logging must never be able to break the HTTP response.
+  }
+}
+
+/** Presence only — never the value. */
+function envPresence(): Record<string, boolean> {
+  const present: Record<string, boolean> = {};
+  for (const name of MCP_REQUIRED_ENV) {
+    present[name] = Boolean(process.env[name] && String(process.env[name]).trim());
+  }
+  return present;
+}
+
+/**
+ * Exact `name` / `message` / `stack` for the log, with credential-shaped
+ * material stripped first. Bounded so a hostile error cannot flood the log.
+ */
+function describeError(err: unknown): { name: string; message: string; stack: string } {
+  const name = err instanceof Error ? err.name : typeof err;
+  const rawMessage = err instanceof Error ? err.message : String(err ?? "unknown error");
+  const rawStack = err instanceof Error && err.stack ? err.stack : "";
+  return {
+    name,
+    message: redactSecrets(rawMessage, []),
+    stack: redactSecretsUnbounded(rawStack, []).slice(0, 600),
+  };
+}
 
 /**
  * Always return valid JSON — never HTML, never empty. Uses
@@ -75,6 +132,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const segments = readPathSegments(req);
     const resolved = resolveMcpRoute(req.method, segments);
 
+    logDiag({
+      step: "route_reached",
+      method: req.method ?? "UNKNOWN",
+      path: segments.join("/").slice(0, 120),
+      runtime: "node",
+      nodeVersion: process.version,
+      nodeEnv: process.env.NODE_ENV ?? null,
+      isVercel: process.env.VERCEL === "1",
+      env: envPresence(),
+    });
+
     res.setHeader("Access-Control-Allow-Origin", "*");
 
     if (!resolved) {
@@ -87,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       // Shared with vite.config.ts so all runtimes return identical status codes.
       const miss = mcpRouteNotFound(req.method, segments);
+      logDiag({ step: "route_response", status: miss.httpStatus, code: miss.body.code ?? "UNKNOWN" });
       jsonResponse(res, miss.httpStatus, miss.body);
       return;
     }
@@ -106,14 +175,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = (req.body ?? {}) as Record<string, unknown>;
 
     const result = await dispatchMcpRoute(resolved.key, authHeader, resolved.id, body);
+    logDiag({
+      step: "route_response",
+      route: resolved.key,
+      status: result.httpStatus,
+      code:
+        typeof result.body?.code === "string"
+          ? result.body.code
+          : result.body?.ok === true
+            ? "OK"
+            : "UNKNOWN",
+    });
     jsonResponse(res, result.httpStatus, result.body);
   } catch (outerErr: unknown) {
-    // Log the error type only, never a message that might carry a value
-    // echoed back from a user's MCP server.
-    console.error(
-      "[api/mcp] OUTER ERROR:",
-      outerErr instanceof Error ? outerErr.name : typeof outerErr
-    );
+    // Full (redacted) error detail belongs in the server log: the client only
+    // ever receives a safe, generic message.
+    logDiag({ step: "route_error", ...describeError(outerErr) });
     jsonResponse(res, 500, { ok: false, error: "Internal MCP service error.", code: "SERVER_ERROR" });
   }
 }

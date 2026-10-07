@@ -85,20 +85,70 @@ export class McpError extends Error {
 // ---------------------------------------------------------------------------
 
 /**
+ * Structured, secret-free diagnostic line shared by this module.
+ * Booleans, codes and `redactSecrets()`-scrubbed text only — an ID token is
+ * supplied as a redaction input so it can never appear in a log line.
+ */
+function logDiag(entry: Record<string, unknown>): void {
+  try {
+    console.log("[mcp/diag]", JSON.stringify(entry));
+  } catch {
+    // Logging must never break the request.
+  }
+}
+
+/**
+ * A failure that is unambiguously the SERVER's problem — missing/invalid
+ * Firebase Admin credentials, an unreadable service-account key, or a network
+ * failure while reaching Google — must not be reported to the user as
+ * "invalid or expired token": that message tells them to sign in again, which
+ * hides the actual production misconfiguration.
+ */
+function isServerSideAuthFailure(detail: { code: string; message: string }): boolean {
+  return /not configured|not initialized|Failed to parse private key|Service account|DEADLINE_EXCEEDED|UNAVAILABLE|EAI_AGAIN|ENOTFOUND|getaddrinfo|FetchError|fetch failed|socket hang up|ECONNREFUSED|ECONNRESET|certificate|PKIX|NetworkingError/i.test(
+    `${detail.code} ${detail.message}`
+  );
+}
+
+/**
  * Verify the caller's Firebase ID token and return their uid.
- * Throws `McpError` (401) for a missing / invalid / expired token.
+ * Throws `McpError` (401) for a missing / invalid / expired token and
+ * `McpError` (500) when the server's own Firebase Admin credentials are the
+ * reason verification could not be attempted.
  */
 async function authenticate(authHeader: string | undefined | null): Promise<string> {
   const raw = typeof authHeader === "string" ? authHeader : "";
   const idToken = raw.startsWith("Bearer ") ? raw.slice(7).trim() : "";
   if (!idToken) {
+    logDiag({ step: "firebase_auth", ok: false, reason: "missing_bearer_token" });
     throw new McpError("UNAUTHORIZED", "Missing Firebase ID token in Authorization header.", 401);
   }
   try {
     const { uid } = await verifyFirebaseToken(idToken);
-    if (!uid) throw new Error("no uid");
+    if (!uid) throw new Error("no uid returned from verifyIdToken");
+    logDiag({ step: "firebase_auth", ok: true, uidLength: uid.length });
     return uid;
-  } catch {
+  } catch (err: unknown) {
+    // The ID token itself is passed as a redaction input, so it can never be
+    // echoed into a log line even if the underlying error quotes its input.
+    const code =
+      err && typeof (err as { code?: unknown }).code === "string"
+        ? ((err as { code?: string }).code as string)
+        : "";
+    const message = redactSecrets(
+      err instanceof Error ? err.message : String(err ?? "unknown error"),
+      [idToken]
+    );
+    const name = err instanceof Error ? err.name : typeof err;
+    logDiag({ step: "firebase_auth", ok: false, name, code, message });
+
+    if (isServerSideAuthFailure({ code, message })) {
+      throw new McpError(
+        "AUTH_UNAVAILABLE",
+        "Server authentication is not available right now. Please try again in a moment.",
+        500
+      );
+    }
     throw new McpError("UNAUTHORIZED", "Invalid or expired Firebase ID token.", 401);
   }
 }
@@ -929,14 +979,22 @@ export async function dispatchMcpRoute(
     }
   } catch (err: unknown) {
     if (err instanceof McpError) {
+      logDiag({ step: "route_dispatch_error", code: err.code, status: err.httpStatus, error: err.name, message: err.message });
       return { httpStatus: err.httpStatus, body: { ok: false, error: err.message, code: err.code } };
     }
-    // Unknown failure. Log the type only — a raw message could contain a value
-    // echoed back from the MCP server.
-    console.error(
-      "[api/mcp] unexpected error:",
-      err instanceof Error ? err.name : typeof err,
+    // Unknown failure. The message may have been echoed back from the user's
+    // MCP server, so it is scrubbed and bounded before it reaches the log —
+    // but it IS logged: a name alone hides the production error.
+    const name = err instanceof Error ? err.name : typeof err;
+    const message = redactSecrets(
+      err instanceof Error ? err.message : String(err ?? "unknown error"),
+      []
     );
+    const stack =
+      err instanceof Error && err.stack
+        ? redactSecrets(err.stack, []).slice(0, 400)
+        : "";
+    logDiag({ step: "route_dispatch_error", error: name, message, stack });
     return {
       httpStatus: 500,
       body: { ok: false, error: "Internal MCP service error.", code: "SERVER_ERROR" },

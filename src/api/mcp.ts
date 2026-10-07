@@ -101,11 +101,27 @@ async function authorizedFetch(
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 
   if (!res.ok || body?.ok !== true) {
+    // Two envelopes reach this point:
+    //   1. this API's own { ok: false, error, code }
+    //   2. the platform's error shape, e.g. a serverless function timeout
+    //      returns { error: { code: "FUNCTION_INVOCATION_TIMEOUT", ... } }
+    // Without reading (2), every deployment-level failure collapses into a
+    // bare "Server returned 504" and the real production cause is invisible.
+    const rawError = body?.error;
+    const platformError =
+      rawError && typeof rawError === "object" ? (rawError as Record<string, unknown>) : null;
     const message =
-      typeof body?.error === "string" && body.error
-        ? body.error
-        : `Server returned ${res.status}`;
-    const code = typeof body?.code === "string" ? body.code : "SERVER_ERROR";
+      typeof rawError === "string" && rawError
+        ? rawError
+        : typeof platformError?.message === "string" && platformError.message
+          ? platformError.message
+          : `Server returned ${res.status}`;
+    const code =
+      typeof body?.code === "string" && body.code
+        ? body.code
+        : typeof platformError?.code === "string" && platformError.code
+          ? platformError.code
+          : "SERVER_ERROR";
     throw new McpApiError(message, code, res.status);
   }
 

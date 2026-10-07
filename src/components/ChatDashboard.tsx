@@ -546,6 +546,8 @@ const InboxWelcome: React.FC<{
           NO_MCP_CONNECTION:
             "I don't have a server connected yet. Open Settings, connect one, and I can start using it.",
           UNAUTHORIZED: "Please sign in again to keep using the Agent.",
+          AUTH_UNAVAILABLE:
+            "I can't verify your session right now — give it a moment and try again.",
           NETWORK_ERROR:
             "I couldn't reach MICA just now. Check your connection and try again in a moment.",
           LLM_RATE_LIMITED:
@@ -557,6 +559,16 @@ const InboxWelcome: React.FC<{
             "I couldn't reach your connected server just now. Mind trying again in a moment?",
           MCP_LIST_TOOLS_FAILED:
             "I couldn't read what your connected server offers right now. Try again in a moment?",
+          INSECURE_URL:
+            "That server's address uses http://, which only works during development. Re-save it with https:// to use it here.",
+          BLOCKED_HOST:
+            "That server's address points at a private or local network, which I can't reach from here. Re-save it with a public https:// address.",
+          ENCRYPTION_NOT_CONFIGURED:
+            "Secure credential storage isn't set up on this account yet, so I can't use your connected server.",
+          SECRET_DECRYPT_FAILED:
+            "I couldn't unlock your saved server credentials. Re-enter the token in Settings → MCP Connections.",
+          FUNCTION_INVOCATION_TIMEOUT:
+            "That ran out of time before finishing — try a shorter request.",
           SERVER_ERROR: "Something went wrong on my end. Mind trying again?",
         };
         setMessages((prev) => [

@@ -186,17 +186,40 @@ export interface McpSession {
  *
  * `timeoutMs: null` disables the session-wide abort timer (the agent instead
  * bounds each individual MCP operation itself).
+ *
+ * `connectTimeoutMs` bounds ONLY the `initialize` handshake: the connect
+ * promise is raced against it, and on expiry the client is closed so the
+ * in-flight POST is aborted too. It never fires against a healthy,
+ * already-connected session. The agent uses it so an unresponsive MCP server
+ * fails fast with a JSON error instead of holding a serverless invocation
+ * open until the platform's own deadline.
  */
 export async function openMcpSession(
   target: McpProbeTarget,
-  options: { timeoutMs?: number | null } = {}
+  options: { timeoutMs?: number | null; connectTimeoutMs?: number | null } = {}
 ): Promise<McpSession> {
   const timeoutMs = options.timeoutMs ?? null;
+  const connectTimeoutMs = options.connectTimeoutMs ?? null;
   const abortController = new AbortController();
-  const timer =
-    timeoutMs === null ? null : setTimeout(() => abortController.abort(), Math.max(1, timeoutMs));
 
-  let client: Client | null = null;
+  // NOTE: `@modelcontextprotocol/sdk` spreads `requestInit` into its POST
+  // requests but then OVERWRITES `signal` with its own internal controller, so
+  // our `requestInit.signal` is never consulted. Aborting it therefore cancels
+  // nothing. The only way to cancel an in-flight `initialize` / `tools/list`
+  // POST is to close the transport, which aborts that internal controller.
+  // Both deadlines below are implemented accordingly.
+  let sessionClient: Client | null = null;
+  const sessionTimer =
+    timeoutMs === null
+      ? null
+      : setTimeout(
+          () => void Promise.resolve(sessionClient?.close()).catch(() => undefined),
+          Math.max(1, timeoutMs)
+        );
+  const clearSessionTimer = (): void => {
+    if (sessionTimer) clearTimeout(sessionTimer);
+  };
+
   try {
     const url = new URL(target.endpointUrl);
     const headers = buildAuthHeaders(target);
@@ -211,24 +234,45 @@ export async function openMcpSession(
       },
     });
 
-    client = new Client(CLIENT_INFO, { capabilities: {} });
+    const client = new Client(CLIENT_INFO, { capabilities: {} });
+    sessionClient = client;
 
     // connect() performs `initialize` and then the `notifications/initialized`
     // handshake, so by the time it resolves the session is usable.
-    await client.connect(transport);
+    const connecting = client.connect(transport);
+
+    if (connectTimeoutMs !== null && connectTimeoutMs > 0) {
+      let connectTimer: ReturnType<typeof setTimeout> | null = null;
+      try {
+        await Promise.race([
+          connecting,
+          new Promise<never>((_resolve, reject) => {
+            connectTimer = setTimeout(
+              () => reject(new Error(`MCP connect timed out after ${connectTimeoutMs}ms`)),
+              Math.max(1, connectTimeoutMs)
+            );
+          }),
+        ]);
+      } finally {
+        if (connectTimer) clearTimeout(connectTimer);
+      }
+    } else {
+      await connecting;
+    }
 
     const connected = client;
     return {
       client: connected,
       close: async () => {
-        if (timer) clearTimeout(timer);
+        clearSessionTimer();
         // Never await a hanging close() — it must not delay the response.
         void Promise.resolve(connected.close()).catch(() => undefined);
       },
     };
   } catch (err: unknown) {
-    if (timer) clearTimeout(timer);
-    if (client) void Promise.resolve(client.close()).catch(() => undefined);
+    clearSessionTimer();
+    // Abandon any handshake still in flight (this also releases its socket).
+    if (sessionClient) void Promise.resolve(sessionClient.close()).catch(() => undefined);
     throw err;
   }
 }
