@@ -73,16 +73,50 @@ export class McpApiError extends Error {
 // Transport
 // ---------------------------------------------------------------------------
 
+/**
+ * Temporary production tracing. Every line is safe to print: paths, methods,
+ * HTTP status and error codes only — NEVER the Firebase ID token or any
+ * credential. Filter the browser console on `[mica/api]` to follow a request
+ * from the component down to fetch().
+ */
+function trace(entry: Record<string, unknown>): void {
+  try {
+    console.log("[mica/api]", JSON.stringify(entry));
+  } catch {
+    // Tracing must never break the request itself.
+  }
+}
+
 async function authorizedFetch(
   path: string,
   init: { method: string; body?: unknown }
 ): Promise<Record<string, unknown>> {
   const user = auth.currentUser;
   if (!user) {
+    // No request leaves the browser when this fires — which is exactly why it
+    // has to be visible: it looks identical to "the endpoint was never called".
+    trace({ step: "auth_missing", method: init.method, path });
     throw new McpApiError("You must be signed in to manage MCP connections.", "UNAUTHORIZED", 401);
   }
 
-  const idToken = await user.getIdToken();
+  // Token retrieval happens BEFORE fetch(): if it fails or hangs, Vercel never
+  // sees a request, so both outcomes are logged here.
+  let idToken: string;
+  try {
+    idToken = await user.getIdToken();
+    trace({ step: "token_ready", method: init.method, path, hasToken: Boolean(idToken) });
+  } catch (err) {
+    trace({
+      step: "token_failed",
+      method: init.method,
+      path,
+      error: err instanceof Error ? err.name : typeof err,
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 160),
+    });
+    throw err;
+  }
+
+  trace({ step: "fetch_start", method: init.method, path, url: path });
 
   let res: Response;
   try {
@@ -94,9 +128,18 @@ async function authorizedFetch(
       },
       ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
     });
-  } catch {
+  } catch (err) {
+    trace({
+      step: "fetch_failed",
+      method: init.method,
+      path,
+      error: err instanceof Error ? err.name : typeof err,
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 160),
+    });
     throw new McpApiError("Could not reach the MICA server.", "NETWORK_ERROR", 0);
   }
+
+  trace({ step: "fetch_done", method: init.method, path, status: res.status, ok: res.ok });
 
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 
@@ -122,6 +165,7 @@ async function authorizedFetch(
         : typeof platformError?.code === "string" && platformError.code
           ? platformError.code
           : "SERVER_ERROR";
+    trace({ step: "response_error", method: init.method, path, status: res.status, code });
     throw new McpApiError(message, code, res.status);
   }
 
@@ -222,6 +266,14 @@ export interface McpAgentChatResult {
  * when the code is `NO_MCP_CONNECTION`, `UNAUTHORIZED`, or any server error.
  */
 export async function mcpAgentChat(input: McpAgentChatInput): Promise<McpAgentChatResult> {
+  trace({
+    step: "agent_request_start",
+    method: "POST",
+    path: "/api/mcp/agent/chat",
+    messageCount: input.messages.length,
+    hasConnectionId: Boolean(input.connectionId),
+  });
+
   const body = await authorizedFetch("/api/mcp/agent/chat", {
     method: "POST",
     body: {
@@ -232,10 +284,17 @@ export async function mcpAgentChat(input: McpAgentChatInput): Promise<McpAgentCh
   });
 
   const connection = (body.connection ?? null) as McpAgentChatResult["connection"];
-  return {
+  const result: McpAgentChatResult = {
     reply: typeof body.reply === "string" ? body.reply : "",
     activity: Array.isArray(body.activity) ? body.activity.map((line) => String(line)) : [],
     connection,
     toolCalls: typeof body.toolCalls === "number" ? body.toolCalls : 0,
   };
+  trace({
+    step: "agent_response_ok",
+    path: "/api/mcp/agent/chat",
+    replyChars: result.reply.length,
+    toolCalls: result.toolCalls,
+  });
+  return result;
 }

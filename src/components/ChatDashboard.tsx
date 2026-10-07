@@ -19,7 +19,7 @@ import { mcpAgentChat, listMcpConnections, McpApiError } from "../api/mcp";
 import { useBlock } from "../context/BlockContext";
 import { getBlockMessage } from "../utils/blocking";
 import { ArcPaymentReceipt } from "../payments";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { normalizeBdMobile } from "../payments/bdt";
 // @ts-ignore
@@ -482,7 +482,15 @@ const InboxWelcome: React.FC<{
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || isThinking) return;
+    if (!text || isThinking) {
+      // Temporary trace: an empty/blocked send produces NO network request at
+      // all, which is indistinguishable from an API failure in server logs.
+      console.log(
+        "[mica/agent] send_skipped",
+        JSON.stringify({ empty: !text, isThinking, agentMode })
+      );
+      return;
+    }
 
     const userMsg: InboxAiMessage = { id: `u_${Date.now()}`, role: "user", content: text };
     const nextMessages = [...messages, userMsg];
@@ -523,11 +531,26 @@ const InboxWelcome: React.FC<{
     // tools and lets the model call them (GPT-OSS 120B). No silent
     // fallback here — the mode the user picked is the mode they get.
     if (agentMode) {
+      // Temporary trace: confirms the Agent branch was taken and that the
+      // browser is about to POST /api/mcp/agent/chat. Booleans/counts only.
+      console.log(
+        "[mica/agent] send_agent_start",
+        JSON.stringify({
+          agentMode,
+          messageCount: apiMessages.length,
+          textLength: text.length,
+          hasUser: Boolean(auth.currentUser),
+        })
+      );
       try {
         const agent = await mcpAgentChat({
           messages: apiMessages,
           systemInstruction: agentSystemInstruction,
         });
+        console.log(
+          "[mica/agent] send_agent_ok",
+          JSON.stringify({ replyChars: agent.reply.length, toolCalls: agent.toolCalls })
+        );
         setMessages((prev) => [
           ...prev,
           {
@@ -539,6 +562,16 @@ const InboxWelcome: React.FC<{
           },
         ]);
       } catch (agentErr) {
+        // Temporary trace: an exception here means no request (or a failed
+        // one) — the console must show it before the friendly bubble appears.
+        console.log(
+          "[mica/agent] send_agent_failed",
+          JSON.stringify({
+            name: agentErr instanceof Error ? agentErr.name : typeof agentErr,
+            code: agentErr instanceof McpApiError ? agentErr.code : "",
+            status: agentErr instanceof McpApiError ? agentErr.status : null,
+          })
+        );
         // Technical codes stay in the server logs — the chat only ever shows
         // a calm, human sentence.
         const code = agentErr instanceof McpApiError ? agentErr.code : "";
@@ -591,6 +624,10 @@ const InboxWelcome: React.FC<{
     // ── Normal MICA chat (unchanged) ────────────────────────────────────
     // Reuses the existing Groq proxy already used across the app (AIBuddy, ChatContext,
     // deal advisory) — no new AI provider or duplicate service introduced.
+    console.log(
+      "[mica/agent] send_normal_start",
+      JSON.stringify({ agentMode: false, messageCount: apiMessages.length })
+    );
     try {
       const res = await fetch("/api/bot/chat", {
         method: "POST",
@@ -759,6 +796,18 @@ const InboxWelcome: React.FC<{
         type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          // This composer has no submit button, so it relies on the browser's
+          // implicit form submission. Some browsers (notably on mobile) do not
+          // perform it — and then NOTHING leaves the browser: no request, no
+          // log, no error. Submit the form explicitly so an Enter always
+          // reaches handleSend. preventDefault() stops the implicit submit
+          // from firing a second time.
+          if (e.key !== "Enter" || e.shiftKey) return;
+          e.preventDefault();
+          const form = e.currentTarget.form;
+          if (typeof form?.requestSubmit === "function") form.requestSubmit();
+        }}
         placeholder="Ask MICA anything..."
         autoComplete="off"
         className="flex-1 min-w-0 bg-transparent text-sm sm:text-[15px] text-[#F8FAFC] placeholder-[#526080] focus:outline-none py-2"
