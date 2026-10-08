@@ -15,6 +15,15 @@
     },
     "api/mcp/agent/chat.ts": {
       "maxDuration": 60
+    },
+    "api/mcp/connections.ts": {
+      "maxDuration": 60
+    },
+    "api/mcp/connections/[id].ts": {
+      "maxDuration": 60
+    },
+    "api/mcp/connections/[id]/test.ts": {
+      "maxDuration": 60
     }
   },
   "headers": [

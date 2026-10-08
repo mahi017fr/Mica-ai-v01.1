@@ -11,13 +11,19 @@
 // ROUTING (Vercel, non-Next.js): the api/ directory maps each file to an
 // EXACT URL — a `[...path]` catch-all is NOT honoured at deeper levels, it
 // only matches a single segment. This file is therefore a real, exact-path
-// function at /api/mcp/gateway, and every original /api/mcp/* URL arrives via
-// the `rewrites` entry in vercel.json, which forwards the full remaining path
-// as `?path=<a/b/c>`. readPathSegments() splits that back into segments.
-// Requests that reach the function directly are parsed from req.url instead.
-// POST /api/mcp/agent/chat is additionally deployed as its own exact-path
-// function (api/mcp/agent/chat.ts) so the agent turn never has to depend on a
-// rewrite — see that file.
+// function at /api/mcp/gateway. Every deeper /api/mcp/* URL is deployed by its
+// own exact-path file that pins the segments and calls this handler:
+//
+//   api/mcp/connections.ts                -> GET  /api/mcp/connections
+//                                            POST /api/mcp/connections
+//   api/mcp/connections/[id].ts           -> PATCH/DELETE /api/mcp/connections/:id
+//   api/mcp/connections/[id]/test.ts      -> POST /api/mcp/connections/:id/test
+//   api/mcp/agent/chat.ts                 -> POST /api/mcp/agent/chat
+//
+// The `rewrites` entry in vercel.json still forwards any remaining /api/mcp/*
+// URL as `?path=<a/b/c>`, and requests that reach this function directly are
+// parsed from req.url — but the platform-level 404 that previously shadowed
+// these routes is eliminated by the files above, not by the rewrite.
 //
 // This module is a thin transport shell. All logic — authentication, Firestore
 // access, encryption, SSRF validation and the MCP handshake — lives in
