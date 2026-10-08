@@ -221,7 +221,7 @@ function botChatApi() {
 
 // MCP Connections — Settings -> MCP Connections in local dev.
 //
-// Same handlers as api/mcp/[...path].ts and server.ts, reached through the same
+// Same handlers as api/mcp/gateway.ts and server.ts, reached through the same
 // path-based dispatcher, so all three runtimes behave identically.
 // `npm run dev` runs Vite ONLY, so without this plugin every /api/mcp/* call
 // would 404 during development.
@@ -252,7 +252,7 @@ function mcpConnectionsApi() {
 
     const resolved = resolveMcpRoute(method, segments);
     if (!resolved) {
-      // Shared with api/mcp/[...path].ts so all runtimes agree on 404 vs 405.
+      // Shared with api/mcp/gateway.ts so all runtimes agree on 404 vs 405.
       const miss = mcpRouteNotFound(method, segments);
       send(miss.httpStatus, miss.body);
       return;

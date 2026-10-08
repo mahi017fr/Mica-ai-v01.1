@@ -217,7 +217,7 @@ async function startServer() {
   // ── MCP Connections ──────────────────────────────────────────────────
   // Settings -> MCP Connections. The browser holds no MCP secret: it sends a
   // Firebase ID token, and the backend owns encryption + the outbound handshake.
-  // Same handlers as api/mcp/[...path].ts — no duplicated business logic.
+  // Same handlers as api/mcp/gateway.ts — no duplicated business logic.
   const mcpHandler =
     (key: McpRouteKey, getId: (req: any) => string | undefined) =>
     async (req: any, res: any) => {
@@ -247,7 +247,7 @@ async function startServer() {
   app.delete("/api/mcp/connections/:id", mcpHandler("connections:delete", (req) => req.params.id));
   app.post("/api/mcp/connections/:id/test", mcpHandler("connections:test", (req) => req.params.id));
   // MCP-enabled agent turn for the MICA AI Chat. Same dispatcher/handler as
-  // api/mcp/[...path].ts and vite.config.ts — MCP secrets stay server-side.
+  // api/mcp/gateway.ts and vite.config.ts — MCP secrets stay server-side.
   app.post("/api/mcp/agent/chat", mcpHandler("agent:chat", () => undefined));
 
   app.get("/api/arc-usdc-balance", async (req, res) => {

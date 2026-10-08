@@ -8,14 +8,16 @@
 //   POST   /api/mcp/connections/:id/test    -> probe the MCP server, store status
 //   POST   /api/mcp/agent/chat              -> MCP-enabled agent chat turn
 //
-// Routing follows Vercel's file-based convention. NOTE: outside Next.js,
-// Vercel treats `[...path]` as a SINGLE dynamic segment (equivalent to
-// `[path]`), so this file only receives one segment (/api/mcp/<segment>).
-// Deeper paths such as /api/mcp/agent/chat or /api/mcp/connections/:id/test
-// are forwarded here by `rewrites` in vercel.json: the rewrite destination
-// passes the full remaining path as `?path=<a/b/c>`, and readPathSegments()
-// below splits it back into segments. Requests that reach the function
-// directly (single-segment paths) are parsed from req.url instead.
+// ROUTING (Vercel, non-Next.js): the api/ directory maps each file to an
+// EXACT URL — a `[...path]` catch-all is NOT honoured at deeper levels, it
+// only matches a single segment. This file is therefore a real, exact-path
+// function at /api/mcp/gateway, and every original /api/mcp/* URL arrives via
+// the `rewrites` entry in vercel.json, which forwards the full remaining path
+// as `?path=<a/b/c>`. readPathSegments() splits that back into segments.
+// Requests that reach the function directly are parsed from req.url instead.
+// POST /api/mcp/agent/chat is additionally deployed as its own exact-path
+// function (api/mcp/agent/chat.ts) so the agent turn never has to depend on a
+// rewrite — see that file.
 //
 // This module is a thin transport shell. All logic — authentication, Firestore
 // access, encryption, SSRF validation and the MCP handshake — lives in

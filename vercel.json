@@ -10,8 +10,11 @@
     "api/wallet/send-usdc.ts": {
       "maxDuration": 60
     },
-    "api/mcp/[...path].ts": {
+    "api/mcp/gateway.ts": {
       "maxDuration": 300
+    },
+    "api/mcp/agent/chat.ts": {
+      "maxDuration": 60
     }
   },
   "headers": [

@@ -863,7 +863,7 @@ export async function handleMcpTestConnection(
 }
 
 // ---------------------------------------------------------------------------
-// Dispatch — shared by api/mcp/[...path].ts, server.ts and vite.config.ts so all
+// Dispatch — shared by api/mcp/gateway.ts, server.ts and vite.config.ts so all
 // three runtimes execute byte-identical logic.
 // ---------------------------------------------------------------------------
 
