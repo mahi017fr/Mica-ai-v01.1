@@ -16,6 +16,18 @@ const BUTTON_WIDTH = 210;
 const BUTTON_HEIGHT = 380;
 const WIDGET_MARGIN = 16;
 
+/** The mobile bottom navigation is `position: fixed`, so it does not take part
+ *  in the normal layout flow — its height (which already includes the device
+ *  safe-area inset) has to be read off the DOM. Without reserving it the
+ *  character's drag area sat on top of the bar and swallowed taps on the
+ *  right-hand tab buttons. */
+function readBottomNavReserve(): number {
+  if (typeof window === "undefined") return 0;
+  const nav = document.getElementById("bottom_navbar_tabs");
+  if (!nav) return 0;
+  return getComputedStyle(nav).display === "none" ? 0 : nav.getBoundingClientRect().height;
+}
+
 /** Whether Mica is shown at all (Settings page "Mica Character" toggle). Turning
  *  this off hides the floating AI button entirely. */
 function readMicaWidgetEnabled(): boolean {
@@ -62,7 +74,7 @@ const AIBuddy: React.FC = () => {
       left: WIDGET_MARGIN,
       top: WIDGET_MARGIN,
       right: Math.max(WIDGET_MARGIN, w - BUTTON_WIDTH - WIDGET_MARGIN),
-      bottom: Math.max(WIDGET_MARGIN, h - BUTTON_HEIGHT - WIDGET_MARGIN),
+      bottom: Math.max(WIDGET_MARGIN, h - BUTTON_HEIGHT - WIDGET_MARGIN - readBottomNavReserve()),
     };
   });
 
@@ -75,7 +87,7 @@ const AIBuddy: React.FC = () => {
         left: WIDGET_MARGIN,
         top: WIDGET_MARGIN,
         right: Math.max(WIDGET_MARGIN, window.innerWidth - BUTTON_WIDTH - WIDGET_MARGIN),
-        bottom: Math.max(WIDGET_MARGIN, window.innerHeight - BUTTON_HEIGHT - WIDGET_MARGIN),
+        bottom: Math.max(WIDGET_MARGIN, window.innerHeight - BUTTON_HEIGHT - WIDGET_MARGIN - readBottomNavReserve()),
       };
       setDragBounds(bounds);
       if (!hasPlacedRef.current) {
@@ -306,7 +318,7 @@ const AIBuddy: React.FC = () => {
             initial={{ y: "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1, transition: { type: "tween", duration: 0.35, ease: "easeInOut" } }}
             exit={{ y: "100%", opacity: 0, transition: { type: "tween", duration: 0.35, ease: "easeInOut" } }}
-            className="fixed top-0 right-0 h-full w-full sm:w-[380px] bg-[#0B0F17] border-l border-white/[0.06] z-[80] flex flex-col shadow-2xl"
+            className="mica-above-mobile-nav fixed top-0 right-0 w-full sm:w-[380px] bg-[#0B0F17] border-l border-white/[0.06] z-[80] flex flex-col shadow-2xl"
           >
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.06] shrink-0">
               <div className="flex items-center gap-2.5">

@@ -127,6 +127,45 @@ html, body, #root {
   background: var(--bg);
 }
 
+/* ==========================================================================
+   Mobile bottom navigation
+   The bar is `position: fixed` at the bottom of the viewport and is exactly
+   --mica-mobile-nav-h tall PLUS the device bottom safe-area inset. Every full
+   height pane (inbox list, chat, settings, deal room, wallet) opts into
+   `.mica-with-mobile-nav` so its last row — message composer, send button,
+   scroll content — always sits ABOVE the bar instead of behind it.
+   ========================================================================== */
+:root {
+  --mica-mobile-nav-h: 52px;
+}
+
+.mica-mobile-nav {
+  height: calc(var(--mica-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-x: hidden;
+}
+
+.mica-with-mobile-nav {
+  padding-bottom: calc(var(--mica-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Fixed overlays (AI buddy panel, drawers) that must stop ABOVE the bar
+   instead of covering it. */
+.mica-above-mobile-nav {
+  bottom: calc(var(--mica-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Desktop keeps the vertical icon rail instead — no reserved strip. */
+@media (min-width: 768px) {
+  .mica-with-mobile-nav {
+    padding-bottom: 0;
+  }
+
+  .mica-above-mobile-nav {
+    bottom: 0;
+  }
+}
+
 /* Ensure touch targets meet minimum size */
 button, a, [role="button"] {
   min-height: 44px;
@@ -323,6 +362,16 @@ body {
   50%      { opacity: 0.8; }
 }
 
+/* The rotating conic-gradient behind the composer repaints its blurred layer
+   on every frame. On phones that competes with typing for paint time, so the
+   ring holds still there — the visual difference is imperceptible at 20%
+   opacity, but it removes a constant full-width repaint while typing. */
+@media (max-width: 767px) {
+  .mica-composer-glow {
+    animation: none !important;
+  }
+}
+
 /* ==========================================================================
    MICA Home · AI landing accents (name shimmer, utility pills, chips)
    Only white + soft purple, slow, premium, low distraction.
@@ -380,7 +429,7 @@ body {
   animation: mica-bg-drift-2 18s ease-in-out infinite;
 }
 
-/* Login page "Powered by" marquee � seamless right -> left loop.
+/* Login page "Powered by" marquee � seamless right -> left loop.
    The track holds the list twice; translating -50% lands exactly on the
    second copy, so the restart is invisible. */
 @keyframes mica-poweredby-marquee {
@@ -393,7 +442,7 @@ body {
 }
 
 /* ==========================================================================
-   Login page � subtle ambient animations (visual only; static look unchanged)
+   Login page � subtle ambient animations (visual only; static look unchanged)
    ========================================================================== */
 
 /* MICA logo: very slow, gentle fade/pulse */

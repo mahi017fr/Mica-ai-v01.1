@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useChat } from "../context/ChatContext";
 import { useCall } from "../context/CallContext";
 import { usePrimaryWallet } from "../hooks/usePrimaryWallet";
@@ -1004,6 +1004,81 @@ const InboxWelcome: React.FC<{
   );
 };
 
+/**
+ * Inbox message composer — text field + submit button.
+ *
+ * This component intentionally owns the draft so that every keystroke only
+ * re-renders these two nodes. Previously the value lived in ChatDashboard's
+ * state, so a single character re-rendered the whole 6k-line dashboard
+ * (sidebar lists, message thread, settings form, modals) and typing in the
+ * Inbox felt noticeably delayed, especially on phones.
+ *
+ * The parent is still the source of truth for the field's value, but reads it
+ * from `msgTextRef`; it only pushes a new value in through `seed` when it
+ * needs to preset or clear the field (edit message, after send, on rollback).
+ */
+const ChatMessageInput = memo(function ChatMessageInput({
+  seed,
+  placeholder,
+  disabled,
+  isEditing,
+  onDraftChange,
+  onTyping,
+  onCancelEdit,
+}: {
+  seed: { text: string; n: number };
+  placeholder: string;
+  disabled: boolean;
+  isEditing: boolean;
+  onDraftChange: (value: string) => void;
+  onTyping: () => void;
+  onCancelEdit: () => void;
+}) {
+  const [draft, setDraft] = useState(seed.text);
+  const appliedSeedRef = useRef(seed.n);
+
+  useEffect(() => {
+    if (seed.n === appliedSeedRef.current) return;
+    appliedSeedRef.current = seed.n;
+    setDraft(seed.text);
+    onDraftChange(seed.text);
+  }, [seed, onDraftChange]);
+
+  return (
+    <>
+      <input
+        id="chat-input-field"
+        type="text"
+        value={draft}
+        onChange={(e) => {
+          const value = e.target.value;
+          setDraft(value);
+          onDraftChange(value);
+          onTyping();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && isEditing) onCancelEdit();
+        }}
+        placeholder={placeholder}
+        className="flex-1 min-w-0 h-12 bg-[#12172A] backdrop-blur-md border border-white/[0.08] rounded-full px-4 sm:px-5 text-[14px] text-white placeholder:text-slate-400 focus:outline-none focus:border-[#6C5CE0]/60 focus:ring-1 focus:ring-[#6C5CE0]/20 transition-all duration-150"
+        disabled={disabled}
+        aria-label="Message"
+        autoComplete="off"
+        enterKeyHint="send"
+      />
+
+      <button
+        type="submit"
+        disabled={!draft.trim()}
+        title={isEditing ? "Save edit" : "Send"}
+        className="relative w-12 h-12 min-w-[48px] min-h-[48px] sm:w-14 sm:h-14 sm:min-w-[56px] sm:min-h-[56px] rounded-full flex items-center justify-center bg-[#6C5CE0] border border-white/10 text-white hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-150 disabled:opacity-40 shrink-0"
+      >
+        {isEditing ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5" />}
+      </button>
+    </>
+  );
+});
+
 export default function ChatDashboard() {
   const {
     currentUser,
@@ -1201,11 +1276,44 @@ export default function ChatDashboard() {
     showToast("Simulated Airdrop: +1.50 SOL added to your node's wallet!", "success");
   };
 
-  // Expandable Chat Partner Details layout indicator
-  const [showDetailsSidebar, setShowDetailsSidebar] = useState(true);
+  // Mobile breakpoint (< md) used for behaviour differences only — the layout
+  // itself stays CSS-driven, this just decides whether the partner details
+  // panel may auto-open and whether it renders as an overlay or as a column.
+  const [isMobileView, setIsMobileView] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = () => setIsMobileView(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
-  // Chat Input Text state
-  const [msgText, setMsgText] = useState("");
+  // Expandable Chat Partner Details layout indicator.
+  // Desktop keeps its historical "open beside the chat" default; on phones it
+  // must NEVER auto-open — entering a conversation shows the chat only and the
+  // panel is reached exclusively through the Info button in the chat header.
+  const [showDetailsSidebar, setShowDetailsSidebar] = useState(() => !isMobileView);
+  useEffect(() => {
+    if (isMobileView) setShowDetailsSidebar(false);
+  }, [isMobileView, activeChatId]);
+
+  // Chat Input Text state.
+  // The typed draft lives in `msgTextRef` and inside the memoised composer
+  // component below: a keystroke must never re-render this 6k-line dashboard
+  // (that was the cause of the visible typing lag). `composerSeed` is only
+  // bumped by the parent when it wants to preset/clear the field (edit
+  // message, after send, on error rollback).
+  const msgTextRef = useRef("");
+  const [composerSeed, setComposerSeed] = useState<{ text: string; n: number }>({ text: "", n: 0 });
+  const setMsgText = useCallback((text: string) => {
+    msgTextRef.current = text;
+    setComposerSeed((prev) => ({ text, n: prev.n + 1 }));
+  }, []);
+  const handleComposerDraftChange = useCallback((value: string) => {
+    msgTextRef.current = value;
+  }, []);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [replyingToMessage, setReplyingToMessage] = useState<ChatMessage | null>(null);
@@ -1766,6 +1874,20 @@ export default function ChatDashboard() {
     }
   };
 
+  // Stable handles for the memoised composer. The typing indicator is read
+  // through a ref so the composer's props stay referentially stable and a
+  // keystroke re-renders the input and nothing else.
+  const typingIndicatorRef = useRef(handleInputChange);
+  useEffect(() => {
+    typingIndicatorRef.current = handleInputChange;
+  });
+  const handleComposerTyping = useCallback(() => typingIndicatorRef.current(), []);
+
+  const handleCancelEditMessage = useCallback(() => {
+    setEditingMessage(null);
+    setMsgText("");
+  }, [setMsgText]);
+
   useEffect(() => {
     setActiveMessagePopupId(null);
     return () => {
@@ -1783,7 +1905,17 @@ export default function ChatDashboard() {
     // Access protection: the crypto wallet view does not exist in BDT mode.
     if (tab === "wallet" && isBdtMode) tab = "home";
     setActiveTab(tab);
-    setViewChatOnMobile(false);
+
+    // Mobile shows exactly one pane at a time. Tabs whose content lives in the
+    // left sidebar pane keep that list visible; every other tab — the Home AI
+    // workspace, Settings, Deal Room and Wallet, which all render inside the
+    // right viewport — must show the right pane. Without this the collapsed
+    // sidebar plus the hidden viewport produced a background-only screen with
+    // no reachable content and no bottom navigation (see mobile screenshots).
+    const sidebarListTabs = ["chats", "calls", "friends", "notifications", "analytics"];
+    setViewChatOnMobile(!sidebarListTabs.includes(tab));
+    // Leaving a conversation clears its partner-details panel as well.
+    if (isMobileView) setShowDetailsSidebar(false);
     
     if (tab === "settings") {
       if (userProfile) {
@@ -2183,11 +2315,11 @@ export default function ChatDashboard() {
   // Message sending
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!msgText.trim()) return;
+    if (!msgTextRef.current.trim()) return;
 
     // Editing an existing message instead of sending a new one
     if (editingMessage) {
-      const editedTextSnapshot = msgText.trim();
+      const editedTextSnapshot = msgTextRef.current.trim();
       const messageIdBeingEdited = editingMessage.id;
       setMsgText("");
       setEditingMessage(null);
@@ -2207,7 +2339,7 @@ export default function ChatDashboard() {
       return;
     }
 
-    const snapshotText = msgText.trim();
+    const snapshotText = msgTextRef.current.trim();
     const replyPayload = replyingToMessage ? {
       id: replyingToMessage.id,
       senderUsername: replyingToMessage.senderUsername,
@@ -2547,7 +2679,7 @@ export default function ChatDashboard() {
       {/* LEFT ICON NAV RAIL (matches uploaded reference image layout) */}
       {!showSettingsPage && (
         <div
-          className="hidden md:flex w-[92px] shrink-0 h-screen flex-col items-center bg-[#0D111D]/90 border-r border-white/5 backdrop-blur-xl z-20 relative py-5"
+          className="hidden md:flex w-[92px] shrink-0 h-[100dvh] flex-col items-center bg-[#0D111D]/90 border-r border-white/5 backdrop-blur-xl z-20 relative py-5"
           id="left_nav_rail"
         >
           {/* Mica logo mark */}
@@ -2615,7 +2747,7 @@ export default function ChatDashboard() {
 
       {/* SIDEBAR WRAPPER: Responsive view management on mobile */}
       <div
-        className={`bg-[#0D111D]/75 border-r border-white/5 flex flex-col h-screen shrink-0 relative backdrop-blur-xl z-10 transition-[width,opacity,margin] duration-300 ease-in-out overflow-hidden ${
+        className={`mica-with-mobile-nav bg-[#0D111D]/75 border-r border-white/5 flex flex-col h-[100dvh] shrink-0 relative backdrop-blur-xl z-10 transition-[width,opacity,margin] duration-300 ease-in-out overflow-hidden ${
           showSettingsPage || activeTab === "dealroom" || activeTab === "wallet"
             ? "w-0 opacity-0 -ml-2 pointer-events-none"
             : `w-full md:w-96 opacity-100 ml-0 ${viewChatOnMobile ? "hidden md:flex" : "flex"}`
@@ -3275,192 +3407,11 @@ export default function ChatDashboard() {
 
         </div>
 
-        {/* Persistent High-Fidelity Bottom Navigation Bar (matches uploaded image layout) */}
-        <div className="md:hidden bg-[#0D111D] border-t border-white/5 px-4 sm:px-6 py-2 flex items-center justify-between shrink-0 h-16 shadow-[0_-8px_35px_rgba(0,0,0,0.6)] z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]" id="bottom_navbar_tabs">
-          <div className="grid grid-cols-8 w-full h-full my-auto items-center">
-            {/* Home Tab Button */}
-            <button
-              onClick={() => handleSelectTab("home")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="Mica AI Home"
-            >
-              <div className="relative p-1.5 rounded-xl transition-all duration-200">
-                <Home
-                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "home"
-                      ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
-                  }`}
-                />
-                {activeTab === "home" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-                )}
-              </div>
-            </button>
-
-            {/* Chats Tab Button */}
-            <button
-              onClick={() => handleSelectTab("chats")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="Inbox Conversations"
-            >
-              <div className="relative p-1.5 rounded-xl transition-all duration-200">
-                <MessageCircle
-                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "chats"
-                      ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
-                  }`}
-                />
-                {activeTab === "chats" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-                )}
-              </div>
-            </button>
-
-            {/* Calls Tab Button */}
-            <button
-              onClick={() => handleSelectTab("calls")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="Call History"
-            >
-              <div className="relative p-1.5 rounded-xl transition-all duration-200">
-                <Phone
-                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "calls"
-                      ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
-                  }`}
-                />
-                {activeTab === "calls" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-                )}
-              </div>
-            </button>
-
-            {/* Friends Tab Button - distinctive chip style with red badge alert */}
-            <button
-              onClick={() => handleSelectTab("friends")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="Invite Friends"
-            >
-              <div
-                className={`relative p-1.5 rounded-full transition-all duration-200 border ${
-                  activeTab === "friends"
-                    ? "bg-gradient-to-tr from-[#6C5CE0]/25 to-[#6C5CE0]/25 border-[#6C5CE0]/50 shadow-[0_0_14px_rgba(108, 92, 224,0.12)]"
-                    : "bg-white/[0.03] border-white/10 group-hover:border-white/20 group-hover:bg-white/[0.06]"
-                }`}
-              >
-                <UserPlus
-                  className={`w-5 h-5 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "friends"
-                      ? "text-[#6C5CE0] drop-shadow-[0_0_10px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] group-hover:text-[#94A3B8]"
-                  }`}
-                />
-                {pendingReceived.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                )}
-              </div>
-              {activeTab === "friends" && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-              )}
-            </button>
-
-            {/* Notifications Tab Button with red alert indicator */}
-            <button
-              onClick={() => handleSelectTab("notifications")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="System Notifications"
-            >
-              <div className="relative p-1.5 rounded-xl transition-all duration-200">
-                <Bell
-                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "notifications"
-                      ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
-                  }`}
-                />
-                {appNotifications.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                )}
-                {activeTab === "notifications" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-                )}
-              </div>
-            </button>
-
-            {/* Wallet Tab Button */}
-            {!isBdtMode && (
-            <button
-              onClick={() => handleSelectTab("wallet")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="Circle Wallet"
-            >
-              <div className="relative p-1.5 rounded-xl transition-all duration-200">
-                <Wallet
-                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "wallet"
-                      ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
-                  }`}
-                />
-                {activeTab === "wallet" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-                )}
-              </div>
-            </button>
-            )}
-
-            {/* Settings/Menu Tab Button */}
-            <button
-              onClick={() => handleSelectTab("dealroom")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="Deal Room"
-            >
-              <div className="relative p-1.5 rounded-xl transition-all duration-200">
-                <Handshake
-                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "dealroom"
-                      ? "text-[#6C5CE0] drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
-                  }`}
-                />
-                {activeTab === "dealroom" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-                )}
-              </div>
-            </button>
-
-            {/* Settings/Menu Tab Button */}
-            <button
-              onClick={() => handleSelectTab("settings")}
-              className="flex flex-col items-center justify-center relative justify-self-center cursor-pointer group h-full w-11 min-w-[44px]"
-              title="Profile Setup"
-            >
-              <div className="relative p-1.5 rounded-xl transition-all duration-200">
-                <Settings
-                  className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
-                    activeTab === "settings"
-                      ? "text-[#6C5CE0] drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                      : "text-[#6C5CE0] hover:text-[#94A3B8]"
-                  }`}
-                />
-                {(!userProfile?.walletAddress || !userProfile?.bio) && (
-                  <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
-                )}
-                {activeTab === "settings" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
-                )}
-              </div>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* DETAILED ACTIVE CHAT PANEL (Right portion) */}
       <div
-        className={`flex-1 flex flex-col h-screen overflow-hidden bg-[#0D111D]/90 backdrop-blur-md relative ${
+        className={`mica-with-mobile-nav flex-1 flex flex-col h-[100dvh] overflow-hidden bg-[#0D111D]/90 backdrop-blur-md relative ${
           !viewChatOnMobile ? "hidden md:flex" : "flex"
         }`}
         id="active_chat_viewport"
@@ -5334,20 +5285,10 @@ export default function ChatDashboard() {
                           </button>
                         </div>
 
-                        <input
-                          id="chat-input-field"
-                          type="text"
-                          value={msgText}
-                          onChange={(e) => {
-                            setMsgText(e.target.value);
-                            handleInputChange();
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape" && editingMessage) {
-                              setEditingMessage(null);
-                              setMsgText("");
-                            }
-                          }}
+                        <ChatMessageInput
+                          seed={composerSeed}
+                          isEditing={!!editingMessage}
+                          disabled={isUploadingImage}
                           placeholder={
                             isUploadingImage
                               ? "Uploading image..."
@@ -5355,18 +5296,10 @@ export default function ChatDashboard() {
                               ? "Edit message..."
                               : `Message @${activeChatFriend.username}...`
                           }
-                            className="flex-1 min-w-0 h-12 bg-[#12172A] backdrop-blur-md border border-white/[0.08] rounded-full px-5 text-[14px] text-white placeholder:text-slate-400 focus:outline-none focus:border-[#6C5CE0]/60 focus:ring-1 focus:ring-[#6C5CE0]/20 transition-all duration-150"
-                        disabled={isUploadingImage}
-                         />
-
-                        <button
-                          type="submit"
-                          disabled={!msgText.trim()}
-                          title={editingMessage ? "Save edit" : "Send"}
-                          className="relative w-14 h-14 min-w-[56px] min-h-[56px] rounded-full flex items-center justify-center bg-[#6C5CE0] border border-white/10 text-white hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-150 disabled:opacity-40"
-                        >
-                          {editingMessage ? <Check className="w-5 h-5" /> : <Send className="w-5.5 h-5.5"/>}
-                        </button>
+                          onDraftChange={handleComposerDraftChange}
+                          onTyping={handleComposerTyping}
+                          onCancelEdit={handleCancelEditMessage}
+                        />
                       </>
                     )}
                   </form>
@@ -5375,27 +5308,52 @@ export default function ChatDashboard() {
                 </div>
               </motion.div>
 
-              {/* Partner Details Sidebar (High Fidelity Flyout) */}
+              {/* Partner Details Sidebar (High Fidelity Flyout)
+                  Desktop keeps the in-flow column that animates its width.
+                  Mobile renders it as a full-viewport overlay that slides in
+                  from the right, so it never permanently occupies part of the
+                  chat viewport and closing it returns to the same conversation. */}
               <AnimatePresence>
                 {showDetailsSidebar && (
                   <motion.div
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 320 }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ type: "spring", damping: 28, stiffness: 200 }}
-                    className="border-l border-white/[0.06] bg-[#0D111D]/40 backdrop-blur-md h-full flex flex-col shrink-0 overflow-y-auto max-sm:absolute max-sm:right-0 max-sm:top-0 max-sm:bottom-0 max-sm:z-20 max-sm:w-72 max-sm:bg-[#0D111D]/95 max-sm:backdrop-blur-xl"
+                    initial={isMobileView ? { opacity: 0, x: "100%" } : { opacity: 0, width: 0 }}
+                    animate={isMobileView ? { opacity: 1, x: 0 } : { opacity: 1, width: 320 }}
+                    exit={isMobileView ? { opacity: 0, x: "100%" } : { opacity: 0, width: 0 }}
+                    transition={
+                      isMobileView
+                        ? { type: "spring", damping: 32, stiffness: 300 }
+                        : { type: "spring", damping: 28, stiffness: 200 }
+                    }
+                    className={
+                      isMobileView
+                        ? "mica-with-mobile-nav absolute inset-0 z-30 w-full bg-[#0D111D] backdrop-blur-xl flex flex-col overflow-y-auto overscroll-contain"
+                        : "border-l border-white/[0.06] bg-[#0D111D]/40 backdrop-blur-md h-full flex flex-col shrink-0 overflow-y-auto"
+                    }
                     id="partner_sidebar_panel"
                   >
                     {/* Sidebar Header */}
-                    <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-                      <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-[#6C5CE0]" />
-                        Chat Profile details
+                    <div className="p-4 border-b border-white/[0.06] flex items-center justify-between gap-2">
+                      <span className="min-w-0 flex items-center gap-1.5 text-[10px] text-[#94A3B8] font-bold uppercase tracking-widest">
+                        {isMobileView && (
+                          <button
+                            type="button"
+                            onClick={() => setShowDetailsSidebar(false)}
+                            title="Back to chat"
+                            aria-label="Back to chat"
+                            className="p-1.5 -ml-1.5 rounded-lg hover:bg-[#12172A] text-[#6C5CE0] hover:text-[#94A3B8] transition-colors cursor-pointer shrink-0"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </button>
+                        )}
+                        <User className="w-3.5 h-3.5 text-[#6C5CE0] shrink-0" />
+                        <span className="truncate">Chat Profile details</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => setShowDetailsSidebar(false)}
-                        className="p-1 rounded hover:bg-[#12172A] text-[#6C5CE0] hover:text-[#94A3B8] transition-colors cursor-pointer"
+                        className="p-1 rounded hover:bg-[#12172A] text-[#6C5CE0] hover:text-[#94A3B8] transition-colors cursor-pointer shrink-0"
+                        title={isMobileView ? "Close" : "Close"}
+                        aria-label="Close chat profile details"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -5641,6 +5599,192 @@ export default function ChatDashboard() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* MOBILE BOTTOM NAVIGATION - fixed to the viewport, safe-area aware, evenly spaced and always reachable. Rendered as a direct child of the root layout (never inside the sidebar pane) so it stays visible on every tab, including Settings / Deal Room / Wallet where the sidebar pane itself is collapsed. */}
+      <nav
+        className="mica-mobile-nav md:hidden fixed inset-x-0 bottom-0 z-40 bg-[#0D111D] border-t border-white/5 shadow-[0_-8px_35px_rgba(0,0,0,0.6)] px-1 pt-1"
+        id="bottom_navbar_tabs"
+        aria-label="Primary"
+      >
+        <div className="grid grid-flow-col auto-cols-fr w-full h-11 max-w-2xl mx-auto items-stretch">
+          {/* Home Tab Button */}
+          <button
+            onClick={() => handleSelectTab("home")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="Mica AI Home"
+          >
+            <div className="relative p-1.5 rounded-xl transition-all duration-200">
+              <Home
+                className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "home"
+                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                }`}
+              />
+              {activeTab === "home" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              )}
+            </div>
+          </button>
+
+          {/* Chats Tab Button */}
+          <button
+            onClick={() => handleSelectTab("chats")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="Inbox Conversations"
+          >
+            <div className="relative p-1.5 rounded-xl transition-all duration-200">
+              <MessageCircle
+                className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "chats"
+                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                }`}
+              />
+              {activeTab === "chats" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              )}
+            </div>
+          </button>
+
+          {/* Calls Tab Button */}
+          <button
+            onClick={() => handleSelectTab("calls")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="Call History"
+          >
+            <div className="relative p-1.5 rounded-xl transition-all duration-200">
+              <Phone
+                className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "calls"
+                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                }`}
+              />
+              {activeTab === "calls" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              )}
+            </div>
+          </button>
+
+          {/* Friends Tab Button - distinctive chip style with red badge alert */}
+          <button
+            onClick={() => handleSelectTab("friends")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="Invite Friends"
+          >
+            <div
+              className={`relative p-1.5 rounded-full transition-all duration-200 border ${
+                activeTab === "friends"
+                  ? "bg-gradient-to-tr from-[#6C5CE0]/25 to-[#6C5CE0]/25 border-[#6C5CE0]/50 shadow-[0_0_14px_rgba(108, 92, 224,0.12)]"
+                  : "bg-white/[0.03] border-white/10 group-hover:border-white/20 group-hover:bg-white/[0.06]"
+              }`}
+            >
+              <UserPlus
+                className={`w-5 h-5 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "friends"
+                    ? "text-[#6C5CE0] drop-shadow-[0_0_10px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] group-hover:text-[#94A3B8]"
+                }`}
+              />
+              {pendingReceived.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              )}
+            </div>
+            {activeTab === "friends" && (
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+            )}
+          </button>
+
+          {/* Notifications Tab Button with red alert indicator */}
+          <button
+            onClick={() => handleSelectTab("notifications")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="System Notifications"
+          >
+            <div className="relative p-1.5 rounded-xl transition-all duration-200">
+              <Bell
+                className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "notifications"
+                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                }`}
+              />
+              {appNotifications.length > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              )}
+              {activeTab === "notifications" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              )}
+            </div>
+          </button>
+
+          {/* Wallet Tab Button */}
+          {!isBdtMode && (
+          <button
+            onClick={() => handleSelectTab("wallet")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="Circle Wallet"
+          >
+            <div className="relative p-1.5 rounded-xl transition-all duration-200">
+              <Wallet
+                className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "wallet"
+                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                }`}
+              />
+              {activeTab === "wallet" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              )}
+            </div>
+          </button>
+          )}
+
+          {/* Settings/Menu Tab Button */}
+          <button
+            onClick={() => handleSelectTab("dealroom")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="Deal Room"
+          >
+            <div className="relative p-1.5 rounded-xl transition-all duration-200">
+              <Handshake
+                className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "dealroom"
+                    ? "text-[#6C5CE0] drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                }`}
+              />
+              {activeTab === "dealroom" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              )}
+            </div>
+          </button>
+
+          {/* Settings/Menu Tab Button */}
+          <button
+            onClick={() => handleSelectTab("settings")}
+            className="flex flex-col items-center justify-center relative cursor-pointer group h-full w-full min-w-0"
+            title="Profile Setup"
+          >
+            <div className="relative p-1.5 rounded-xl transition-all duration-200">
+              <Settings
+                className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
+                  activeTab === "settings"
+                    ? "text-[#6C5CE0] drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
+                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                }`}
+              />
+              {(!userProfile?.walletAddress || !userProfile?.bio) && (
+                <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+              )}
+              {activeTab === "settings" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              )}
+            </div>
+          </button>
+        </div>
+      </nav>
 
       {/* Fullscreen Image Viewer */}
       <AnimatePresence>

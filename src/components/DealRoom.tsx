@@ -86,6 +86,10 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   const { currentUser, userProfile, friends, searchUsers } = useChat();
 
   const [view, setView] = useState<DealRoomView>("list");
+  // Below lg the room body stacks vertically, so participants / deal summary /
+  // the Mica deal guide live behind a single toggle instead of the desktop
+  // side-by-side columns. At lg and up the desktop layout is unchanged.
+  const [mobileRoomView, setMobileRoomView] = useState<"chat" | "guide">("chat");
   const [rooms, setRooms] = useState<DealRoomDoc[]>([]);
   const [invitations, setInvitations] = useState<DealRoomInvitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -997,12 +1001,28 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             <Timer className="w-3.5 h-3.5" />
             {roomExpired ? "Expired" : formatCountdown(countdown)}
           </div>
+
+          {/* Below lg the participants/summary/guide columns are not shown
+              beside the chat — this button switches between the two views. */}
+          <button
+            type="button"
+            onClick={() => setMobileRoomView((v) => (v === "chat" ? "guide" : "chat"))}
+            title={mobileRoomView === "chat" ? "Open deal panel" : "Back to conversation"}
+            aria-label={mobileRoomView === "chat" ? "Open deal panel" : "Back to conversation"}
+            className="lg:hidden p-2 rounded-xl bg-[#12172A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-[#6C5CE0]/50 cursor-pointer flex items-center justify-center shrink-0"
+          >
+            {mobileRoomView === "chat" ? <Handshake className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Room Body */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Participants Panel (desktop) */}
-          <div className="hidden lg:flex w-72 shrink-0 flex-col border-r border-white/5 bg-[#0D111D]/40 overflow-y-auto custom-scrollbar p-3 space-y-3">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          {/* Participants Panel (desktop) + deal terms on small screens */}
+          <div
+            className={`${
+              mobileRoomView === "guide" ? "flex" : "hidden"
+            } lg:flex w-full lg:w-72 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5 bg-[#0D111D]/40 overflow-y-auto custom-scrollbar p-3 space-y-3 max-h-[40vh] lg:max-h-none`}
+          >
             <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
               Participants ({roomParticipants.length})
             </h4>
@@ -1077,7 +1097,11 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           </div>
 
           {/* Chat Area */}
-          <div className="flex-[3] flex flex-col min-w-0">
+          <div
+            className={`${
+              mobileRoomView === "guide" ? "hidden lg:flex" : "flex"
+            } flex-[3] flex-col min-w-0`}
+          >
             {/* Expired overlay */}
             {roomExpired && (
               <div className="bg-red-500/[0.04] border-b border-red-500/10 px-4 py-2.5 flex items-center gap-2 shrink-0">
@@ -1258,8 +1282,13 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             )}
           </div>
 
-          {/* AI Assistant Sidebar (desktop/tablet) */}
-          <div className="hidden md:flex flex-[1] shrink-0 flex-col border-l border-white/5 bg-[#0D111D]/40 overflow-hidden">
+          {/* AI Assistant Sidebar — beside the chat on lg+, full screen on
+              smaller devices when the deal panel toggle is active */}
+          <div
+            className={`${
+              mobileRoomView === "guide" ? "flex" : "hidden"
+            } lg:flex flex-1 shrink-0 flex-col border-t lg:border-t-0 lg:border-l border-white/5 bg-[#0D111D]/40 overflow-hidden`}
+          >
             {/* Header */}
             <div className="px-4 pt-4 pb-3 border-b border-white/[0.06] shrink-0">
               <span className="text-xs font-bold text-[#F8FAFC]">Mica AI</span>
@@ -1346,7 +1375,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.2 }}
-              className="bg-[#12172A]/95 border border-white/[0.08] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl"
+              className="bg-[#12172A]/95 border border-white/[0.08] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <div className="text-center mb-6">
                 <h3 className="text-lg font-black text-white uppercase tracking-widest font-mono">
