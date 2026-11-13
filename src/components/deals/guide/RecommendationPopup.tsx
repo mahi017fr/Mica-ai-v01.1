@@ -45,20 +45,20 @@ export default function RecommendationPopup({
         exit={{ y: 16, scale: 0.98, opacity: 0 }}
         transition={{ type: "spring", damping: 26, stiffness: 260 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl max-h-[84vh] flex flex-col overflow-hidden rounded-[28px] border border-[#29324B] bg-[#0A0F1E]/[0.98] font-sans shadow-[0_28px_100px_rgba(0,0,0,0.62)] backdrop-blur-xl"
+        className="relative w-full max-w-2xl max-h-[84vh] flex flex-col overflow-hidden rounded-[28px] border border-[#1A1A1A] bg-[#000000]/[0.98] font-sans shadow-[0_28px_100px_rgba(0,0,0,0.62)] backdrop-blur-xl"
       >
-        <div className="flex items-start justify-between px-6 py-5 border-b border-white/[0.07] shrink-0 bg-gradient-to-b from-[#12172A]/65 to-transparent">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-white/[0.07] shrink-0 bg-gradient-to-b from-[#0A0A0A]/65 to-transparent">
           <div className="pr-4">
-            <span className="inline-block mb-2 text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#9B8AFB]">Mica advisory</span>
-            <h2 className="text-[18px] font-extrabold leading-tight text-[#F8FAFC] tracking-[-0.025em]">Mica&apos;s protection plan</h2>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-[#8F9BB2]">
+            <span className="inline-block mb-2 text-[9px] font-extrabold uppercase tracking-[0.18em] text-white">Mica advisory</span>
+            <h2 className="text-[18px] font-extrabold leading-tight text-[#FFFFFF] tracking-[-0.025em]">Mica&apos;s protection plan</h2>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-[#9A9A9A]">
               Advisory only — Mica never touches your funds.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl border border-transparent flex items-center justify-center text-[#7F8BA3] hover:text-white hover:bg-white/[0.05] hover:border-white/[0.07] transition-all cursor-pointer"
+            className="w-9 h-9 rounded-xl border border-transparent flex items-center justify-center text-[#858585] hover:text-white hover:bg-white/[0.05] hover:border-white/[0.07] transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -96,7 +96,7 @@ export default function RecommendationPopup({
                     Milestones
                   </p>
                   {ai.milestones.map((m, i) => (
-                    <div key={i} className="flex gap-2 text-[11px] text-[#DCEBFF] leading-relaxed">
+                    <div key={i} className="flex gap-2 text-[11px] text-[#E5E5E5] leading-relaxed">
                       {dot("bg-sky-400/70")} <span>{m}</span>
                     </div>
                   ))}
@@ -140,7 +140,7 @@ export default function RecommendationPopup({
               </div>
 
               <div className="space-y-2.5 pt-3 border-t border-white/[0.06]">
-                <p className="text-[9px] font-mono text-[#6C5CE0] uppercase tracking-wider font-bold">
+                <p className="text-[9px] font-mono text-white uppercase tracking-wider font-bold">
                   Ask Mica about this deal
                 </p>
                 <div className="flex gap-2">
@@ -152,7 +152,7 @@ export default function RecommendationPopup({
                       if (e.key === "Enter") handleAsk();
                     }}
                     placeholder={`Ask as ${myRole}… e.g. what happens if the seller never delivers?`}
-                    className={`${inputCls} text-xs !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3`}
+                    className={`${inputCls} text-xs !rounded-xl !border-white/[0.09] !bg-[#070707] !px-4 !py-3`}
                   />
                   <ActionButton onClick={handleAsk} busy={asking}>
                     {asking ? undefined : <Send className="w-3.5 h-3.5" />}
@@ -163,7 +163,7 @@ export default function RecommendationPopup({
               </div>
             </div>
           ) : (
-            <p className="text-[11px] text-[#94A3B8]">
+            <p className="text-[11px] text-[#A3A3A3]">
               Mica hasn&apos;t analyzed this deal yet.
             </p>
           )}

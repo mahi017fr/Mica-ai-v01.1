@@ -64,7 +64,7 @@ export default function DealDispute({
               <span className="text-[11px] text-white font-semibold">opened this dispute</span>
             </div>
             <p className="text-[11px] text-red-200 leading-relaxed">“{disputed.reason}”</p>
-            <p className="text-[9px] font-mono text-[#94A3B8]">
+            <p className="text-[9px] font-mono text-[#A3A3A3]">
               {disputed.at ? new Date(disputed.at).toLocaleString() : ""}
               {!isBdtMode && disputed.txHash ? ` · tx ${disputed.txHash.slice(0, 12)}…` : ""}
             </p>
@@ -77,7 +77,7 @@ export default function DealDispute({
           </WarnBanner>
 
           <div className="space-y-2">
-            <p className="text-[9px] font-mono text-[#6C5CE0] uppercase tracking-wider font-bold">
+            <p className="text-[9px] font-mono text-white uppercase tracking-wider font-bold">
               Ask Mica for guidance (advisory)
             </p>
             <div className="flex gap-2">
@@ -117,7 +117,7 @@ export default function DealDispute({
             <PauseCircle className="w-3.5 h-3.5" />
             {isBdtMode ? "Pause Deal & Open Dispute" : "Pause Escrow & Open Dispute"}
           </ActionButton>
-          <p className="text-[10px] text-[#94A3B8] flex items-center gap-1.5">
+          <p className="text-[10px] text-[#A3A3A3] flex items-center gap-1.5">
             <Scale className="w-3 h-3 text-red-400" />
             Opening a dispute immediately pauses the 24h auto-release clock.
           </p>

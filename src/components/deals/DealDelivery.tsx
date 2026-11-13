@@ -40,15 +40,15 @@ export default function DealDelivery({
             <PackageCheck className="w-3.5 h-3.5" />
             Mark Delivered & Start 24h Review
           </ActionButton>
-          <p className="text-[10px] text-[#94A3B8] flex items-center gap-1.5">
-            <Clock className="w-3 h-3 text-[#6C5CE0]" />
+          <p className="text-[10px] text-[#A3A3A3] flex items-center gap-1.5">
+            <Clock className="w-3 h-3 text-white" />
             {isBdtMode
               ? "This starts the buyer's 24-hour review window."
               : "This signs an on-chain transaction that starts the buyer's 24-hour review window."}
           </p>
         </div>
       ) : (
-        <p className="text-[11px] text-[#94A3B8]">
+        <p className="text-[11px] text-[#A3A3A3]">
           Waiting for the seller to mark the deal as delivered.
         </p>
       )}

@@ -135,9 +135,9 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
   };
 
   const primaryBtnClass =
-    "min-h-0 shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-3 py-2 text-[11px] font-semibold text-[#C4B5FD] hover:bg-[#8B5CF6]/20 hover:border-[#8B5CF6]/50 hover:text-[#EDE9FE] transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:pointer-events-none";
+    "min-h-0 shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/20  bg-white/10 px-3 py-2 text-[11px] font-semibold text-white hover:bg-white/20 hover:border-white/20  hover:text-white transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:pointer-events-none";
   const mutedBtnClass =
-    "min-h-0 shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold text-[#7E8AA6]";
+    "min-h-0 shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold text-[#858585]";
 
   return (
     <AnimatePresence>
@@ -148,7 +148,7 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-[#0B0F17]/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-[#000000]/80 backdrop-blur-sm"
           />
 
           <motion.div
@@ -156,17 +156,17 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 w-full max-w-[620px] sm:max-w-[540px] md:max-w-[620px] max-h-[85vh] flex flex-col bg-[#0C121B] border border-white/[0.08] rounded-[20px] shadow-[0_25px_90px_rgba(0,0,0,0.6),0_0_50px_rgba(108,92,224,0.08)] overflow-hidden backdrop-blur-xl"
+            className="relative z-10 w-full max-w-[620px] sm:max-w-[540px] md:max-w-[620px] max-h-[85vh] flex flex-col bg-[#050505] border border-white/[0.08] rounded-[20px] shadow-[0_25px_90px_rgba(0,0,0,0.6),0_0_50px_rgba(255,255,255,0.08)] overflow-hidden backdrop-blur-xl"
           >
             {/* Header */}
             <div className="flex items-start justify-between p-5 sm:p-7 pb-4">
               <div className="flex items-start gap-3">
-                <UserPlus className="w-4 h-4 text-[#E8EAF2] mt-0.5 shrink-0" />
+                <UserPlus className="w-4 h-4 text-[#F5F5F5] mt-0.5 shrink-0" />
                 <div>
-                  <h3 className="text-[17px] sm:text-lg font-bold tracking-tight text-[#F8FAFC] leading-tight">
+                  <h3 className="text-[17px] sm:text-lg font-bold tracking-tight text-[#FFFFFF] leading-tight">
                     Add Friend
                   </h3>
-                  <p className="text-[11px] sm:text-xs text-[#7E8AA6] mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-[#858585] mt-0.5">
                     Find people and connect on MICA
                   </p>
                 </div>
@@ -175,7 +175,7 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
                 type="button"
                 onClick={onClose}
                 title="Close"
-                className="min-h-0 p-1.5 -mr-1 rounded-lg text-[#7E8AA6] hover:text-white transition-colors duration-150 cursor-pointer"
+                className="min-h-0 p-1.5 -mr-1 rounded-lg text-[#858585] hover:text-white transition-colors duration-150 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -184,7 +184,7 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
             {/* Search bar */}
             <div className="px-5 sm:px-7 pb-1">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
                 <input
                   type="text"
                   value={query}
@@ -192,7 +192,7 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
                   placeholder="Search by username or display name..."
                   autoComplete="off"
                   autoFocus
-                  className="w-full h-[50px] bg-[#12172A] border border-white/[0.08] rounded-[14px] pl-11 pr-4 text-sm text-[#E8EAF2] placeholder-[#64748B] focus:outline-none focus:border-[#8B5CF6]/40 focus:ring-2 focus:ring-[#8B5CF6]/15 transition-all"
+                  className="w-full h-[50px] bg-[#0A0A0A] border border-white/[0.08] rounded-[14px] pl-11 pr-4 text-sm text-[#F5F5F5] placeholder-[#737373] focus:outline-none focus:border-white/20  focus:ring-2 focus:ring-white/20  transition-all"
                 />
               </div>
             </div>
@@ -216,11 +216,11 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
 
               {!loading && error && (
                 <div className="py-10 px-4 text-center">
-                  <RefreshCw className="w-6 h-6 text-[#475569] mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-[#E8EAF2]">
+                  <RefreshCw className="w-6 h-6 text-[#5C5C5C] mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-[#F5F5F5]">
                     Something went wrong
                   </p>
-                  <p className="text-[11px] text-[#7E8AA6] mt-1">
+                  <p className="text-[11px] text-[#858585] mt-1">
                     Please try again.
                   </p>
                 </div>
@@ -229,12 +229,12 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
               {!loading && !error && searched && results.length === 0 && (
                 <div className="py-10 px-4 text-center">
                   <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white/[0.03] border border-white/[0.05] flex items-center justify-center">
-                    <UserPlus className="w-5 h-5 text-[#475569]" />
+                    <UserPlus className="w-5 h-5 text-[#5C5C5C]" />
                   </div>
-                  <p className="text-sm font-semibold text-[#E8EAF2]">
+                  <p className="text-sm font-semibold text-[#F5F5F5]">
                     No users found
                   </p>
-                  <p className="text-[11px] text-[#7E8AA6] mt-1">
+                  <p className="text-[11px] text-[#858585] mt-1">
                     Try searching with a different username or display name.
                   </p>
                 </div>
@@ -243,12 +243,12 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
               {!loading && !searched && (
                 <div className="py-10 px-4 text-center">
                   <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white/[0.03] border border-white/[0.05] flex items-center justify-center">
-                    <Search className="w-5 h-5 text-[#475569]" />
+                    <Search className="w-5 h-5 text-[#5C5C5C]" />
                   </div>
-                  <p className="text-sm font-semibold text-[#E8EAF2]">
+                  <p className="text-sm font-semibold text-[#F5F5F5]">
                     Search the MICA community
                   </p>
-                  <p className="text-[11px] text-[#7E8AA6] mt-1">
+                  <p className="text-[11px] text-[#858585] mt-1">
                     Find people by username or display name.
                   </p>
                 </div>
@@ -284,24 +284,24 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
                               src={u.avatarUrl}
                               alt={u.displayName}
                               referrerPolicy="no-referrer"
-                              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover bg-[#0B0F17] border border-white/[0.05]"
+                              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover bg-[#000000] border border-white/[0.05]"
                             />
                             <span
-                              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#0C121B] ${
-                                isOnline ? "bg-emerald-400" : "bg-[#475569]"
+                              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#050505] ${
+                                isOnline ? "bg-emerald-400" : "bg-[#5C5C5C]"
                               }`}
                             />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[13px] sm:text-sm font-semibold text-[#F8FAFC] truncate">
+                            <p className="text-[13px] sm:text-sm font-semibold text-[#FFFFFF] truncate">
                               {u.displayName}
                             </p>
-                            <p className="text-[11px] text-[#7E8AA6] truncate font-mono mt-0.5">
+                            <p className="text-[11px] text-[#858585] truncate font-mono mt-0.5">
                               @{u.username}
                             </p>
                             <p
                               className={`text-[9px] uppercase tracking-wider font-semibold mt-1 ${
-                                isOnline ? "text-emerald-400/80" : "text-[#475569]"
+                                isOnline ? "text-emerald-400/80" : "text-[#5C5C5C]"
                               }`}
                             >
                               {isOnline ? "Online" : "Offline"}
@@ -316,7 +316,7 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
                           </span>
                         ) : isSent ? (
                           <span className={mutedBtnClass}>
-                            <Check className="w-3.5 h-3.5 text-[#A78BFA]" />
+                            <Check className="w-3.5 h-3.5 text-white" />
                             Request Sent
                           </span>
                         ) : incomingReq ? (
@@ -364,7 +364,7 @@ const AddFriendModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
 
             {/* Footer */}
             <div className="shrink-0 mt-4 pt-3 pb-4 border-t border-white/[0.04] px-5 sm:px-7">
-              <p className="text-[10px] text-[#475569] text-center">
+              <p className="text-[10px] text-[#5C5C5C] text-center">
                 Connect with people and build your network on MICA.
               </p>
             </div>

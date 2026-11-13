@@ -15,17 +15,17 @@ export default function DealTimeline({ status }: { status: DealStatus | null }) 
               <span
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] border transition-all ${
                   active
-                    ? "bg-[#6C5CE0] border-[#8B5CF6] shadow-[0_0_12px_rgba(108,92,224,0.5)]"
+                    ? "bg-white border-white/20  shadow-[0_0_12px_rgba(255,255,255,0.5)]"
                     : done
                     ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-                    : "bg-[#12172A] border-white/[0.08] opacity-40"
+                    : "bg-[#0A0A0A] border-white/[0.08] opacity-40"
                 }`}
               >
                 {done ? "✓" : t.icon}
               </span>
               <span
                 className={`text-[8px] font-mono whitespace-nowrap ${
-                  active ? "text-white font-bold" : "text-[#94A3B8]"
+                  active ? "text-white font-bold" : "text-[#A3A3A3]"
                 }`}
               >
                 {t.label}

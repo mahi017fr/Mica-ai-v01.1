@@ -43,7 +43,7 @@ export default function DealReview({
           </p>
         </div>
         {!isBdtMode && deal?.escrow?.releasedAt && (
-          <p className="text-[10px] font-mono text-[#94A3B8]">
+          <p className="text-[10px] font-mono text-[#A3A3A3]">
             {deal.escrow.releaseTxHash ? `tx ${deal.escrow.releaseTxHash}` : ""}
           </p>
         )}
@@ -64,9 +64,9 @@ export default function DealReview({
         <p className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5" /> {isBdtMode ? "Funds held in payment" : "Funds locked in escrow"}</p>
       </div>
       <div className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/[0.05]">
-        <Timer className="w-5 h-5 text-[#A78BFA]" />
+        <Timer className="w-5 h-5 text-white" />
         <div>
-          <p className="text-[9px] font-mono uppercase tracking-wider text-[#94A3B8]">
+          <p className="text-[9px] font-mono uppercase tracking-wider text-[#A3A3A3]">
             {elapsed ? "Review window elapsed" : "Time remaining"}
           </p>
           <p className={`font-mono font-black ${elapsed ? "text-amber-300 text-lg" : "text-white text-lg"}`}>
@@ -102,7 +102,7 @@ export default function DealReview({
 
       {myRole === "buyer" && showReport && (
         <div className="space-y-2">
-          <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="Describe the problem…" className="w-full h-20 resize-none rounded-xl bg-[#12172A] border border-white/10 px-3 py-2 text-xs text-white" />
+          <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="Describe the problem…" className="w-full h-20 resize-none rounded-xl bg-[#0A0A0A] border border-white/10 px-3 py-2 text-xs text-white" />
           <ActionButton onClick={() => onReport(reportReason.trim())} disabled={!!busy || !reportReason.trim()} busy={busy === "dispute"} variant="danger" className="w-full">Submit Report</ActionButton>
         </div>
       )}
@@ -110,12 +110,12 @@ export default function DealReview({
       {myRole === "seller" && !elapsed && (
         <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <p className="text-[11px] font-bold text-white">WAITING FOR BUYER RELEASE</p>
-          <p className="text-[10px] text-[#94A3B8] mt-1">The buyer can release the funds during the review period.{isBdtMode ? " If no dispute is opened before the deadline, auto-release becomes available." : " If no dispute is opened before the deadline, auto-release becomes available under the escrow contract."}</p>
+          <p className="text-[10px] text-[#A3A3A3] mt-1">The buyer can release the funds during the review period.{isBdtMode ? " If no dispute is opened before the deadline, auto-release becomes available." : " If no dispute is opened before the deadline, auto-release becomes available under the escrow contract."}</p>
         </div>
       )}
 
       {myRole !== "buyer" && !elapsed && (
-        <p className="text-[10px] text-[#94A3B8]">
+        <p className="text-[10px] text-[#A3A3A3]">
           Waiting for the buyer to review. If the buyer does nothing for 24h, the {isBdtMode ? "payment" : "escrow"}
           auto-releases to the seller.
         </p>

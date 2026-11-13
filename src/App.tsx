@@ -20,8 +20,8 @@ function MainAppContent() {
 
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#0B0F17] text-[#94A3B8]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#6C5CE0] mb-2" />
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#000000] text-[#A3A3A3]">
+        <Loader2 className="w-8 h-8 animate-spin text-white mb-2" />
         <p className="text-xs font-mono uppercase tracking-wider">Syncing SendXX Services...</p>
       </div>
     );
@@ -51,7 +51,7 @@ export default function App() {
         loginMethods: ["email", "wallet"],
         appearance: {
           theme: "dark",
-          accentColor: "#6C5CE0",
+          accentColor: "#FFFFFF",
         },
         embeddedWallets: {
           ethereum: { createOnLogin: "all-users" },

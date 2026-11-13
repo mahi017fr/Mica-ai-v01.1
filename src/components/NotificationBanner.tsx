@@ -23,39 +23,39 @@ export default function NotificationBanner() {
             initial={{ opacity: 0, scale: 0.9, y: -20, x: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
             exit={{ opacity: 0, scale: 0.85, y: -10, transition: { duration: 0.15 } }}
-            className="w-full bg-[#0D111D]/95 backdrop-blur-md border border-white/[0.06] rounded-xl p-4 shadow-2xl flex items-start gap-3 pointer-events-auto cursor-pointer group hover:border-blue-400/50 transition-all duration-250 relative overflow-hidden"
+            className="w-full bg-[#050505]/95 backdrop-blur-md border border-white/[0.06] rounded-xl p-4 shadow-2xl flex items-start gap-3 pointer-events-auto cursor-pointer group hover:border-white/20  transition-all duration-250 relative overflow-hidden"
             onClick={() => handleNotificationClick(noti)}
           >
             {/* Neon top accent line */}
-            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[#6C5CE0] via-[#7C3AED] to-[#6C5CE0] opacity-70" />
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-white/20 via-white/15 to-white/15 opacity-70" />
 
             {noti.senderAvatar ? (
               <img
                 src={noti.senderAvatar}
                 alt={noti.senderName}
                 referrerPolicy="no-referrer"
-                className="w-9 h-9 rounded-full bg-[#0B0F17] border border-white/[0.06] object-cover mt-0.5"
+                className="w-9 h-9 rounded-full bg-[#000000] border border-white/[0.06] object-cover mt-0.5"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#0B0F17] border border-white/[0.06] flex items-center justify-center text-[#94A3B8]">
+              <div className="w-9 h-9 rounded-full bg-[#000000] border border-white/[0.06] flex items-center justify-center text-[#A3A3A3]">
                 {noti.type === "message" ? (
-                  <MessageSquare className="w-4 h-4 text-[#94A3B8]" />
+                  <MessageSquare className="w-4 h-4 text-[#A3A3A3]" />
                 ) : noti.type === "deal_room_invite" ? (
-                  <Handshake className="w-4 h-4 text-[#F472B6]" />
+                  <Handshake className="w-4 h-4 text-[#D4D4D4]" />
                 ) : (
-                  <UserPlus className="w-4 h-4 text-[#94A3B8]" />
+                  <UserPlus className="w-4 h-4 text-[#A3A3A3]" />
                 )}
               </div>
             )}
 
             <div className="flex-1 min-w-0 pr-4">
-              <p className="text-xs font-bold text-[#F8FAFC] tracking-tight leading-tight">
+              <p className="text-xs font-bold text-[#FFFFFF] tracking-tight leading-tight">
                 {noti.title}
               </p>
-              <p className="text-[11px] text-[#94A3B8] mt-1 truncate">
+              <p className="text-[11px] text-[#A3A3A3] mt-1 truncate">
                 {noti.body}
               </p>
-              <p className="text-[9px] text-[#6C5CE0] font-mono mt-1">
+              <p className="text-[9px] text-white font-mono mt-1">
                 {noti.type === "message" ? "Tap to chat" : noti.type === "deal_room_invite" ? "Tap to view invitation" : "Review in friend Requests"}
               </p>
             </div>
@@ -65,7 +65,7 @@ export default function NotificationBanner() {
                 e.stopPropagation();
                 dismissNotification(noti.id);
               }}
-              className="p-1 rounded-md text-[#6C5CE0] hover:text-[#94A3B8] hover:bg-[#161A2B] transition-all cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="p-1 rounded-md text-white hover:text-[#A3A3A3] hover:bg-[#111111] transition-all cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               <X className="w-3.5 h-3.5" />
             </button>

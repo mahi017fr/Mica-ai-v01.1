@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+﻿import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useChat } from "../context/ChatContext";
 import { useCall } from "../context/CallContext";
 import { usePrimaryWallet } from "../hooks/usePrimaryWallet";
@@ -13,6 +13,7 @@ import { useAppCurrency, CURRENCY_OPTIONS } from "../context/CurrencyContext";
 import BlockUserModal, { BlockModalMode } from "./BlockUserModal";
 import UnfriendConfirmModal from "./UnfriendConfirmModal";
 import AddFriendModal from "./AddFriendModal";
+import { Live2DCharacter } from "./Live2DCharacter";
 import McpConnectionsSection from "./settings/McpConnectionsSection";
 import McpConnectionsPopup from "./settings/McpConnectionsPopup";
 import { mcpAgentChat, listMcpConnections, McpApiError } from "../api/mcp";
@@ -24,6 +25,8 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { normalizeBdMobile } from "../payments/bdt";
 // @ts-ignore
 import micaLogo from "../assets/images/micalogo.png";
+// @ts-ignore
+import micaWordmark from "../assets/images/mica2ndlogo.png";
 
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -178,8 +181,8 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({ audioUrl, isSel
         onClick={togglePlay}
         className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
           isSelf 
-            ? "bg-white text-[#6C5CE0] hover:scale-105 cursor-pointer" 
-            : "bg-white text-[#6C5CE0] hover:scale-105 cursor-pointer"
+            ? "bg-white text-black hover:scale-105 cursor-pointer" 
+            : "bg-white text-black hover:scale-105 cursor-pointer"
         }`}
       >
         {isPlaying ? (
@@ -242,7 +245,7 @@ const DEFAULT_STICKERS = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* MICA Inbox welcome — clean AI chat landing (greeting + AI input)    */
+/* MICA Inbox welcome â€” clean AI chat landing (greeting + AI input)    */
 /* ------------------------------------------------------------------ */
 
 interface InboxAiMessage {
@@ -254,12 +257,12 @@ interface InboxAiMessage {
   animate?: boolean;
 }
 
-/** Agent model label shown to the user — never the raw provider identifier. */
+/** Agent model label shown to the user â€” never the raw provider identifier. */
 const AGENT_MODEL_LABEL = "GPT-OSS 120B";
 
 /**
  * Progressive reveal for a freshly received Agent reply. The backend stays
- * non-streaming — this only uncovers the completed text at a natural pace:
+ * non-streaming â€” this only uncovers the completed text at a natural pace:
  * short replies appear quickly, long ones reveal efficiently (never a slow
  * character-by-character crawl). It runs once per message, never blocks the
  * composer, and never touches parent state while it runs.
@@ -355,7 +358,7 @@ const CopyCodeButton: React.FC<{ text: string }> = ({ text }) => {
     <button
       type="button"
       onClick={copy}
-      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.06] hover:bg-white/[0.12] active:bg-white/[0.16] border border-white/10 text-[11px] font-medium text-white transition-colors cursor-pointer"
+      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.06] hover:bg-white/[0.12] active:bg-white/[0.16] border border-[#292D3A] text-[11px] font-medium text-white transition-colors cursor-pointer"
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
       {copied ? "Copied" : "Copy"}
@@ -373,13 +376,13 @@ function renderAgentContent(text: string): React.ReactNode {
     ) : (
       <div
         key={`c_${i}`}
-        className="block my-2 overflow-hidden rounded-xl border border-white/10 bg-[#0B0F17]/85"
+        className="block my-2 overflow-hidden rounded-xl border border-[#292D3A] bg-[#000000]/85"
       >
         <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-white/[0.07]">
-          <span className="text-[10px] font-medium text-[#5B6B8C]">{part.lang || "Code"}</span>
+          <span className="text-[10px] font-medium text-[#737373]">{part.lang || "Code"}</span>
           <CopyCodeButton text={part.value} />
         </div>
-        <pre className="px-3 py-2.5 text-xs leading-relaxed text-[#D7DEEA] overflow-x-auto">
+        <pre className="px-3 py-2.5 text-xs leading-relaxed text-[#E5E5E5] overflow-x-auto">
           <code>{part.value}</code>
         </pre>
       </div>
@@ -393,7 +396,7 @@ const InboxWelcome: React.FC<{
   avatarUrl?: string;
   onOpenSettings?: () => void;
   onNotify?: (text: string) => void;
-  /** True while the MCP Connections popup is open — used to refresh the
+  /** True while the MCP Connections popup is open â€” used to refresh the
    *  Agent Mode indicator right after the user connects a server. */
   mcpPopupOpen?: boolean;
 }> = ({ displayName, username, avatarUrl, onOpenSettings, onNotify, mcpPopupOpen }) => {
@@ -402,7 +405,7 @@ const InboxWelcome: React.FC<{
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  // Agent Mode — when ON, this chat talks to POST /api/mcp/agent/chat and the
+  // Agent Mode â€” when ON, this chat talks to POST /api/mcp/agent/chat and the
   // backend may call the user's connected MCP tools server-side. When OFF the
   // chat behaves exactly as before (plain /api/bot/chat). MICA Agent is the
   // default experience: it runs on GPT-OSS 120B with the user's own MCP server.
@@ -418,7 +421,7 @@ const InboxWelcome: React.FC<{
   const userAvatar =
     avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${username || "user"}`;
 
-  // The single set of AI utility shortcuts — centered directly under the
+  // The single set of AI utility shortcuts â€” centered directly under the
   // main MICA chat input. Library/Plugins/Create Image have no backend yet,
   // so they surface a quiet "coming soon" toast; Settings opens the MCP
   // Connections popup right over this dashboard (it never navigates away).
@@ -429,7 +432,7 @@ const InboxWelcome: React.FC<{
     { label: "Settings", Icon: Settings, run: () => onOpenSettings?.() },
   ];
 
-  // Reset only this MICA AI chat session — returns to the empty greeting
+  // Reset only this MICA AI chat session â€” returns to the empty greeting
   // screen. Leave Firebase, wallets, peer conversations, and settings alone.
   const handleNewSession = () => {
     setMessages([]);
@@ -442,7 +445,7 @@ const InboxWelcome: React.FC<{
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, isThinking]);
 
-  // After the first message the composer remounts at the bottom of the screen —
+  // After the first message the composer remounts at the bottom of the screen â€”
   // bring focus back to it so the user can keep typing without clicking.
   useEffect(() => {
     if (hasConversation) {
@@ -451,8 +454,8 @@ const InboxWelcome: React.FC<{
     }
   }, [hasConversation]);
 
-  // Which MCP server the Agent will use — only the name is ever shown (e.g.
-  // "MICA Agent · AGP"). Credentials never reach this component.
+  // Which MCP server the Agent will use â€” only the name is ever shown (e.g.
+  // "MICA Agent Â· AGP"). Credentials never reach this component.
   const refreshAgentInfo = async () => {
     try {
       const list = await listMcpConnections();
@@ -464,7 +467,7 @@ const InboxWelcome: React.FC<{
       const pick = connected[0] ?? [...list].sort(byRecency)[0];
       setAgentConnection(pick ? { name: pick.name, connected: connected.length > 0 } : null);
     } catch {
-      // Signed out / offline — the selector simply shows "MICA Agent".
+      // Signed out / offline â€” the selector simply shows "MICA Agent".
       setAgentConnection(null);
     }
   };
@@ -473,7 +476,7 @@ const InboxWelcome: React.FC<{
     if (agentMode) void refreshAgentInfo();
   }, [agentMode]);
 
-  // The MCP Connections popup is where a server gets connected — reload the
+  // The MCP Connections popup is where a server gets connected â€” reload the
   // indicator as soon as it closes so a newly connected server shows up.
   useEffect(() => {
     if (!mcpPopupOpen && agentMode) void refreshAgentInfo();
@@ -501,7 +504,7 @@ const InboxWelcome: React.FC<{
     const apiMessages = nextMessages.map((m) => ({ role: m.role, content: m.content }));
     const systemInstruction =
       "You are Mica, the in-app AI assistant for MICA. Be warm, sharp, and genuinely " +
-      "helpful with whatever the user brings up — questions, work, ideas, deals, or casual chat. " +
+      "helpful with whatever the user brings up â€” questions, work, ideas, deals, or casual chat. " +
       "Keep replies concise, natural, and easy to read. Default to English, but if the user writes " +
       "in another language, reply in that language too.";
 
@@ -525,11 +528,11 @@ const InboxWelcome: React.FC<{
       "config snippets, inside a fenced code block. " +
       "Default to English; if the user writes in another language, reply in that language.";
 
-    // ── Agent Mode ──────────────────────────────────────────────────────
+    // â”€â”€ Agent Mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // ON: every message goes to the MCP agent endpoint, which loads the
     // user's own connection, decrypts the credential server-side, lists the
     // tools and lets the model call them (GPT-OSS 120B). No silent
-    // fallback here — the mode the user picked is the mode they get.
+    // fallback here â€” the mode the user picked is the mode they get.
     if (agentMode) {
       // Temporary trace: confirms the Agent branch was taken and that the
       // browser is about to POST /api/mcp/agent/chat. Booleans/counts only.
@@ -563,7 +566,7 @@ const InboxWelcome: React.FC<{
         ]);
       } catch (agentErr) {
         // Temporary trace: an exception here means no request (or a failed
-        // one) — the console must show it before the friendly bubble appears.
+        // one) â€” the console must show it before the friendly bubble appears.
         console.log(
           "[mica/agent] send_agent_failed",
           JSON.stringify({
@@ -572,7 +575,7 @@ const InboxWelcome: React.FC<{
             status: agentErr instanceof McpApiError ? agentErr.status : null,
           })
         );
-        // Technical codes stay in the server logs — the chat only ever shows
+        // Technical codes stay in the server logs â€” the chat only ever shows
         // a calm, human sentence.
         const code = agentErr instanceof McpApiError ? agentErr.code : "";
         const naturalErrors: Record<string, string> = {
@@ -580,7 +583,7 @@ const InboxWelcome: React.FC<{
             "I don't have a server connected yet. Open Settings, connect one, and I can start using it.",
           UNAUTHORIZED: "Please sign in again to keep using the Agent.",
           AUTH_UNAVAILABLE:
-            "I can't verify your session right now — give it a moment and try again.",
+            "I can't verify your session right now â€” give it a moment and try again.",
           NETWORK_ERROR:
             "I couldn't reach MICA just now. Check your connection and try again in a moment.",
           LLM_RATE_LIMITED:
@@ -599,9 +602,9 @@ const InboxWelcome: React.FC<{
           ENCRYPTION_NOT_CONFIGURED:
             "Secure credential storage isn't set up on this account yet, so I can't use your connected server.",
           SECRET_DECRYPT_FAILED:
-            "I couldn't unlock your saved server credentials. Re-enter the token in Settings → MCP Connections.",
+            "I couldn't unlock your saved server credentials. Re-enter the token in Settings â†’ MCP Connections.",
           FUNCTION_INVOCATION_TIMEOUT:
-            "That ran out of time before finishing — try a shorter request.",
+            "That ran out of time before finishing â€” try a shorter request.",
           SERVER_ERROR: "Something went wrong on my end. Mind trying again?",
         };
         setMessages((prev) => [
@@ -621,9 +624,9 @@ const InboxWelcome: React.FC<{
       return;
     }
 
-    // ── Normal MICA chat (unchanged) ────────────────────────────────────
+    // â”€â”€ Normal MICA chat (unchanged) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Reuses the existing Groq proxy already used across the app (AIBuddy, ChatContext,
-    // deal advisory) — no new AI provider or duplicate service introduced.
+    // deal advisory) â€” no new AI provider or duplicate service introduced.
     console.log(
       "[mica/agent] send_normal_start",
       JSON.stringify({ agentMode: false, messageCount: apiMessages.length })
@@ -646,14 +649,14 @@ const InboxWelcome: React.FC<{
       // The serverless path asks the model for a strict {"reply": "...", "emotion": "..."}
       // JSON object (see api/bot/chat.ts). Parse that out; on any deviation fall back to the
       // raw text so a parsing hiccup never breaks the chat.
-      let replyText = rawContent || "Sorry, I didn't quite catch that — can you say it again?";
+      let replyText = rawContent || "Sorry, I didn't quite catch that â€” can you say it again?";
       try {
         const parsed = JSON.parse(rawContent);
         if (parsed && typeof parsed.reply === "string" && parsed.reply.trim()) {
           replyText = parsed.reply.trim();
         }
       } catch {
-        // Not JSON — the raw text is the reply.
+        // Not JSON â€” the raw text is the reply.
       }
 
       setMessages((prev) => [
@@ -675,7 +678,7 @@ const InboxWelcome: React.FC<{
     }
   };
 
-  // Assistant avatar — the original MICA logo asset, exactly as it is: no
+  // Assistant avatar â€” the original MICA logo asset, exactly as it is: no
   // badge, container, padding, border, shadow or letter fallback.
   const assistantAvatar = (
     <img
@@ -685,8 +688,8 @@ const InboxWelcome: React.FC<{
     />
   );
 
-  // ── Single mode selector: [ MICA Agent ▾ ] / [ MICA Chat ▾ ]
-  // One control picks the chat mode — the MCP-backed MICA Agent (default,
+  // â”€â”€ Single mode selector: [ MICA Agent â–¾ ] / [ MICA Chat â–¾ ]
+  // One control picks the chat mode â€” the MCP-backed MICA Agent (default,
   // GPT-OSS 120B) or the plain MICA chat (/api/bot/chat). The connected MCP
   // server is named inline when there is one; no second button beside it.
   const modelSelector = (
@@ -695,22 +698,22 @@ const InboxWelcome: React.FC<{
         type="button"
         onClick={() => setModelMenuOpen((o) => !o)}
         title="Chat mode"
-        className="flex items-center gap-1.5 h-9 pl-3 pr-2 rounded-full bg-white/[0.04] border border-white/[0.06] text-xs font-semibold text-[#F8FAFC] hover:bg-white/[0.08] hover:border-[#8B5CF6]/30 transition-all cursor-pointer"
+        className="flex items-center gap-1.5 h-9 pl-3 pr-2 rounded-full bg-white/[0.04] border border-[#292D3A] text-xs font-semibold text-[#FFFFFF] hover:bg-white/[0.08] hover:border-white/20  transition-all cursor-pointer"
       >
         <span
           className={`w-1.5 h-1.5 rounded-full ${
             agentMode
-              ? "bg-[#8B5CF6] shadow-[0_0_6px_rgba(139,92,246,0.8)]"
+              ? "bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]"
               : "bg-[#34D399] shadow-[0_0_6px_rgba(52,211,153,0.7)]"
           }`}
         />
         {agentMode ? "MICA Agent" : "MICA Chat"}
         {agentMode && agentConnection?.connected && (
-          <span className="max-w-[84px] truncate font-medium text-[#8B93A8]">
-            · {agentConnection.name}
+          <span className="max-w-[84px] truncate font-medium text-[#8F8F8F]">
+            Â· {agentConnection.name}
           </span>
         )}
-        <ChevronDown className="w-3.5 h-3.5 text-[#5B6B8C]" />
+        <ChevronDown className="w-3.5 h-3.5 text-[#737373]" />
       </button>
       <AnimatePresence>
         {modelMenuOpen && (
@@ -721,9 +724,9 @@ const InboxWelcome: React.FC<{
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.96 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
-              className="absolute right-0 top-full mt-2 z-40 w-56 rounded-2xl bg-[#12172A]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-1.5"
+              className="absolute right-0 top-full mt-2 z-40 w-56 rounded-2xl bg-[#171A26]/95 backdrop-blur-xl border border-[#292D3A] shadow-2xl p-1.5"
             >
-              <p className="px-2.5 py-1.5 text-[10px] font-medium text-[#5B6B8C]">
+              <p className="px-2.5 py-1.5 text-[10px] font-medium text-[#737373]">
                 Chat mode
               </p>
               <button
@@ -734,7 +737,7 @@ const InboxWelcome: React.FC<{
                 }}
                 className={`w-full text-left px-2.5 py-2 rounded-xl transition-colors cursor-pointer ${
                   !agentMode
-                    ? "bg-white/[0.04] border border-[#8B5CF6]/40"
+                    ? "bg-white/[0.04] border border-white/20 "
                     : "border border-transparent hover:bg-white/[0.05]"
                 }`}
               >
@@ -743,9 +746,9 @@ const InboxWelcome: React.FC<{
                     <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] shrink-0" />
                     MICA Chat
                   </span>
-                  {!agentMode && <Check className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />}
+                  {!agentMode && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                 </span>
-                <span className="block pl-3.5 pt-0.5 text-[10px] text-[#5B6B8C] leading-relaxed">
+                <span className="block pl-3.5 pt-0.5 text-[10px] text-[#737373] leading-relaxed">
                   Standard chat
                 </span>
               </button>
@@ -757,18 +760,18 @@ const InboxWelcome: React.FC<{
                 }}
                 className={`w-full text-left px-2.5 py-2 rounded-xl transition-colors cursor-pointer ${
                   agentMode
-                    ? "bg-white/[0.04] border border-[#8B5CF6]/40"
+                    ? "bg-white/[0.04] border border-white/20 "
                     : "border border-transparent hover:bg-white/[0.05]"
                 }`}
               >
                 <span className="flex items-center justify-between gap-2 text-white text-xs font-semibold">
                   <span className="flex items-center gap-2 truncate min-w-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
                     MICA Agent
                   </span>
-                  {agentMode && <Check className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />}
+                  {agentMode && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                 </span>
-                <span className="block pl-3.5 pt-0.5 text-[10px] text-[#5B6B8C] leading-relaxed">
+                <span className="block pl-3.5 pt-0.5 text-[10px] text-[#737373] leading-relaxed">
                   {AGENT_MODEL_LABEL}
                 </span>
               </button>
@@ -782,12 +785,12 @@ const InboxWelcome: React.FC<{
   const inputBar = (
     <form
       onSubmit={handleSend}
-      className="flex items-center gap-1 w-full rounded-full bg-[#0D111D]/80 backdrop-blur-xl border border-white/10 pl-1.5 pr-2 py-1.5 shadow-[0_18px_50px_-20px_rgba(0,0,0,0.85)] focus-within:border-[#8B5CF6]/50 focus-within:shadow-[0_0_50px_rgba(124,58,237,0.22),0_18px_50px_-20px_rgba(0,0,0,0.85)] transition-all duration-300"
+      className="flex items-center gap-1 w-full rounded-full bg-[#0B0D14]/80 backdrop-blur-xl border border-[#292D3A] pl-1.5 pr-2 py-1.5 shadow-[0_18px_50px_-20px_rgba(0,0,0,0.85)] focus-within:border-[#9875FF]/35 focus-within:ring-1 focus-within:ring-[#91B9FF]/25 focus-within:shadow-[0_0_0_1px_rgba(167,139,250,0.08)] transition-all duration-300"
     >
       <button
         type="button"
         title="Attach files (coming soon)"
-        className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[#5B6B8C] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+        className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[#91B9FF]/80 hover:text-[#91B9FF] hover:bg-white/[0.04] transition-colors cursor-pointer"
       >
         <Plus className="w-4.5 h-4.5" />
       </button>
@@ -799,7 +802,7 @@ const InboxWelcome: React.FC<{
         onKeyDown={(e) => {
           // This composer has no submit button, so it relies on the browser's
           // implicit form submission. Some browsers (notably on mobile) do not
-          // perform it — and then NOTHING leaves the browser: no request, no
+          // perform it â€” and then NOTHING leaves the browser: no request, no
           // log, no error. Submit the form explicitly so an Enter always
           // reaches handleSend. preventDefault() stops the implicit submit
           // from firing a second time.
@@ -810,14 +813,14 @@ const InboxWelcome: React.FC<{
         }}
         placeholder="Ask MICA anything..."
         autoComplete="off"
-        className="flex-1 min-w-0 bg-transparent text-sm sm:text-[15px] text-[#F8FAFC] placeholder-[#526080] focus:outline-none py-2"
+        className="flex-1 min-w-0 bg-transparent text-sm sm:text-[15px] text-[#FFFFFF] placeholder-[#666666] focus:outline-none py-2"
       />
       {modelSelector}
       <div className="w-px h-5 bg-white/[0.08] mx-0.5 shrink-0" />
       <button
         type="button"
         title="Voice input (coming soon)"
-        className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[#5B6B8C] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+        className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[#91B9FF]/80 hover:text-[#91B9FF] hover:bg-white/[0.04] transition-colors cursor-pointer"
       >
         <Mic className="w-4.5 h-4.5" />
       </button>
@@ -825,23 +828,23 @@ const InboxWelcome: React.FC<{
   );
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-[#0D111D] relative">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#0B0D14] relative">
       {/* Subtle navy + faint ambient purple glow drifting behind the centered
-          welcome content — very calm, no strong purple wash. */}
+          welcome content â€” very calm, no strong purple wash. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="mica-bg-drift absolute left-1/2 top-1/2 w-[38rem] h-[38rem] rounded-full bg-[#1E3A8A]/[0.09] blur-[150px]" />
-        <div className="mica-bg-drift-2 absolute left-1/2 top-1/2 w-[24rem] h-[24rem] rounded-full bg-[#7C3AED]/[0.07] blur-[130px]" />
+        <div className="mica-bg-drift absolute left-1/2 top-1/2 w-[38rem] h-[38rem] rounded-full bg-[#9875FF]/[0.07] blur-[160px]" />
+        <div className="mica-bg-drift-2 absolute left-1/2 top-1/2 w-[24rem] h-[24rem] rounded-full bg-[#91B9FF]/[0.06] blur-[140px]" />
       </div>
 
-      {/* New Session — resets the current MICA AI chat session back to the
+      {/* New Session â€” resets the current MICA AI chat session back to the
           empty greeting state. Never touches user data, wallets, or peer chats. */}
       <button
         type="button"
         onClick={handleNewSession}
         title="Start a new MICA AI session"
-        className="mica-new-session absolute top-4 right-4 sm:top-7 sm:right-7 z-30 flex items-center gap-1.5 rounded-full bg-[#12172A]/70 border border-[#8B5CF6]/25 backdrop-blur-md pl-2.5 pr-3.5 py-1.5 text-xs font-semibold text-[#E8EAF2] min-h-0 cursor-pointer"
+        className="mica-new-session absolute top-4 right-4 sm:top-7 sm:right-7 z-30 flex items-center gap-1.5 rounded-full bg-[#11131D]/80 border border-[#9875FF]/30 backdrop-blur-md pl-2.5 pr-3.5 py-1.5 text-xs font-semibold text-[#F5F5FA] min-h-0 cursor-pointer"
       >
-        <Plus className="w-3.5 h-3.5 text-[#A78BFA]" />
+        <Plus className="w-3.5 h-3.5 text-[#91B9FF]" />
         New Session
       </button>
 
@@ -873,16 +876,16 @@ const InboxWelcome: React.FC<{
                           src={userAvatar}
                           alt="You"
                           referrerPolicy="no-referrer"
-                          className="shrink-0 w-7 h-7 rounded-full object-cover ring-1 ring-white/10 bg-[#0B0F17]"
+                          className="shrink-0 w-7 h-7 rounded-full object-cover ring-1 ring-white/10 bg-[#000000]"
                         />
                       )}
                       <div className={`min-w-0 max-w-[85%] sm:max-w-[75%] ${m.role === "user" ? "flex justify-end" : ""}`}>
                         {m.role === "user" ? (
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-4 py-3 bg-gradient-to-tr from-[#7C3AED] to-[#6C5CE0] text-white rounded-[22px] rounded-tr-sm">
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-4 py-3 bg-white text-black rounded-[22px] rounded-tr-sm">
                             {m.content}
                           </p>
                         ) : (
-                          <div className="text-sm leading-relaxed break-words px-4 py-3 bg-[#161A2B]/90 border border-white/[0.06] text-[#E8EAF2] rounded-[22px] rounded-tl-sm">
+                          <div className="text-sm leading-relaxed break-words px-4 py-3 bg-[#171A26]/90 border border-[#292D3A] text-[#F5F5FA] rounded-[22px] rounded-tl-sm">
                             {m.animate ? (
                               <AgentTypewriter
                                 text={m.content}
@@ -907,16 +910,16 @@ const InboxWelcome: React.FC<{
                       className="flex items-start gap-3"
                     >
                       {assistantAvatar}
-                      <div className="bg-[#161A2B]/90 border border-white/[0.06] rounded-[22px] rounded-tl-sm px-4 py-3.5">
+                      <div className="bg-[#171A26]/90 border border-[#292D3A] rounded-[22px] rounded-tl-sm px-4 py-3.5">
                         {agentMode && (
-                          <p className="mb-1.5 text-[11px] leading-relaxed text-[#5B6B8C]">
+                          <p className="mb-1.5 text-[11px] leading-relaxed text-[#737373]">
                             Thinking
                           </p>
                         )}
                         <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.3s]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce [animation-delay:-0.15s]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.3s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.15s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" />
                         </div>
                       </div>
                     </motion.div>
@@ -939,7 +942,7 @@ const InboxWelcome: React.FC<{
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-                  className="text-[1.7rem] sm:text-4xl lg:text-[2.75rem] font-semibold tracking-tight text-[#E8EAF2] leading-[1.15]"
+                  className="text-[1.7rem] sm:text-4xl lg:text-[2.75rem] font-semibold tracking-tight text-[#F5F5FA] leading-[1.15]"
                 >
                   Hi&nbsp;
                   <span className="mica-name-shimmer">{name}</span>
@@ -949,7 +952,7 @@ const InboxWelcome: React.FC<{
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
-                  className="mt-3 sm:mt-4 max-w-md sm:max-w-lg text-sm sm:text-[15px] text-[#7E8AA6] leading-relaxed"
+                  className="mt-3 sm:mt-4 max-w-md sm:max-w-lg text-sm sm:text-[15px] text-[#A1A5B5] leading-relaxed"
                 >
                   Your AI copilot for Web3, chats, deals and everything you're building.
                 </motion.p>
@@ -972,7 +975,7 @@ const InboxWelcome: React.FC<{
                       key={label}
                       type="button"
                       onClick={run}
-                      className="min-h-0 inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-[#F8FAFC] hover:text-[#A78BFA] transition-colors duration-200 cursor-pointer"
+                      className="min-h-0 inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-[#FFFFFF] hover:text-white transition-colors duration-200 cursor-pointer"
                     >
                       <Icon className="w-3.5 h-3.5" />
                       {label}
@@ -1005,7 +1008,7 @@ const InboxWelcome: React.FC<{
 };
 
 /**
- * Inbox message composer — text field + submit button.
+ * Inbox message composer â€” text field + submit button.
  *
  * This component intentionally owns the draft so that every keystroke only
  * re-renders these two nodes. Previously the value lived in ChatDashboard's
@@ -1060,7 +1063,7 @@ const ChatMessageInput = memo(function ChatMessageInput({
           if (e.key === "Escape" && isEditing) onCancelEdit();
         }}
         placeholder={placeholder}
-        className="flex-1 min-w-0 h-12 bg-[#12172A] backdrop-blur-md border border-white/[0.08] rounded-full px-4 sm:px-5 text-[14px] text-white placeholder:text-slate-400 focus:outline-none focus:border-[#6C5CE0]/60 focus:ring-1 focus:ring-[#6C5CE0]/20 transition-all duration-150"
+        className="flex-1 min-w-0 h-12 bg-[#171A26] backdrop-blur-md border border-[#292D3A] rounded-full px-4 sm:px-5 text-[14px] text-white placeholder:text-slate-400 focus:outline-none focus:border-white/20  focus:ring-1 focus:ring-white/20  transition-all duration-150"
         disabled={disabled}
         aria-label="Message"
         autoComplete="off"
@@ -1071,7 +1074,7 @@ const ChatMessageInput = memo(function ChatMessageInput({
         type="submit"
         disabled={!draft.trim()}
         title={isEditing ? "Save edit" : "Send"}
-        className="relative w-12 h-12 min-w-[48px] min-h-[48px] sm:w-14 sm:h-14 sm:min-w-[56px] sm:min-h-[56px] rounded-full flex items-center justify-center bg-[#6C5CE0] border border-white/10 text-white hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-150 disabled:opacity-40 shrink-0"
+        className="relative w-12 h-12 min-w-[48px] min-h-[48px] sm:w-14 sm:h-14 sm:min-w-[56px] sm:min-h-[56px] rounded-full flex items-center justify-center bg-white border border-[#292D3A] text-black hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-150 disabled:opacity-40 shrink-0"
       >
         {isEditing ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5" />}
       </button>
@@ -1130,7 +1133,7 @@ export default function ChatDashboard() {
   } = useBlock();
 
   // Privy-verified primary wallet. This is the ONLY source of truth for wallet
-  // addresses — manual wallet input is never accepted.
+  // addresses â€” manual wallet input is never accepted.
   const {
     primaryWallet: privyPrimaryWallet,
     privyUserId,
@@ -1170,14 +1173,6 @@ export default function ChatDashboard() {
       }
     }
   }, [userProfile]);
-
-  const handleConnectOnboardWallet = async () => {
-    setOnboardError("");
-    const linked = await connectWallet();
-    if (!linked) {
-      setOnboardError("No wallet was connected. Please try again to link a wallet.");
-    }
-  };
 
   const handleOnboardingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1221,7 +1216,7 @@ export default function ChatDashboard() {
   // Profile Edit Modal States
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
-  // Chat Dashboard "Settings" action → MCP Connections popup (never navigates
+  // Chat Dashboard "Settings" action â†’ MCP Connections popup (never navigates
   // to the global Settings page).
   const [showMcpSettings, setShowMcpSettings] = useState(false);
   const [showAddFriend, setShowAddFriend] = useState(false);
@@ -1237,7 +1232,7 @@ export default function ChatDashboard() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [changingWallet, setChangingWallet] = useState(false);
-  // BDT private payment profile (payout number) — stored in user_pay_profiles.
+  // BDT private payment profile (payout number) â€” stored in user_pay_profiles.
   // The number is private: never shown to other users anywhere in the app.
   const [payProfileMobile, setPayProfileMobile] = useState("");
   const [payProfileLoading, setPayProfileLoading] = useState(false);
@@ -1276,7 +1271,7 @@ export default function ChatDashboard() {
     showToast("Simulated Airdrop: +1.50 SOL added to your node's wallet!", "success");
   };
 
-  // Mobile breakpoint (< md) used for behaviour differences only — the layout
+  // Mobile breakpoint (< md) used for behaviour differences only â€” the layout
   // itself stays CSS-driven, this just decides whether the partner details
   // panel may auto-open and whether it renders as an overlay or as a column.
   const [isMobileView, setIsMobileView] = useState(
@@ -1292,7 +1287,7 @@ export default function ChatDashboard() {
 
   // Expandable Chat Partner Details layout indicator.
   // Desktop keeps its historical "open beside the chat" default; on phones it
-  // must NEVER auto-open — entering a conversation shows the chat only and the
+  // must NEVER auto-open â€” entering a conversation shows the chat only and the
   // panel is reached exclusively through the Info button in the chat header.
   const [showDetailsSidebar, setShowDetailsSidebar] = useState(() => !isMobileView);
   useEffect(() => {
@@ -1477,7 +1472,7 @@ export default function ChatDashboard() {
       await unfriendUser(uid);
       showToast(`${displayName} has been removed from your friends`, "success");
       // The friendship listener refreshes the contacts list automatically. If
-      // we just unfriended the user shown in the profile panel, close it —
+      // we just unfriended the user shown in the profile panel, close it â€”
       // their chat thread stays open and intact.
       if (activeChatFriend?.uid === uid) {
         setShowDetailsSidebar(false);
@@ -1754,7 +1749,7 @@ export default function ChatDashboard() {
 
     setIsDeploying(true);
     setDeploymentLogs([
-      "▶ STARTING SECURE AGENT PROVISIONING...",
+      "â–¶ STARTING SECURE AGENT PROVISIONING...",
       "[VM-NODE] Requesting Virtual Shard allocation...",
     ]);
 
@@ -1766,8 +1761,8 @@ export default function ChatDashboard() {
       `[AI] Connecting to Gemini 2.5 Node proxy...`,
       `[AI] Priming intelligence guidelines...`,
       `[FUNDS] Securing ${fundingNum.toFixed(2)} SOL in escrow smart contract...`,
-      "▶ BROADCASTING AGENT SIGNATURE TO ORE PROTOCOL...",
-      "✓ AGENT DEPLOYMENT COMPLETED SECURELY!"
+      "â–¶ BROADCASTING AGENT SIGNATURE TO ORE PROTOCOL...",
+      "âœ“ AGENT DEPLOYMENT COMPLETED SECURELY!"
     ];
 
     for (let i = 0; i < stepLogs.length; i++) {
@@ -1907,9 +1902,9 @@ export default function ChatDashboard() {
     setActiveTab(tab);
 
     // Mobile shows exactly one pane at a time. Tabs whose content lives in the
-    // left sidebar pane keep that list visible; every other tab — the Home AI
+    // left sidebar pane keep that list visible; every other tab â€” the Home AI
     // workspace, Settings, Deal Room and Wallet, which all render inside the
-    // right viewport — must show the right pane. Without this the collapsed
+    // right viewport â€” must show the right pane. Without this the collapsed
     // sidebar plus the hidden viewport produced a background-only screen with
     // no reachable content and no bottom navigation (see mobile screenshots).
     const sidebarListTabs = ["chats", "calls", "friends", "notifications", "analytics"];
@@ -1923,7 +1918,7 @@ export default function ChatDashboard() {
         setEditBio(userProfile.bio || "");
         setEditGithubUrl(userProfile.githubUrl || "");
         setEditTwitterUrl(userProfile.twitterUrl || "");
-        setEditMoodEmoji(userProfile.moodEmoji || "✨");
+        setEditMoodEmoji(userProfile.moodEmoji || "âœ¨");
         if (userProfile.avatarUrl && !userProfile.avatarUrl.includes("dicebear")) {
           setCustomAvatarUrl(userProfile.avatarUrl);
           setAvatarType("custom");
@@ -1950,7 +1945,7 @@ export default function ChatDashboard() {
   }, []);
 
   // BDT mode: leave the crypto wallet view (if active) and close any open
-  // crypto payment popups. Purely a view/access guard — no data is touched.
+  // crypto payment popups. Purely a view/access guard â€” no data is touched.
   useEffect(() => {
     if (!isBdtMode) return;
     if (activeTab === "wallet") setActiveTab("home");
@@ -1980,7 +1975,7 @@ export default function ChatDashboard() {
 
   // "Stop & Send" sets sendOnStopRef and stops the recorder, but the recorder finishes
   // encoding the blob asynchronously (onstop -> setVoiceBlob). This effect watches for
-  // that blob to actually arrive and fires the send once it does — without it, "Stop & Send"
+  // that blob to actually arrive and fires the send once it does â€” without it, "Stop & Send"
   // silently did nothing beyond stopping the mic.
   useEffect(() => {
     if (voiceBlob && sendOnStopRef.current) {
@@ -2031,7 +2026,7 @@ export default function ChatDashboard() {
     if (userProfile) {
       setEditDisplayName(userProfile.displayName || "");
       setEditBio(userProfile.bio || "");
-      setEditMoodEmoji(userProfile.moodEmoji || "🚀");
+      setEditMoodEmoji(userProfile.moodEmoji || "ðŸš€");
       setEditGithubUrl(userProfile.githubUrl || "");
       setEditTwitterUrl(userProfile.twitterUrl || "");
       
@@ -2100,7 +2095,7 @@ export default function ChatDashboard() {
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
 
-      // Quick upward "whoosh" — snappier and lower-pitched than the incoming chime
+      // Quick upward "whoosh" â€” snappier and lower-pitched than the incoming chime
       oscillator.type = "triangle";
       oscillator.frequency.setValueAtTime(420, audioCtx.currentTime);
       oscillator.frequency.exponentialRampToValueAtTime(760, audioCtx.currentTime + 0.09);
@@ -2221,7 +2216,7 @@ export default function ChatDashboard() {
         await updatePrimaryWallet(linked, privyUserId || undefined);
         showToast("Primary wallet updated successfully!", "success");
       } else {
-        showToast("Wallet change cancelled — no new wallet linked.", "info");
+        showToast("Wallet change cancelled â€” no new wallet linked.", "info");
       }
     } catch (err: any) {
       console.error("Change wallet failed:", err);
@@ -2243,7 +2238,7 @@ export default function ChatDashboard() {
           setPayProfileMobile(mobile);
         }
       } catch {
-        // Rules/offline — leave the field untouched; never break settings.
+        // Rules/offline â€” leave the field untouched; never break settings.
       }
     };
     void loadPayProfile();
@@ -2295,8 +2290,8 @@ export default function ChatDashboard() {
 
   // After a successful Arc USDC transfer: insert a payment system message in
   // the chat. The authoritative payment-history record is persisted SERVER-SIDE
-  // (api/wallet/send-usdc) after Circle confirms the transaction — writing it
-  // here too would create a duplicate record. Best-effort — never block.
+  // (api/wallet/send-usdc) after Circle confirms the transaction â€” writing it
+  // here too would create a duplicate record. Best-effort â€” never block.
   const handleUsdcPaymentSuccess = async (receipt: ArcPaymentReceipt) => {
     if (!activeChatId || !currentUser || !userProfile) return;
     const recipientUser = activeChatFriend;
@@ -2408,103 +2403,156 @@ export default function ChatDashboard() {
   );
 
   // If the user profile is missing or hasn't completed onboarding, display the
-  // onboarding setup form. The dashboard opens once the profile setup is done.
-  // An external (Privy) wallet is OPTIONAL — Google-only users enter MICA with
-  // their internal Circle wallet (auto-created server-side for the Firebase uid).
+  // profile setup form. The dashboard opens once the profile setup is done.
+  // Wallet setup is intentionally NOT part of onboarding â€” every BDT user can
+  // finish account creation without a wallet, and Crypto Mode keeps its own
+  // existing Circle/Arc infrastructure elsewhere in the app.
   if (!userProfile || userProfile.onboardingCompleted !== true) {
     const onboardPreviewUrl = onboardAvatarType === "custom" && onboardCustomAvatarUrl
       ? onboardCustomAvatarUrl
       : `https://api.dicebear.com/7.x/${onboardAvatarStyle}/svg?seed=${onboardAvatarSeed || "default"}`;
 
     return (
-      <div className="min-h-screen w-full bg-[#080B14] text-[#F8FAFC] font-sans flex items-center justify-center relative p-4 flex-col overflow-y-auto" id="onboarding_container">
-        {/* Premium dark gradient background — no images */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(88,80,220,0.08)_0%,transparent_50%)] pointer-events-none z-0" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(88,80,220,0.06)_0%,transparent_50%)] pointer-events-none z-0" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,_rgba(99,102,241,0.05)_0%,_transparent_60%)] pointer-events-none z-0" />
+      <div
+        className="min-h-[100dvh] w-full bg-black text-white font-sans flex flex-col lg:flex-row overflow-x-hidden"
+        id="onboarding_container"
+      >
+        {/* LEFT â€” brand / identity panel */}
+        <aside className="relative flex w-full shrink-0 flex-col overflow-hidden bg-black lg:w-[40%] lg:min-h-[100dvh]">
+          {/* Animated purple + light-blue gradient */}
+          <div className="absolute inset-0 pointer-events-none mica-brand-aurora" />
 
-        {/* Soft ambient glow blobs */}
-        <div className="absolute top-[8%] left-[15%] w-[300px] h-[300px] rounded-full bg-[#6366F1]/[0.06] blur-[130px] pointer-events-none z-0" />
-        <div className="absolute bottom-[10%] right-[15%] w-[350px] h-[350px] rounded-full bg-[#8B5CF6]/[0.05] blur-[140px] pointer-events-none z-0" />
+          {/* Dotted background pattern */}
+          <div
+            className="absolute inset-0 pointer-events-none mica-dots-drift"
+            style={{
+              backgroundImage: "radial-gradient(rgba(196,181,253,0.75) 1px, transparent 1.4px)",
+              backgroundSize: "15px 15px",
+              opacity: 0.45,
+              WebkitMaskImage:
+                "radial-gradient(80% 70% at 25% 20%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.45) 45%, transparent 80%)",
+              maskImage:
+                "radial-gradient(80% 70% at 25% 20%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.45) 45%, transparent 80%)",
+            }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none mica-dots-drift-slow"
+            style={{
+              backgroundImage: "radial-gradient(rgba(147,197,253,0.6) 0.8px, transparent 1.2px)",
+              backgroundSize: "9px 9px",
+              opacity: 0.3,
+              WebkitMaskImage:
+                "radial-gradient(70% 60% at 85% 85%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 50%, transparent 82%)",
+              maskImage:
+                "radial-gradient(70% 60% at 85% 85%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 50%, transparent 82%)",
+            }}
+          />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.97, y: 16 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-[420px] relative z-10 my-8"
-        >
-          {/* Glass card */}
-          <div className="backdrop-blur-2xl bg-white/[0.04] border border-white/[0.08] rounded-[28px] p-7 sm:p-9 shadow-[0_8px_40px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] relative overflow-hidden">
-            {/* Subtle top-edge prismatic highlight */}
-            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+          {/* Soft vignette keeps the panel quiet and premium */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(120% 100% at 50% 50%, transparent 25%, rgba(0,0,0,0.55) 78%, rgba(0,0,0,0.9) 100%)," +
+                "linear-gradient(90deg, rgba(0,0,0,0.35) 0%, transparent 30%, transparent 68%, rgba(0,0,0,0.55) 84%, rgba(0,0,0,0.95) 96%, #000 100%)",
+            }}
+          />
 
-            {/* Header */}
-            <div className="text-center mb-8">
-              <h2 className="text-[22px] sm:text-2xl font-bold tracking-tight text-white mb-2">
-                Initialize Your Account
-              </h2>
-              <p className="text-[13px] text-white/40 leading-relaxed max-w-[300px] mx-auto">
-                Set up your profile to get started. You can update this anytime.
+          <div className="relative z-10 flex h-full w-full flex-col px-6 py-9 sm:px-10 sm:py-11 lg:px-12 lg:py-12 xl:px-16">
+            <img
+              src={micaWordmark}
+              alt="MICA"
+              draggable={false}
+              className="self-start h-9 sm:h-10 lg:h-11 w-auto max-w-full object-contain select-none"
+              style={{ width: "auto" }}
+            />
+
+            <div className="flex flex-col justify-center py-9 sm:py-12 lg:py-16">
+              <h1 className="max-w-[380px] text-[34px] sm:text-[42px] lg:text-[44px] xl:text-[48px] font-semibold tracking-tight leading-[1.08] text-white">
+                Make MICA yours.
+              </h1>
+              <p className="mt-4 max-w-[330px] text-[14px] sm:text-[15px] leading-relaxed text-white/45">
+                Set up your identity and start connecting with your world.
               </p>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleOnboardingSubmit} className="space-y-6">
-              {onboardError && (
-                <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[13px] font-medium text-center">
-                  {onboardError}
-                </div>
-              )}
+            <div className="mt-auto flex items-end justify-between gap-4 pt-6 sm:pt-8">
+              <p className="max-w-[220px] text-[10px] font-medium tracking-[0.22em] text-white/35">
+                YOUR PROFILE. YOUR IDENTITY.
+              </p>
+              <div className="shrink-0 opacity-95 -mb-2">
+                <Live2DCharacter width={96} height={160} focus="full" />
+              </div>
+            </div>
+          </div>
+        </aside>
 
-              {/* Avatar Section — large centered circular preview + upload */}
-              <div className="flex flex-col items-center gap-4">
-                {/* Large circular avatar preview */}
-                <div className="relative group">
-                  <div className="w-[100px] h-[100px] rounded-full bg-gradient-to-br from-[#6366F1]/20 to-[#8B5CF6]/20 p-[2px] shadow-[0_0_30px_rgba(99,102,241,0.12)]">
-                    <img
-                      src={onboardPreviewUrl}
-                      alt="Profile preview"
-                      className="w-full h-full rounded-full object-cover bg-[#111320]"
-                      referrerPolicy="no-referrer"
-                    />
+        {/* RIGHT â€” profile setup form */}
+        <main className="relative flex flex-1 flex-col items-center justify-center bg-black px-4 py-10 sm:px-8 lg:min-h-[100dvh] lg:px-12 lg:py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 14, scale: 0.99 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 w-full max-w-[560px]"
+          >
+            <div className="w-full rounded-[28px] border border-white/[0.07] bg-[#171A26] p-7 sm:p-10 lg:p-11 shadow-[0_24px_80px_rgba(0,0,0,0.75)]">
+              {/* Header */}
+              <div className="mb-8">
+                <h2 className="text-[26px] sm:text-[30px] font-semibold tracking-tight text-white">
+                  Create your profile
+                </h2>
+                <p className="mt-2 text-[13px] sm:text-sm text-white/40">
+                  A few details to get started.
+                </p>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleOnboardingSubmit} className="space-y-7">
+                {onboardError && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-[13px] font-medium text-red-400">
+                    {onboardError}
                   </div>
-                  {/* Upload overlay on hover */}
-                  <button
-                    type="button"
-                    onClick={() => onboardAvatarUploadRef.current?.click()}
-                    className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center cursor-pointer backdrop-blur-sm"
-                  >
-                    <Camera className="w-5 h-5 text-white" />
-                  </button>
-                </div>
+                )}
 
-                {/* Upload button */}
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={onboardAvatarUploadRef}
-                  onChange={handleOnboardAvatarUpload}
-                  className="hidden"
-                />
-                {onboardCustomAvatarUrl ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] text-emerald-400 font-medium flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5" /> Photo uploaded
-                    </span>
+                {/* Profile photo */}
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative group">
+                    <div className="w-[118px] h-[118px] rounded-full border border-white/[0.12] bg-[#171A26] p-1.5 shadow-[0_10px_36px_rgba(0,0,0,0.55)]">
+                      <img
+                        src={onboardPreviewUrl}
+                        alt="Profile preview"
+                        className="w-full h-full rounded-full object-cover bg-[#171A26]"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => onboardAvatarUploadRef.current?.click()}
-                      className="text-[12px] text-[#818CF8] hover:text-white transition-colors underline underline-offset-2"
+                      aria-label="Change profile photo"
+                      className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-200 flex items-center justify-center cursor-pointer backdrop-blur-sm"
                     >
-                      Change
+                      <Camera className="w-5 h-5 text-white" />
                     </button>
+                    {onboardCustomAvatarUrl && (
+                      <span className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-white text-black border-[3px] border-[#0A0A0A] flex items-center justify-center">
+                        <Check className="w-4 h-4" strokeWidth={3} />
+                      </span>
+                    )}
                   </div>
-                ) : (
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={onboardAvatarUploadRef}
+                    onChange={handleOnboardAvatarUpload}
+                    className="hidden"
+                  />
+
                   <button
                     type="button"
                     onClick={() => onboardAvatarUploadRef.current?.click()}
                     disabled={onboardIsUploading}
-                    className="text-[13px] text-white/40 hover:text-white/70 transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-medium text-white/65 hover:bg-white/[0.04] hover:text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {onboardIsUploading ? (
                       <>
@@ -2513,154 +2561,90 @@ export default function ChatDashboard() {
                       </>
                     ) : (
                       <>
-                        <Upload className="w-3.5 h-3.5" />
-                        Upload photo
+                        <Camera className="w-3.5 h-3.5" />
+                        {onboardCustomAvatarUrl ? "Change Photo" : "Upload Photo"}
                       </>
                     )}
                   </button>
-                )}
-              </div>
+                </div>
 
-              {/* Username */}
-              <div>
-                <label className="block text-[12px] text-white/50 font-medium mb-2 tracking-wide">
-                  Username
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 font-mono text-[14px]">@</span>
+                {/* Username */}
+                <div>
+                  <label htmlFor="onboard_username" className="block text-[12px] font-medium tracking-wide text-white/60 mb-2.5">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35 font-mono text-[14px]">@</span>
+                    <input
+                      id="onboard_username"
+                      type="text"
+                      required
+                      value={onboardUsername}
+                      onChange={(e) => setOnboardUsername(e.target.value)}
+                      placeholder="choose_username"
+                      className="h-12 w-full rounded-xl border border-[#292D3A] bg-[#0F0F0F] pl-9 pr-4 text-[14px] text-white placeholder-white/25 font-mono outline-none transition-all duration-200 hover:border-white/15 focus:border-white/30 focus:bg-[#171A26] focus:ring-4 focus:ring-white/[0.06]"
+                    />
+                  </div>
+                  <p className="mt-2.5 text-[11px] leading-relaxed text-white/30">
+                    Lowercase letters, numbers, and underscores only.
+                  </p>
+                </div>
+
+                {/* Visual Nickname */}
+                <div>
+                  <label htmlFor="onboard_nickname" className="block text-[12px] font-medium tracking-wide text-white/60 mb-2.5">
+                    Visual Nickname
+                  </label>
                   <input
+                    id="onboard_nickname"
                     type="text"
                     required
-                    value={onboardUsername}
-                    onChange={(e) => setOnboardUsername(e.target.value)}
-                    placeholder="choose_username"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] focus:border-[#6366F1]/50 focus:bg-white/[0.06] rounded-full pl-9 pr-5 py-3 text-[14px] text-white placeholder-white/20 focus:outline-none transition-all duration-300 font-mono"
+                    value={onboardDisplayName}
+                    onChange={(e) => setOnboardDisplayName(e.target.value)}
+                    placeholder="e.g. Satoshi Nakamoto"
+                    className="h-12 w-full rounded-xl border border-[#292D3A] bg-[#0F0F0F] px-4 text-[14px] text-white placeholder-white/25 outline-none transition-all duration-200 hover:border-white/15 focus:border-white/30 focus:bg-[#171A26] focus:ring-4 focus:ring-white/[0.06]"
                   />
                 </div>
-                <p className="text-[11px] text-white/25 mt-1.5 pl-4">
-                  Lowercase letters, numbers, and underscores only.
-                </p>
-              </div>
 
-              {/* Visual Nickname */}
-              <div>
-                <label className="block text-[12px] text-white/50 font-medium mb-2 tracking-wide">
-                  Visual Nickname
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={onboardDisplayName}
-                  onChange={(e) => setOnboardDisplayName(e.target.value)}
-                  placeholder="e.g. Satoshi Nakamoto"
-                  className="w-full bg-white/[0.04] border border-white/[0.08] focus:border-[#6366F1]/50 focus:bg-white/[0.06] rounded-full px-5 py-3 text-[14px] text-white placeholder-white/20 focus:outline-none transition-all duration-300"
-                />
-              </div>
+                {/* Actions */}
+                <div className="flex flex-col gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={onboardLoading}
+                    className="w-full inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 text-[14px] font-semibold text-black transition-all duration-200 hover:bg-white/[0.92] active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {onboardLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    ) : (
+                      <>
+                        <span>Complete Setup & Enter Chats</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
 
-              {/* Wallet (Optional — internal Circle wallet is the default) */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[12px] text-white/50 font-medium tracking-wide">
-                    Wallet
-                  </label>
-                  <span className="text-[10px] text-white/30 font-medium tracking-widest uppercase">Optional</span>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="mt-1 self-center inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium text-white/40 hover:bg-white/[0.03] hover:text-white/70 transition-colors duration-200 cursor-pointer"
+                  >
+                    <LogOut className="w-3 h-3" />
+                    Sign Out
+                  </button>
                 </div>
-
-                {privyPrimaryWallet ? (
-                  <div className="w-full bg-white/[0.04] border border-emerald-400/25 rounded-2xl px-4 py-3 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center shrink-0">
-                      <Wallet className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] text-white font-mono truncate">
-                        {privyPrimaryWallet.address.substring(0, 6)}...{privyPrimaryWallet.address.substring(privyPrimaryWallet.address.length - 4)}
-                      </p>
-                      <p className="text-[11px] text-white/35 font-medium truncate">
-                        {privyPrimaryWallet.provider || "External wallet"} · verified
-                      </p>
-                    </div>
-                    <span className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
-                      <ShieldCheck className="w-3.5 h-3.5" /> VERIFIED
-                    </span>
-                  </div>
-                ) : (
-                  <div className="w-full bg-white/[0.04] border border-white/[0.08] rounded-2xl px-4 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#6366F1]/10 border border-[#6366F1]/20 flex items-center justify-center shrink-0">
-                        <ShieldCheck className="w-4 h-4 text-[#818CF8]" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] text-white font-semibold">
-                          Circle Wallet (server-secured)
-                        </p>
-                        <p className="text-[11px] text-white/35 font-medium truncate">
-                          Created automatically for your MICA account — no external wallet needed.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleConnectOnboardWallet}
-                      disabled={walletConnecting}
-                      className="mt-3 w-full bg-white/[0.04] border border-white/[0.08] hover:border-[#6366F1]/50 rounded-xl px-4 py-2.5 flex items-center justify-center gap-2 text-[12px] font-semibold text-white/70 hover:text-white cursor-pointer transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {walletConnecting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin text-[#818CF8]" />
-                          Waiting for wallet confirmation...
-                        </>
-                      ) : (
-                        <>
-                          <Wallet className="w-4 h-4 text-[#818CF8]" />
-                          Link external wallet (optional)
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-                <p className="text-[11px] text-white/25 mt-1.5 pl-2">
-                  Optional: linking an external wallet enables advanced features like Send USDC. Your internal Circle wallet is always available.
-                </p>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex flex-col gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={onboardLoading}
-                  className="w-full bg-gradient-to-r from-[#6366F1] via-[#7C3AED] to-[#8B5CF6] text-white hover:brightness-110 font-semibold py-3.5 px-6 rounded-full text-[14px] flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_30px_rgba(99,102,241,0.35)] hover:scale-[1.01] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {onboardLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4 text-white" />
-                      Complete Setup & Enter Chats
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="w-auto self-center bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] text-white/35 hover:text-white/60 py-2 px-5 rounded-full text-[12px] font-medium cursor-pointer transition-all duration-200 flex items-center justify-center gap-1.5"
-                >
-                  <LogOut className="w-3 h-3" />
-                  Sign Out
-                </button>
-              </div>
-            </form>
-          </div>
-        </motion.div>
+              </form>
+            </div>
+          </motion.div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#0D111D] text-[#F8FAFC] font-sans flex relative overflow-hidden select-none animate-fadeIn" id="main_dashboard_layout">
+    <div className="min-h-[100dvh] w-full bg-[#0B0D14] text-[#FFFFFF] font-sans flex relative overflow-hidden select-none animate-fadeIn" id="main_dashboard_layout">
       {/* Background Cosmic Starscape */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#161A2B]/35 via-[#0D111D] to-[#0D111D] pointer-events-none z-0" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-[#6C5CE0]/4 via-transparent to-[#6C5CE0]/4 pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#111111]/35 via-[#050505] to-[#050505] pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-white/4 via-transparent to-white/4 pointer-events-none z-0" />
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.04] mix-blend-screen z-0">
         <img
           src="https://res.cloudinary.com/dzwbn3pvh/image/upload/v1783072499/image_1_1_3_zd9aey.png"
@@ -2671,15 +2655,15 @@ export default function ChatDashboard() {
       </div>
 
       {/* Dynamic Purple/Pink Glowing Blur Blobs */}
-      <div className="absolute top-[20%] left-[30%] w-[250px] sm:w-[350px] lg:w-[500px] h-[250px] sm:h-[350px] lg:h-[500px] rounded-full bg-[#6C5CE0]/3 blur-[100px] sm:blur-[130px] lg:blur-[160px] pointer-events-none z-0" />
-      <div className="absolute bottom-[20%] right-[10%] w-[220px] sm:w-[320px] lg:w-[450px] h-[220px] sm:h-[320px] lg:h-[450px] rounded-full bg-[#6C5CE0]/3 blur-[100px] sm:blur-[130px] lg:blur-[160px] pointer-events-none z-0" />
+      <div className="absolute top-[20%] left-[30%] w-[250px] sm:w-[350px] lg:w-[500px] h-[250px] sm:h-[350px] lg:h-[500px] rounded-full bg-white/3 blur-[100px] sm:blur-[130px] lg:blur-[160px] pointer-events-none z-0" />
+      <div className="absolute bottom-[20%] right-[10%] w-[220px] sm:w-[320px] lg:w-[450px] h-[220px] sm:h-[320px] lg:h-[450px] rounded-full bg-white/3 blur-[100px] sm:blur-[130px] lg:blur-[160px] pointer-events-none z-0" />
 
       {/* FLOATING BANNER OR TOAST CONTAINER ACCESSED THROUGH THE DOM ENGINE */}
 
       {/* LEFT ICON NAV RAIL (matches uploaded reference image layout) */}
       {!showSettingsPage && (
         <div
-          className="hidden md:flex w-[92px] shrink-0 h-[100dvh] flex-col items-center bg-[#0D111D]/90 border-r border-white/5 backdrop-blur-xl z-20 relative py-5"
+          className="hidden md:flex w-[92px] shrink-0 h-[100dvh] flex-col items-center bg-[#0B0D14]/90 border-r border-[#292D3A] backdrop-blur-xl z-20 relative py-5"
           id="left_nav_rail"
         >
           {/* Mica logo mark */}
@@ -2711,16 +2695,16 @@ export default function ChatDashboard() {
                     onClick={() => handleSelectTab(item.key)}
                     title={item.label}
                     className={`w-full flex flex-col items-center gap-1.5 py-2.5 rounded-xl transition-all cursor-pointer relative group ${
-                      isActive ? "bg-[#6C5CE0]/12 text-white" : "text-[#64748B] hover:text-[#F8FAFC] hover:bg-white/5"
+                      isActive ? "bg-[#9875FF]/10 text-[#F5F5FA]" : "text-[#717589] hover:text-[#E4E4E7] hover:bg-white/[0.03]"
                     }`}
                   >
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)]" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#9875FF] rounded-full" />
                     )}
                     <span className="relative">
-                      <Icon className={`w-5 h-5 ${isActive ? "text-[#6C5CE0]" : ""}`} />
+                      <Icon className={`w-5 h-5 ${isActive ? "text-[#91B9FF]" : "text-[#717589]"}`} />
                       {showBadge && (
-                        <span className="absolute -top-1 -right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white/[0.06] animate-pulse" />
+                        <span className="absolute -top-1 -right-1.5 w-2 h-2 bg-red-500 rounded-full border border-[#292D3A] animate-pulse" />
                       )}
                     </span>
                     <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
@@ -2738,7 +2722,7 @@ export default function ChatDashboard() {
             type="button"
             onClick={logout}
             title="Log out"
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-[#6C5CE0] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-white hover:text-white hover:bg-white/5 transition-all cursor-pointer"
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -2747,7 +2731,7 @@ export default function ChatDashboard() {
 
       {/* SIDEBAR WRAPPER: Responsive view management on mobile */}
       <div
-        className={`mica-with-mobile-nav bg-[#0D111D]/75 border-r border-white/5 flex flex-col h-[100dvh] shrink-0 relative backdrop-blur-xl z-10 transition-[width,opacity,margin] duration-300 ease-in-out overflow-hidden ${
+        className={`mica-with-mobile-nav bg-[#0B0D14]/75 border-r border-[#292D3A] flex flex-col h-[100dvh] shrink-0 relative backdrop-blur-xl z-10 transition-[width,opacity,margin] duration-300 ease-in-out overflow-hidden ${
           showSettingsPage || activeTab === "dealroom" || activeTab === "wallet"
             ? "w-0 opacity-0 -ml-2 pointer-events-none"
             : `w-full md:w-96 opacity-100 ml-0 ${viewChatOnMobile ? "hidden md:flex" : "flex"}`
@@ -2757,21 +2741,21 @@ export default function ChatDashboard() {
 
         {/* CURRENT USER PROFILE CARD */}
         {userProfile && (
-          <div className="px-5 py-4 bg-[#161A2B]/55 border-b border-white/5 flex items-center justify-between">
+          <div className="px-5 py-4 bg-[#11131D] border-b border-[#292D3A] flex items-center justify-between">
             <div className="flex items-center gap-3.5">
               <div className="relative">
                 <img
                   src={userProfile.avatarUrl}
                   alt={userProfile.displayName}
                   referrerPolicy="no-referrer"
-                  className="w-12 h-12 rounded-full bg-[#161A2B] border border-[#6C5CE0]/30 object-cover"
+                  className="w-12 h-12 rounded-full bg-[#151824] border border-[#292D3A] object-cover"
                 />
-                <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border border-white/[0.06] ${
-                  userProfile.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-gray-500"
+                <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0C0C11] ${
+                  userProfile.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-[#71717A]"
                 }`} />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-sky-100 truncate leading-snug">
+                <p className="text-sm font-bold text-[#F5F5FA] truncate leading-snug">
                   {userProfile.displayName}
                 </p>
                 <p 
@@ -2793,16 +2777,16 @@ export default function ChatDashboard() {
                   navigator.clipboard.writeText(userProfile.walletAddress);
                   showToast("Copied wallet address to clipboard!", "success");
                 }}
-                className="text-[10px] font-mono select-all bg-[#6C5CE0]/10 hover:bg-[#6C5CE0]/20 border border-[#6C5CE0]/20 text-sky-300 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-all"
+                className="text-[10px] font-mono select-all bg-white/10 hover:bg-white/20 border border-white/20  text-sky-300 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-all"
                 title="Click to copy full wallet address"
               >
-                <Wallet className="w-3 h-3 text-[#6C5CE0]" />
+                <Wallet className="w-3 h-3 text-white" />
                 {`${userProfile.walletAddress.substring(0, 5)}...${userProfile.walletAddress.substring(
                   userProfile.walletAddress.length - 3
                 )}`}
               </span>
             ) : (
-              <span className="text-[10px] font-mono text-sky-300/40 bg-[#6C5CE0]/5 px-2.5 py-1 rounded border border-white/5">
+              <span className="text-[10px] font-mono text-sky-300/40 bg-white/5 px-2.5 py-1 rounded border border-[#292D3A]">
                 {isBdtMode ? `${symbol} Mode` : "No Wallet Linked"}
               </span>
             )}
@@ -2813,25 +2797,25 @@ export default function ChatDashboard() {
         {(activeTab === "chats" || activeTab === "home") && (
           <div className="px-4 pt-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-black tracking-widest text-[#F8FAFC] uppercase">Inbox</h2>
+              <h2 className="text-sm font-black tracking-widest text-[#FFFFFF] uppercase">Inbox</h2>
               <button
                 type="button"
                 onClick={() => setShowAddFriend(true)}
                 title="Add a new friend"
-                className="min-h-0 inline-flex items-center gap-1.5 text-[#F8FAFC] text-[10px] font-semibold hover:text-[#A78BFA] transition-colors duration-200 cursor-pointer"
+                className="min-h-0 inline-flex items-center gap-1.5 text-[#FFFFFF] text-[10px] font-semibold hover:text-white transition-colors duration-200 cursor-pointer"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 Add Friend
               </button>
             </div>
             <div className="relative mb-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6C5CE0]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white" />
               <input
                 type="text"
                 value={inboxSearchQuery}
                 onChange={(e) => setInboxSearchQuery(e.target.value)}
                 placeholder="Search contacts"
-                className="w-full bg-[#0D111D]/80 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs text-[#F8FAFC] placeholder-[#6C5CE0] focus:outline-none focus:border-[#6C5CE0]/50 focus:ring-1 focus:ring-[#6C5CE0]/30 transition-all font-sans"
+                className="w-full bg-[#0B0D14]/80 border border-[#292D3A] rounded-xl pl-9 pr-3 py-2.5 text-xs text-[#FFFFFF] placeholder-white/40 focus:outline-none focus:border-white/20  focus:ring-1 focus:ring-white/20  transition-all font-sans"
               />
             </div>
           </div>
@@ -2841,12 +2825,12 @@ export default function ChatDashboard() {
         {activeTab === "calls" && (
           <div className="px-4 pt-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-black tracking-widest text-[#F8FAFC] uppercase">Calls</h2>
+              <h2 className="text-sm font-black tracking-widest text-[#FFFFFF] uppercase">Calls</h2>
               <button
                 type="button"
                 onClick={() => handleSelectTab("friends")}
                 title="Start a new call"
-                className="p-1.5 rounded-lg text-[#6C5CE0] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                className="p-1.5 rounded-lg text-white hover:text-white hover:bg-white/5 transition-all cursor-pointer"
               >
                 <Phone className="w-4 h-4" />
               </button>
@@ -2869,18 +2853,18 @@ export default function ChatDashboard() {
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider">
+                  <h4 className="text-[10px] text-white font-extrabold uppercase tracking-wider">
                     Conversations list ({friends.length})
                   </h4>
                 </div>
 
                 {friends.length === 0 ? (
-                  <div className="p-6 text-center border border-dashed border-white/[0.06] rounded-2xl bg-[#0D111D]/10">
-                    <MessageSquare className="w-6 h-6 text-[#6C5CE0] mx-auto mb-2" />
-                    <p className="text-xs text-[#6C5CE0] font-medium">
+                  <div className="p-6 text-center border border-dashed border-[#292D3A] rounded-2xl bg-[#0B0D14]/10">
+                    <MessageSquare className="w-6 h-6 text-white mx-auto mb-2" />
+                    <p className="text-xs text-white font-medium">
                       No conversations active
                     </p>
-                    <p className="text-[10px] text-[#6C5CE0] mt-1 leading-normal">
+                    <p className="text-[10px] text-white mt-1 leading-normal">
                       Tap the Friends search tab below to meet other users or exact matches.
                     </p>
                   </div>
@@ -2912,10 +2896,10 @@ export default function ChatDashboard() {
                           key={friend.uid}
                           onClick={() => handleSelectFriendChat(chatId)}
                           id={`chat_friend_${friend.uid}`}
-                          className={`w-full p-2.5 rounded-xl flex items-center justify-between hover:bg-[#6C5CE0]/10 transition-all text-left duration-200 cursor-pointer border ${
+                          className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all text-left duration-200 cursor-pointer border ${
                             isActive
-                              ? "bg-[#6C5CE0]/12 border-white/10 text-white shadow-sm border-l-4 border-l-[#6C5CE0] pl-2"
-                              : "bg-[#12172A]/40 border-transparent text-[#94A3B8] hover:text-white"
+                              ? "bg-[#9875FF]/[0.08] border-[#9875FF]/20 text-[#F5F5FA] border-l-4 border-l-[#9875FF] pl-2"
+                              : "bg-[#11131D]/60 border-transparent text-[#A1A5B5] hover:text-[#F5F5FA] hover:bg-[#151824]"
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
@@ -2925,12 +2909,12 @@ export default function ChatDashboard() {
                                 src={friend.avatarUrl}
                                 alt={friend.displayName}
                                 referrerPolicy="no-referrer"
-                                className={`w-9.5 h-9.5 rounded-full bg-[#161A2B] border object-cover transition-all duration-300 ${
-                                  isActive ? "border-[#6C5CE0]" : "border-white/10"
+                                className={`w-9.5 h-9.5 rounded-full bg-[#171A26] border object-cover transition-all duration-300 ${
+                                  isActive ? " border-white/20 " : "border-[#292D3A]"
                                 }`}
                               />
                               <span
-                                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white/[0.06] ${
+                                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[#292D3A] ${
                                   friend.status === "online"
                                     ? "bg-emerald-500 animate-pulse shadow-[0_0_4px_rgba(34, 197, 94,0.5)]"
                                     : "bg-gray-500"
@@ -2939,7 +2923,7 @@ export default function ChatDashboard() {
                             </div>
 
                             <div className="min-w-0 pr-1">
-                              <p className="text-xs font-bold text-[#F8FAFC] truncate leading-none group-hover:text-white">
+                              <p className="text-xs font-bold text-[#FFFFFF] truncate leading-none group-hover:text-white">
                                 {friend.displayName}
                               </p>
                               <p className="text-[9px] font-mono mt-1 uppercase tracking-wider leading-relaxed flex items-center gap-1.5">
@@ -2951,7 +2935,7 @@ export default function ChatDashboard() {
                             </div>
                           </div>
 
-                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6C5CE0] to-[#6C5CE0] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(108, 92, 224,0.12)]">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-white/20 to-white/15 flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(255,255,255,0.12)]">
                             <ChevronRight className="w-3.5 h-3.5 text-white" />
                           </span>
                         </button>
@@ -2975,7 +2959,7 @@ export default function ChatDashboard() {
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider">
+                  <h4 className="text-[10px] text-white font-extrabold uppercase tracking-wider">
                     Recent calls
                   </h4>
                 </div>
@@ -3002,7 +2986,7 @@ export default function ChatDashboard() {
                     value={searchVal}
                     onChange={(e) => setSearchVal(e.target.value)}
                     placeholder="Search by username or wallet address..."
-                    className="w-full bg-[#0D111D]/80 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#F8FAFC] placeholder-sky-300/20 focus:outline-none focus:border-[#6C5CE0]/50 focus:ring-1 focus:ring-[#6C5CE0]/30 transition-all font-sans"
+                    className="w-full bg-[#0B0D14]/80 border border-[#292D3A] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#FFFFFF] placeholder-sky-300/20 focus:outline-none focus:border-white/20  focus:ring-1 focus:ring-white/20  transition-all font-sans"
                   />
                   <Search className="absolute left-3.5 top-3 w-4 h-4 text-sky-300/50" />
                   {searchVal && (
@@ -3012,7 +2996,7 @@ export default function ChatDashboard() {
                         setSearchVal("");
                         setSearchResults([]);
                       }}
-                      className="absolute right-3 top-2.5 text-[#6C5CE0] hover:text-white p-0.5 rounded"
+                      className="absolute right-3 top-2.5 text-white hover:text-white p-0.5 rounded"
                     >
                       <X className="w-3.5 h-3.5 font-bold" />
                     </button>
@@ -3026,9 +3010,9 @@ export default function ChatDashboard() {
                       initial={{ opacity: 0, y: -5 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -5 }}
-                      className="bg-[#12172A]/90 border border-white/5 rounded-xl p-3 divide-y divide-white/5 space-y-2 shadow-[0_0_20px_rgba(108, 92, 224,0.05)]"
+                      className="bg-[#171A26]/90 border border-[#292D3A] rounded-xl p-3 divide-y divide-white/5 space-y-2 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
                     >
-                      <p className="text-[10px] text-[#6C5CE0] uppercase tracking-wider font-bold mb-1">
+                      <p className="text-[10px] text-white uppercase tracking-wider font-bold mb-1">
                         Users Found
                       </p>
                       {searchResults.map((user) => {
@@ -3044,13 +3028,13 @@ export default function ChatDashboard() {
                                 src={user.avatarUrl}
                                 alt={user.displayName}
                                 referrerPolicy="no-referrer"
-                                className="w-7.5 h-7.5 rounded-full bg-[#0D111D] border border-white/[0.06]"
+                                className="w-7.5 h-7.5 rounded-full bg-[#0B0D14] border border-[#292D3A]"
                               />
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-[#F8FAFC] truncate pr-2">
+                                <p className="text-xs font-bold text-[#FFFFFF] truncate pr-2">
                                   {user.displayName}
                                 </p>
-                                <p className="text-[9px] text-[#6C5CE0] truncate font-mono">
+                                <p className="text-[9px] text-white truncate font-mono">
                                   @{user.username}
                                 </p>
                               </div>
@@ -3059,12 +3043,12 @@ export default function ChatDashboard() {
                             {isFriend ? (
                               <button
                                 onClick={() => handleSelectFriendChat(getChatIdForFriend(user.uid))}
-                                className="bg-[#0D111D] border border-white/[0.06] hover:border-neutral-500 text-[#94A3B8] font-bold px-2 py-1 rounded-lg text-[10px]"
+                                className="bg-[#0B0D14] border border-[#292D3A] hover:border-neutral-500 text-[#A3A3A3] font-bold px-2 py-1 rounded-lg text-[10px]"
                               >
                                 Chat
                               </button>
                             ) : isSentPending ? (
-                              <span className="text-[9px] text-[#6C5CE0] font-semibold bg-[#0D111D] border border-white/[0.06] px-2 py-1 rounded">
+                              <span className="text-[9px] text-white font-semibold bg-[#0B0D14] border border-[#292D3A] px-2 py-1 rounded">
                                 Sent
                               </span>
                             ) : isReceivedPending ? (
@@ -3087,8 +3071,8 @@ export default function ChatDashboard() {
                                 disabled={statusOfInvite === "sending" || !canInteractWith(user.uid)}
                                 className={`px-2 py-1.5 rounded-lg text-[10px] flex items-center gap-1 ${
                                   canInteractWith(user.uid)
-                                    ? "bg-[#0D111D] border border-white/[0.06] hover:border-neutral-400 text-[#94A3B8] hover:text-white font-semibold cursor-pointer"
-                                    : "bg-[#0B0F17]/50 border border-white/[0.04] text-[#334155] opacity-50 pointer-events-none"
+                                    ? "bg-[#0B0D14] border border-[#292D3A] hover:border-neutral-400 text-[#A3A3A3] hover:text-white font-semibold cursor-pointer"
+                                    : "bg-[#000000]/50 border border-white/[0.04] text-[#4D4D4D] opacity-50 pointer-events-none"
                                 }`}
                               >
                                 {statusOfInvite === "sending" ? (
@@ -3110,8 +3094,8 @@ export default function ChatDashboard() {
                   )}
 
                   {searchVal.trim() && searchResults.length === 0 && !searchLoading && (
-                    <div className="p-3 text-center bg-[#0B0F17]/20 border border-white/[0.06] rounded-xl">
-                      <p className="text-[10px] text-[#6C5CE0] italic">No user exact matches found</p>
+                    <div className="p-3 text-center bg-[#000000]/20 border border-[#292D3A] rounded-xl">
+                      <p className="text-[10px] text-white italic">No user exact matches found</p>
                     </div>
                   )}
                 </AnimatePresence>
@@ -3120,8 +3104,8 @@ export default function ChatDashboard() {
               {/* Received Friends Requests */}
               {pendingReceived.length > 0 && (
                 <div className="space-y-1.5">
-                  <h4 className="text-[10px] text-[#6C5CE0] font-bold uppercase tracking-wider pl-1 flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-[#94A3B8]" />
+                  <h4 className="text-[10px] text-white font-bold uppercase tracking-wider pl-1 flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-[#A3A3A3]" />
                     Incoming Invites ({pendingReceived.length})
                   </h4>
 
@@ -3131,34 +3115,34 @@ export default function ChatDashboard() {
                         key={req.id}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="p-2.5 bg-[#0B0F17] border border-white/[0.06] rounded-xl flex items-center justify-between gap-2"
+                        className="p-2.5 bg-[#000000] border border-[#292D3A] rounded-xl flex items-center justify-between gap-2"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <img
                             src={`https://api.dicebear.com/7.x/bottts/svg?seed=${req.senderId}`}
                             alt={req.senderUsername}
-                            className="w-7.5 h-7.5 rounded-full bg-[#0D111D]"
+                            className="w-7.5 h-7.5 rounded-full bg-[#0B0D14]"
                             referrerPolicy="no-referrer"
                           />
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-[#F8FAFC] truncate">
+                            <p className="text-xs font-bold text-[#FFFFFF] truncate">
                               @{req.senderUsername}
                             </p>
-                            <p className="text-[9px] text-[#6C5CE0] font-medium">Inviting you</p>
+                            <p className="text-[9px] text-white font-medium">Inviting you</p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => acceptFriendRequest(req.id)}
-                            className="p-1 rounded bg-[#0D111D] border border-white/[0.06] hover:border-neutral-500 text-emerald-400 cursor-pointer"
+                            className="p-1 rounded bg-[#0B0D14] border border-[#292D3A] hover:border-neutral-500 text-emerald-400 cursor-pointer"
                             title="Accept Request"
                           >
                             <Check className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => declineFriendRequest(req.id)}
-                            className="p-1 rounded bg-[#0D111D] border border-white/[0.06] hover:border-red-900 text-red-400 cursor-pointer"
+                            className="p-1 rounded bg-[#0B0D14] border border-[#292D3A] hover:border-red-900 text-red-400 cursor-pointer"
                             title="Decline Request"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -3173,18 +3157,18 @@ export default function ChatDashboard() {
               {/* Complete Active Friend Connections list */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <h4 className="text-[10px] text-[#6C5CE0] font-bold uppercase tracking-wider">
+                  <h4 className="text-[10px] text-white font-bold uppercase tracking-wider">
                     My Contacts ({friends.length})
                   </h4>
                 </div>
 
                 {friends.length === 0 ? (
-                  <div className="p-6 text-center border border-dashed border-white/[0.06] rounded-2xl">
-                    <UserPlus className="w-6 h-6 text-[#6C5CE0] mx-auto mb-2" />
-                    <p className="text-xs text-[#6C5CE0] font-medium leading-normal">
+                  <div className="p-6 text-center border border-dashed border-[#292D3A] rounded-2xl">
+                    <UserPlus className="w-6 h-6 text-white mx-auto mb-2" />
+                    <p className="text-xs text-white font-medium leading-normal">
                       No contacts found
                     </p>
-                    <p className="text-[9px] text-[#6C5CE0] mt-1 max-w-[200px] mx-auto leading-normal">
+                    <p className="text-[9px] text-white mt-1 max-w-[200px] mx-auto leading-normal">
                       Start looking up valid peer usernames above to initiate secure transactions.
                     </p>
                   </div>
@@ -3199,7 +3183,7 @@ export default function ChatDashboard() {
                       .map((friend) => (
                       <div
                         key={friend.uid}
-                        className="p-2 bg-[#0B0F17]/40 border border-white/[0.06] rounded-xl flex items-center justify-between hover:bg-[#0D111D]/40 transition-colors"
+                        className="p-2 bg-[#000000]/40 border border-[#292D3A] rounded-xl flex items-center justify-between hover:bg-[#151824]/30 transition-colors"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="relative">
@@ -3207,19 +3191,19 @@ export default function ChatDashboard() {
                               src={friend.avatarUrl}
                               alt={friend.displayName}
                               referrerPolicy="no-referrer"
-                              className="w-8 h-8 rounded-full bg-[#0B0F17] border border-white/[0.06] object-cover"
+                              className="w-8 h-8 rounded-full bg-[#000000] border border-[#292D3A] object-cover"
                             />
                             <span
-                              className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white/[0.06] ${
+                              className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#292D3A] ${
                                 friend.status === "online" ? "bg-emerald-500" : "bg-gray-500"
                               }`}
                             />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-[#F8FAFC] truncate">
+                            <p className="text-xs font-bold text-[#FFFFFF] truncate">
                               {friend.displayName}
                             </p>
-                            <p className="text-[9px] text-[#6C5CE0] font-mono">
+                            <p className="text-[9px] text-white font-mono">
                               @{friend.username}
                             </p>
                           </div>
@@ -3227,7 +3211,7 @@ export default function ChatDashboard() {
 
                         <button
                           onClick={() => handleSelectFriendChat(getChatIdForFriend(friend.uid))}
-                          className="bg-[#0D111D] hover:bg-[#161A2B] text-[#94A3B8] hover:text-white font-bold text-[10px] px-3 py-1.5 rounded-lg border border-white/[0.06] cursor-pointer"
+                          className="bg-[#0B0D14] hover:bg-[#171A26] text-[#A3A3A3] hover:text-white font-bold text-[10px] px-3 py-1.5 rounded-lg border border-[#292D3A] cursor-pointer"
                         >
                           Chat
                         </button>
@@ -3250,7 +3234,7 @@ export default function ChatDashboard() {
               className="space-y-4"
             >
               <div className="flex items-center justify-between px-1">
-                <h4 className="text-[10px] text-[#6C5CE0] font-bold uppercase tracking-wider">
+                <h4 className="text-[10px] text-white font-bold uppercase tracking-wider">
                   Notification Feed ({appNotifications.length})
                 </h4>
                 {appNotifications.length > 0 && (
@@ -3259,7 +3243,7 @@ export default function ChatDashboard() {
                       appNotifications.forEach((n) => dismissNotification(n.id));
                       showToast("Notification inbox cleared!", "info");
                     }}
-                    className="text-[9px] font-bold text-[#94A3B8] hover:text-white uppercase tracking-wider cursor-pointer bg-[#0B0F17] hover:bg-[#0D111D] px-2 py-1 rounded border border-white/[0.06] transition"
+                    className="text-[9px] font-bold text-[#A3A3A3] hover:text-white uppercase tracking-wider cursor-pointer bg-[#000000] hover:bg-[#0B0D14] px-2 py-1 rounded border border-[#292D3A] transition"
                   >
                     Clear All
                   </button>
@@ -3267,12 +3251,12 @@ export default function ChatDashboard() {
               </div>
 
               {appNotifications.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-white/[0.06] rounded-2xl bg-[#0B0F17]/10">
-                  <div className="w-10 h-10 rounded-full bg-[#0B0F17] border border-white/[0.06] flex items-center justify-center mx-auto mb-3">
-                    <Bell className="w-4 h-4 text-[#6C5CE0]" />
+                <div className="p-8 text-center border border-dashed border-[#292D3A] rounded-2xl bg-[#000000]/10">
+                  <div className="w-10 h-10 rounded-full bg-[#000000] border border-[#292D3A] flex items-center justify-center mx-auto mb-3">
+                    <Bell className="w-4 h-4 text-white" />
                   </div>
-                  <p className="text-xs text-[#94A3B8] font-extrabold flex items-center justify-center gap-1">All caught up!</p>
-                  <p className="text-[10px] text-[#6C5CE0] mt-1 leading-normal max-w-[200px] mx-auto">
+                  <p className="text-xs text-[#A3A3A3] font-extrabold flex items-center justify-center gap-1">All caught up!</p>
+                  <p className="text-[10px] text-white mt-1 leading-normal max-w-[200px] mx-auto">
                     No new activities, chat requests, or wallet verifications at this moment.
                   </p>
                 </div>
@@ -3291,7 +3275,7 @@ export default function ChatDashboard() {
                         }
                         dismissNotification(noti.id);
                       }}
-                      className="p-3 bg-[#0B0F17] hover:bg-[#0D111D] border border-white/[0.06] hover:border-white/[0.06] rounded-xl cursor-pointer transition text-left relative overflow-hidden"
+                      className="p-3 bg-[#000000] hover:bg-[#0B0D14] border border-[#292D3A] hover:border-[#292D3A] rounded-xl cursor-pointer transition text-left relative overflow-hidden"
                     >
                       <div className="flex items-start gap-2.5">
                         <div className="shrink-0 mt-0.5">
@@ -3300,23 +3284,23 @@ export default function ChatDashboard() {
                               src={noti.senderAvatar}
                               alt="Avatar"
                               referrerPolicy="no-referrer"
-                              className="w-7 h-7 rounded-full object-cover border border-white/[0.06]"
+                              className="w-7 h-7 rounded-full object-cover border border-[#292D3A]"
                             />
                           ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#0D111D] border border-white/[0.06] flex items-center justify-center">
-                              <Bell className="w-3.5 h-3.5 text-[#94A3B8]" />
+                            <div className="w-7 h-7 rounded-full bg-[#0B0D14] border border-[#292D3A] flex items-center justify-center">
+                              <Bell className="w-3.5 h-3.5 text-[#A3A3A3]" />
                             </div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-[#F8FAFC] truncate">
+                          <p className="text-xs font-semibold text-[#FFFFFF] truncate">
                             {noti.title}
                           </p>
-                          <p className="text-[10px] text-[#94A3B8] mt-0.5 leading-normal">
+                          <p className="text-[10px] text-[#A3A3A3] mt-0.5 leading-normal">
                             {noti.body}
                           </p>
-                          <span className="text-[8px] text-[#6C5CE0] font-mono block mt-1 uppercase tracking-wider">
-                            {noti.type === "message" ? "Direct Message" : noti.type === "deal_room_invite" ? "Deal Room Invitation" : "Peer Request"} • Tap to View
+                          <span className="text-[8px] text-white font-mono block mt-1 uppercase tracking-wider">
+                            {noti.type === "message" ? "Direct Message" : noti.type === "deal_room_invite" ? "Deal Room Invitation" : "Peer Request"} â€¢ Tap to View
                           </span>
                         </div>
                         <button
@@ -3324,7 +3308,7 @@ export default function ChatDashboard() {
                             e.stopPropagation();
                             dismissNotification(noti.id);
                           }}
-                          className="text-[#6C5CE0] hover:text-[#94A3B8] p-0.5 rounded cursor-pointer"
+                          className="text-white hover:text-[#A3A3A3] p-0.5 rounded cursor-pointer"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -3346,19 +3330,19 @@ export default function ChatDashboard() {
               transition={{ duration: 0.25, ease: "easeOut" }}
               className="space-y-4"
             >
-              <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
+              <h4 className="text-[10px] text-white font-extrabold uppercase tracking-wider px-1">
                 Inbox Analytics
               </h4>
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3.5 bg-[#12172A]/60 border border-white/5 rounded-2xl">
+                <div className="p-3.5 bg-[#171A26]/60 border border-[#292D3A] rounded-2xl">
                   <span className="text-[8px] uppercase font-mono tracking-widest text-sky-300/50 font-bold block">
                     Total Contacts
                   </span>
-                  <span className="text-xl font-black text-[#6C5CE0] font-mono mt-1 block">
+                  <span className="text-xl font-black text-white font-mono mt-1 block">
                     {friends.length}
                   </span>
                 </div>
-                <div className="p-3.5 bg-[#12172A]/60 border border-white/5 rounded-2xl">
+                <div className="p-3.5 bg-[#171A26]/60 border border-[#292D3A] rounded-2xl">
                   <span className="text-[8px] uppercase font-mono tracking-widest text-sky-300/50 font-bold block">
                     Online Now
                   </span>
@@ -3366,7 +3350,7 @@ export default function ChatDashboard() {
                     {friends.filter((f) => f.status === "online").length}
                   </span>
                 </div>
-                <div className="p-3.5 bg-[#12172A]/60 border border-white/5 rounded-2xl">
+                <div className="p-3.5 bg-[#171A26]/60 border border-[#292D3A] rounded-2xl">
                   <span className="text-[8px] uppercase font-mono tracking-widest text-sky-300/50 font-bold block">
                     Pending Requests
                   </span>
@@ -3377,7 +3361,7 @@ export default function ChatDashboard() {
               </div>
 
               <div className="space-y-1.5">
-                <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
+                <h4 className="text-[10px] text-white font-extrabold uppercase tracking-wider px-1">
                   Active Conversations
                 </h4>
                 {[...friends]
@@ -3391,14 +3375,14 @@ export default function ChatDashboard() {
                     <button
                       key={f.uid}
                       onClick={() => handleSelectFriendChat(getChatIdForFriend(f.uid))}
-                      className="w-full flex items-center justify-between p-2.5 bg-[#12172A]/40 hover:bg-[#6C5CE0]/10 border border-white/5 rounded-xl transition-all cursor-pointer text-left"
+                      className="w-full flex items-center justify-between p-2.5 bg-[#171A26]/40 hover:bg-white/10 border border-[#292D3A] rounded-xl transition-all cursor-pointer text-left"
                     >
-                      <span className="text-xs text-[#94A3B8] truncate">{f.displayName}</span>
+                      <span className="text-xs text-[#A3A3A3] truncate">{f.displayName}</span>
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.status === "online" ? "bg-emerald-500" : "bg-gray-500"}`} />
                     </button>
                   ))}
                 {friends.length === 0 && (
-                  <p className="text-[10px] text-[#6C5CE0] px-1">No conversations to analyze yet.</p>
+                  <p className="text-[10px] text-white px-1">No conversations to analyze yet.</p>
                 )}
               </div>
             </motion.div>
@@ -3411,7 +3395,7 @@ export default function ChatDashboard() {
 
       {/* DETAILED ACTIVE CHAT PANEL (Right portion) */}
       <div
-        className={`mica-with-mobile-nav flex-1 flex flex-col h-[100dvh] overflow-hidden bg-[#0D111D]/90 backdrop-blur-md relative ${
+        className={`mica-with-mobile-nav flex-1 flex flex-col h-[100dvh] overflow-hidden bg-[#0B0D14]/90 backdrop-blur-md relative ${
           !viewChatOnMobile ? "hidden md:flex" : "flex"
         }`}
         id="active_chat_viewport"
@@ -3424,37 +3408,37 @@ export default function ChatDashboard() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
-              className="flex-1 flex flex-col h-full bg-[#0D111D]/70 overflow-hidden"
+              className="flex-1 flex flex-col h-full bg-[#0B0D14]/70 overflow-hidden"
             >
               {/* Settings Page Header */}
-              <div className="p-4 sm:px-6 bg-[#12172A]/95 backdrop-blur-md border-b border-white/5 flex items-center justify-between z-10 shrink-0 select-none">
+              <div className="p-4 sm:px-6 bg-[#171A26]/95 backdrop-blur-md border-b border-[#292D3A] flex items-center justify-between z-10 shrink-0 select-none">
                 <div className="flex items-center gap-3 w-full">
                   {/* Back button */}
                   <button
                     onClick={handleBackToChats}
-                    className="p-2 rounded-xl bg-[#12172A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-[#6C5CE0]/50 hover:bg-[#161A2B] cursor-pointer flex items-center justify-center mr-1"
+                    className="p-2 rounded-xl bg-[#171A26] border border-[#292D3A] text-sky-200 hover:text-white transition-all hover:border-white/20  hover:bg-[#171A26] cursor-pointer flex items-center justify-center mr-1"
                     title="Back to Conversations"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                   <div className="min-w-0 flex-1">
                     <h2 className="text-sm font-black text-white uppercase tracking-widest font-mono flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-[#6C5CE0] drop-shadow-[0_0_8px_rgba(108, 92, 224,0.12)]" />
+                      <Settings className="w-4 h-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.12)]" />
                       Settings
                     </h2>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[10px] text-[#6C5CE0] font-mono truncate">
+                      <span className="text-[10px] text-white font-mono truncate">
                         @{userProfile?.username || "user"}
                       </span>
-                      <span className="text-[10px] text-[#6C5CE0]">•</span>
-                      <span className="text-[10px] text-[#94A3B8] font-sans font-medium">
+                      <span className="text-[10px] text-white">â€¢</span>
+                      <span className="text-[10px] text-[#A3A3A3] font-sans font-medium">
                         Node Identity Configuration
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-2 font-mono text-[9px] bg-[#161A2B] border border-[#6C5CE0]/20 px-3 py-1.5 rounded-xl text-sky-300 shadow-inner">
+                <div className="hidden sm:flex items-center gap-2 font-mono text-[9px] bg-[#171A26] border border-white/20  px-3 py-1.5 rounded-xl text-sky-300 shadow-inner">
                   <Shield className="w-3.5 h-3.5 text-sky-400" />
                   EC-384 ENCRYPTION
                 </div>
@@ -3465,14 +3449,14 @@ export default function ChatDashboard() {
                 <div className="max-w-7xl mx-auto">
                   <form onSubmit={handleSaveProfile} className="space-y-5">
                     
-                    {/* Currency & Payment Environment — global MICA mode selector */}
-                    <div className="bg-[#12172A]/60 border border-white/10 p-4.5 sm:p-5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
-                      <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                    {/* Currency & Payment Environment â€” global MICA mode selector */}
+                    <div className="bg-[#171A26]/60 border border-[#292D3A] p-4.5 sm:p-5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(255,255,255,0.03)]">
+                      <div className="border-b border-[#292D3A] pb-2 flex items-center justify-between">
                         <div>
                           <h3 className="text-xs font-black text-sky-100 hover:text-white uppercase tracking-widest font-mono">
                             Currency & Payment Environment
                           </h3>
-                          <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                          <p className="text-[9px] text-white mt-0.5 leading-relaxed">
                             Choose how MICA handles payments and money across the app.
                           </p>
                         </div>
@@ -3489,12 +3473,12 @@ export default function ChatDashboard() {
                               onClick={() => setCurrency(opt.value)}
                               className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-bold font-mono transition-all cursor-pointer ${
                                 active
-                                  ? "bg-[#6C5CE0]/15 border-[#6C5CE0]/60 text-white shadow-[0_0_14px_rgba(108,92,224,0.18)]"
-                                  : "bg-[#0B0F17]/50 border-white/[0.06] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/40"
+                                  ? "bg-white/15 border-white/20  text-black shadow-[0_0_14px_rgba(255,255,255,0.18)]"
+                                  : "bg-[#000000]/50 border-[#292D3A] text-[#A3A3A3] hover:text-white hover:border-white/20 "
                               }`}
                             >
-                              <span className={active ? "text-emerald-400" : "text-[#6C5CE0]"}>
-                                {opt.value === "BDT" ? "৳" : opt.value}
+                              <span className={active ? "text-emerald-400" : "text-white"}>
+                                {opt.value === "BDT" ? "à§³" : opt.value}
                               </span>
                               <span className="uppercase tracking-widest">{opt.value}</span>
                             </button>
@@ -3502,15 +3486,15 @@ export default function ChatDashboard() {
                         })}
                       </div>
 
-                      <div className="flex items-start gap-2.5 bg-[#0B0F17]/70 border border-white/5 rounded-xl px-3.5 py-2.5">
-                        <ShieldCheck className="w-4 h-4 text-[#6C5CE0] mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-[#94A3B8] leading-relaxed">
+                      <div className="flex items-start gap-2.5 bg-[#000000]/70 border border-[#292D3A] rounded-xl px-3.5 py-2.5">
+                        <ShieldCheck className="w-4 h-4 text-white mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-[#A3A3A3] leading-relaxed">
                           {isBdtMode ? (
                             <>
                               <span className="text-white font-bold">Using MICA in BDT mode.</span>{" "}
                               The Wallet, Arc/Circle USDC controls and on-chain payment terms are
-                              hidden — payments, send checks and Deal Room funding use{" "}
-                              <span className="text-white font-bold">Bangladeshi Taka (৳)</span>.
+                              hidden â€” payments, send checks and Deal Room funding use{" "}
+                              <span className="text-white font-bold">Bangladeshi Taka (à§³)</span>.
                             </>
                           ) : (
                             <>
@@ -3523,7 +3507,7 @@ export default function ChatDashboard() {
                       </div>
                     </div>
 
-                    {/* MCP Connections — Settings -> MCP Connections.
+                    {/* MCP Connections â€” Settings -> MCP Connections.
                         Self-contained: no nested <form>, every button inside is
                         type="button", and its modal is portalled to <body>, so it
                         can never submit or interfere with the profile form below. */}
@@ -3535,12 +3519,12 @@ export default function ChatDashboard() {
                       {/* Column 1: Passport Preview & Security Compliance Info */}
                       <div className="space-y-5">
                         {/* 1. Futuristic Peer Passport Preview */}
-                        <div className="bg-gradient-to-b from-[#161A2B] via-[#0D111D] to-[#161A2B] border border-white/10 rounded-[2rem] p-5 shadow-2xl relative overflow-hidden group select-none">
+                        <div className="bg-gradient-to-b from-[#111111] via-[#050505] to-[#111111] border border-[#292D3A] rounded-[2rem] p-5 shadow-2xl relative overflow-hidden group select-none">
                           {/* Geometric glowing accents */}
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-[#6C5CE0]/5 rounded-full blur-3xl pointer-events-none group-hover:bg-[#6C5CE0]/10 transition-colors duration-500" />
-                          <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-[#6C5CE0]/5 rounded-full blur-2xl pointer-events-none" />
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl pointer-events-none group-hover:bg-white/10 transition-colors duration-500" />
+                          <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
                           
-                          <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
+                          <div className="flex items-center justify-between border-b border-[#292D3A] pb-3 mb-4">
                             <span className="text-[9px] font-mono tracking-widest text-sky-300 uppercase font-black">
                               SENDXXX Passport Preview
                             </span>
@@ -3558,48 +3542,48 @@ export default function ChatDashboard() {
                                   src={customAvatarUrl || userProfile?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser?.uid}`}
                                   alt="Identity Avatar"
                                   referrerPolicy="no-referrer"
-                                  className="w-14 h-14 rounded-full bg-[#0B0F17] border-2 border-white/[0.06] p-0.5 object-cover shadow-2xl group-hover:scale-[1.03] transition duration-300"
+                                  className="w-14 h-14 rounded-full bg-[#000000] border-2 border-[#292D3A] p-0.5 object-cover shadow-2xl group-hover:scale-[1.03] transition duration-300"
                                 />
-                                <div className="absolute -bottom-1 -right-1 bg-[#0B0F17] border border-white/[0.06] w-5 h-5 flex items-center justify-center rounded-full text-emerald-400 text-[10px] shadow" title="Verified Node">
-                                  ✓
+                                <div className="absolute -bottom-1 -right-1 bg-[#000000] border border-[#292D3A] w-5 h-5 flex items-center justify-center rounded-full text-emerald-400 text-[10px] shadow" title="Verified Node">
+                                  âœ“
                                 </div>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <h3 className="text-sm font-black text-[#F8FAFC] truncate flex items-center gap-1.5">
+                                <h3 className="text-sm font-black text-[#FFFFFF] truncate flex items-center gap-1.5">
                                   {editDisplayName || userProfile?.displayName || "Anonymous Peer"}
                                 </h3>
-                                <p className="text-[10px] text-[#94A3B8] font-mono mt-0.5">
+                                <p className="text-[10px] text-[#A3A3A3] font-mono mt-0.5">
                                   @{userProfile?.username || "unknown_node"}
                                 </p>
-                                <p className="text-[9px] text-[#6C5CE0] mt-1.5 truncate bg-[#0B0F17] py-1 px-2 rounded-lg border border-white/[0.06] font-mono">
+                                <p className="text-[9px] text-white mt-1.5 truncate bg-[#000000] py-1 px-2 rounded-lg border border-[#292D3A] font-mono">
                                   ID: {currentUser?.uid?.substring(0, 14) || "none"}...
                                 </p>
                               </div>
                             </div>
 
                             <div className="pt-1">
-                              <span className="text-[8px] uppercase font-mono tracking-wider text-[#6C5CE0] font-bold block mb-1">
+                              <span className="text-[8px] uppercase font-mono tracking-wider text-white font-bold block mb-1">
                                 Node Status Quote:
                               </span>
-                              <div className="bg-[#0B0F17]/80 border border-white/[0.06] rounded-xl p-2.5 text-[11px] text-[#94A3B8] italic min-h-[44px] flex items-center leading-relaxed">
+                              <div className="bg-[#000000]/80 border border-[#292D3A] rounded-xl p-2.5 text-[11px] text-[#A3A3A3] italic min-h-[44px] flex items-center leading-relaxed">
                                 {editBio ? `"${editBio}"` : '"No verification quote configured."'}
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[9px] text-[#94A3B8]">
-                              <div className="p-2 bg-[#0B0F17] rounded-lg border border-white/[0.06]">
-                                <span className="text-[7px] uppercase tracking-wider text-[#6C5CE0] font-bold block">
+                            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[9px] text-[#A3A3A3]">
+                              <div className="p-2 bg-[#000000] rounded-lg border border-[#292D3A]">
+                                <span className="text-[7px] uppercase tracking-wider text-white font-bold block">
                                   Primary Wallet
                                 </span>
-                                <span className="truncate block mt-0.5 text-[#94A3B8] font-mono text-[8px]">
-                                  {isBdtMode ? "—" : userProfile?.walletAddress ? `${userProfile.walletAddress.substring(0, 6)}...${userProfile.walletAddress.substring(userProfile.walletAddress.length - 4)}` : "None configured"}
+                                <span className="truncate block mt-0.5 text-[#A3A3A3] font-mono text-[8px]">
+                                  {isBdtMode ? "â€”" : userProfile?.walletAddress ? `${userProfile.walletAddress.substring(0, 6)}...${userProfile.walletAddress.substring(userProfile.walletAddress.length - 4)}` : "None configured"}
                                 </span>
                               </div>
-                              <div className="p-2 bg-[#0B0F17] rounded-lg border border-white/[0.06]">
-                                <span className="text-[7px] uppercase tracking-wider text-[#6C5CE0] font-bold block">
+                              <div className="p-2 bg-[#000000] rounded-lg border border-[#292D3A]">
+                                <span className="text-[7px] uppercase tracking-wider text-white font-bold block">
                                   Cyber Nodes
                                 </span>
-                                <span className="truncate block mt-0.5 text-[#94A3B8] font-mono text-[8px]">
+                                <span className="truncate block mt-0.5 text-[#A3A3A3] font-mono text-[8px]">
                                   {editGithubUrl ? `Github & X` : "None linked"}
                                 </span>
                               </div>
@@ -3608,9 +3592,9 @@ export default function ChatDashboard() {
                         </div>
 
                         {/* 2. Security Compliance Note */}
-                        <div className="bg-[#0B0F17]/70 border border-white/[0.06] p-4 rounded-xl text-[10px] text-[#6C5CE0] leading-relaxed font-sans space-y-2">
-                          <p className="font-bold text-[#94A3B8] flex items-center gap-1">
-                            <Shield className="w-3.5 h-3.5 text-[#94A3B8]" /> Secure Communications Guide
+                        <div className="bg-[#000000]/70 border border-[#292D3A] p-4 rounded-xl text-[10px] text-white leading-relaxed font-sans space-y-2">
+                          <p className="font-bold text-[#A3A3A3] flex items-center gap-1">
+                            <Shield className="w-3.5 h-3.5 text-[#A3A3A3]" /> Secure Communications Guide
                           </p>
                           <p>
                             We enforce cryptographically signed headers on all peer p2p dispatches. Changing your identity profile parameters updates other decentralized peers immediately.
@@ -3618,13 +3602,13 @@ export default function ChatDashboard() {
                         </div>
 
                         {/* 3. Mica Voice Alerts */}
-                        <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
-                          <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                        <div className="bg-[#171A26]/60 border border-[#292D3A] p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(255,255,255,0.03)]">
+                          <div className="border-b border-[#292D3A] pb-2 flex items-center justify-between">
                             <div>
                               <h3 className="text-xs font-black text-sky-100 hover:text-white uppercase tracking-widest font-mono">
                                 Mica Voice Alerts
                               </h3>
-                              <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                              <p className="text-[9px] text-white mt-0.5 leading-relaxed">
                                 Configure her periodic spoken check-ins.
                               </p>
                             </div>
@@ -3632,11 +3616,11 @@ export default function ChatDashboard() {
                           </div>
 
                           <div className="space-y-2.5">
-                            {/* Mica Character Toggle — hides her entirely, keeping the right side clear */}
-                            <div className="bg-[#0B0F17]/50 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                            {/* Mica Character Toggle â€” hides her entirely, keeping the right side clear */}
+                            <div className="bg-[#000000]/50 border border-[#292D3A] rounded-xl p-3 flex items-center justify-between">
                               <div className="space-y-0.5">
-                                <p className="text-xs font-bold text-[#F8FAFC]">Mica Character</p>
-                                <p className="text-[9px] text-[#6C5CE0]">Show or fully hide her from the screen</p>
+                                <p className="text-xs font-bold text-[#FFFFFF]">Mica Character</p>
+                                <p className="text-[9px] text-white">Show or fully hide her from the screen</p>
                               </div>
                               <button
                                 type="button"
@@ -3648,11 +3632,11 @@ export default function ChatDashboard() {
                                   showToast(`Mica character ${nextVal ? "shown" : "hidden"}`, "info");
                                 }}
                                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                  micaWidgetEnabled ? "bg-white" : "bg-[#161A2B]"
+                                  micaWidgetEnabled ? "bg-white" : "bg-[#171A26]"
                                 }`}
                               >
                                 <span
-                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#0B0F17] shadow ring-0 transition duration-200 ease-in-out ${
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#000000] shadow ring-0 transition duration-200 ease-in-out ${
                                     micaWidgetEnabled ? "translate-x-4" : "translate-x-0"
                                   }`}
                                 />
@@ -3660,10 +3644,10 @@ export default function ChatDashboard() {
                             </div>
 
                             {/* Mica Voice Toggle */}
-                            <div className={`bg-[#0B0F17]/50 border border-white/5 rounded-xl p-3 flex items-center justify-between transition-opacity duration-150 ${micaWidgetEnabled ? "" : "opacity-40 pointer-events-none"}`}>
+                            <div className={`bg-[#000000]/50 border border-[#292D3A] rounded-xl p-3 flex items-center justify-between transition-opacity duration-150 ${micaWidgetEnabled ? "" : "opacity-40 pointer-events-none"}`}>
                               <div className="space-y-0.5">
-                                <p className="text-xs font-bold text-[#F8FAFC]">Mica Voice</p>
-                                <p className="text-[9px] text-[#6C5CE0]">Let her speak check-in lines aloud</p>
+                                <p className="text-xs font-bold text-[#FFFFFF]">Mica Voice</p>
+                                <p className="text-[9px] text-white">Let her speak check-in lines aloud</p>
                               </div>
                               <button
                                 type="button"
@@ -3675,11 +3659,11 @@ export default function ChatDashboard() {
                                   showToast(`Mica voice ${nextVal ? "enabled" : "disabled"}`, "info");
                                 }}
                                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                  micaVoiceEnabled ? "bg-white" : "bg-[#161A2B]"
+                                  micaVoiceEnabled ? "bg-white" : "bg-[#171A26]"
                                 }`}
                               >
                                 <span
-                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#0B0F17] shadow ring-0 transition duration-200 ease-in-out ${
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#000000] shadow ring-0 transition duration-200 ease-in-out ${
                                     micaVoiceEnabled ? "translate-x-4" : "translate-x-0"
                                   }`}
                                 />
@@ -3687,8 +3671,8 @@ export default function ChatDashboard() {
                             </div>
 
                             {/* Check-in Interval */}
-                            <div className={`bg-[#0B0F17]/50 border border-white/5 rounded-xl p-3 transition-opacity duration-150 ${micaVoiceEnabled && micaWidgetEnabled ? "" : "opacity-40 pointer-events-none"}`}>
-                              <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1.5">
+                            <div className={`bg-[#000000]/50 border border-[#292D3A] rounded-xl p-3 transition-opacity duration-150 ${micaVoiceEnabled && micaWidgetEnabled ? "" : "opacity-40 pointer-events-none"}`}>
+                              <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1.5">
                                 Check-in Interval
                               </label>
                               <div className="grid grid-cols-4 gap-1">
@@ -3710,7 +3694,7 @@ export default function ChatDashboard() {
                                     className={`py-1 rounded-md text-[8px] font-bold font-mono border transition-all duration-150 cursor-pointer text-center ${
                                       micaVoiceIntervalMs === opt.ms
                                         ? "bg-white text-neutral-950 border-white font-black shadow"
-                                        : "bg-[#0B0F17]/60 text-[#94A3B8] border-[#6C5CE0]/20 hover:bg-[#0D111D] hover:text-white"
+                                        : "bg-[#000000]/60 text-[#A3A3A3] border-white/20  hover:bg-[#0B0D14] hover:text-white"
                                     }`}
                                   >
                                     {opt.label}
@@ -3725,24 +3709,24 @@ export default function ChatDashboard() {
                       {/* Column 2: Basic Avatar & Moniker & System Audio Alerts */}
                       <div className="space-y-5">
                         {/* Form Bento Section 1: Image & Basic Names */}
-                        <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem] space-y-4 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
-                          <div className="border-b border-white/5 pb-2.5">
+                        <div className="bg-[#171A26]/60 border border-[#292D3A] p-4.5 rounded-[2rem] space-y-4 shadow-[0_0_30px_rgba(255,255,255,0.03)]">
+                          <div className="border-b border-[#292D3A] pb-2.5">
                             <h3 className="text-xs font-black text-sky-100 hover:text-white uppercase tracking-widest font-mono">
                               Basic Avatar & Moniker
                             </h3>
-                            <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                            <p className="text-[9px] text-white mt-0.5 leading-relaxed">
                               Customize standard visual descriptors for peer authentication.
                             </p>
                           </div>
 
                           <div className="flex items-center gap-4">
                             <div className="relative shrink-0 select-none cursor-pointer" onClick={() => avatarUploadRef.current?.click()}>
-                              <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-[#5847B8] to-[#6C5CE0] opacity-20 blur-sm animate-pulse" />
+                              <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-white/20 to-white/15 opacity-20 blur-sm animate-pulse" />
                               <img
                                 src={customAvatarUrl || userProfile?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser?.uid}`}
                                 alt="Profile Preview"
                                 referrerPolicy="no-referrer"
-                                className="relative w-14 h-14 rounded-full bg-[#0B0F17] border-2 border-white/[0.06] p-0.5 object-cover hover:scale-105 transition duration-200"
+                                className="relative w-14 h-14 rounded-full bg-[#000000] border-2 border-[#292D3A] p-0.5 object-cover hover:scale-105 transition duration-200"
                               />
                             </div>
 
@@ -3760,16 +3744,16 @@ export default function ChatDashboard() {
                                   type="button"
                                   onClick={() => avatarUploadRef.current?.click()}
                                   disabled={isUploadingAvatar}
-                                  className="bg-[#12172A]/80 hover:bg-[#6C5CE0]/10 border border-white/10 hover:border-[#6C5CE0]/40 text-sky-100 px-3 py-2 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 transition duration-150 cursor-pointer disabled:opacity-50 hover:scale-[1.01]"
+                                  className="bg-[#171A26]/80 hover:bg-white/10 border border-[#292D3A] hover:border-white/20  text-sky-100 px-3 py-2 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 transition duration-150 cursor-pointer disabled:opacity-50 hover:scale-[1.01]"
                                 >
                                   {isUploadingAvatar ? (
                                     <>
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#94A3B8]" />
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#A3A3A3]" />
                                       Verifying...
                                     </>
                                   ) : (
                                     <>
-                                      <Upload className="w-3.5 h-3.5 text-[#94A3B8]" />
+                                      <Upload className="w-3.5 h-3.5 text-[#A3A3A3]" />
                                       Upload Image
                                     </>
                                   )}
@@ -3787,7 +3771,7 @@ export default function ChatDashboard() {
                           {/* Inputs Row */}
                           <div className="space-y-3 pt-1">
                             <div>
-                              <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
+                              <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
                                 Display Name / Moniker
                               </label>
                               <input
@@ -3796,12 +3780,12 @@ export default function ChatDashboard() {
                                 value={editDisplayName}
                                 onChange={(e) => setEditDisplayName(e.target.value)}
                                 placeholder="e.g. Satoshi"
-                                className="w-full bg-[#0B0F17]/70 border border-white/[0.06] focus:border-[#6C5CE0]/40 focus:ring-1 focus:ring-[#6C5CE0]/20 rounded-xl px-3 py-2 text-xs text-[#F8FAFC] focus:outline-none font-sans shadow-inner transition-all duration-150"
+                                className="w-full bg-[#000000]/70 border border-[#292D3A] focus:border-white/20  focus:ring-1 focus:ring-white/20  rounded-xl px-3 py-2 text-xs text-[#FFFFFF] focus:outline-none font-sans shadow-inner transition-all duration-150"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
+                              <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
                                 Short Bio Statement
                               </label>
                               <textarea
@@ -3810,20 +3794,20 @@ export default function ChatDashboard() {
                                 placeholder="Give connections a brief status bio..."
                                 rows={2}
                                 maxLength={180}
-                                className="w-full bg-[#0B0F17]/70 border border-white/[0.06] focus:border-[#6C5CE0]/40 focus:ring-1 focus:ring-[#6C5CE0]/20 rounded-xl px-3 py-2 text-xs text-[#F8FAFC] focus:outline-none font-sans resize-none shadow-inner transition-all duration-150"
+                                className="w-full bg-[#000000]/70 border border-[#292D3A] focus:border-white/20  focus:ring-1 focus:ring-white/20  rounded-xl px-3 py-2 text-xs text-[#FFFFFF] focus:outline-none font-sans resize-none shadow-inner transition-all duration-150"
                               />
                             </div>
                           </div>
                         </div>
 
                         {/* Form Bento Section 2: Peer System & Sound Alerts */}
-                        <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
-                          <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                        <div className="bg-[#171A26]/60 border border-[#292D3A] p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(255,255,255,0.03)]">
+                          <div className="border-b border-[#292D3A] pb-2 flex items-center justify-between">
                             <div>
                               <h3 className="text-xs font-black text-sky-100 hover:text-white uppercase tracking-widest font-mono">
                                 System & Audio Alerts
                               </h3>
-                              <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                              <p className="text-[9px] text-white mt-0.5 leading-relaxed">
                                 Manage real-time interactive notification sounds.
                               </p>
                             </div>
@@ -3832,10 +3816,10 @@ export default function ChatDashboard() {
 
                           <div className="space-y-2.5">
                             {/* Notification Sounds Toggle */}
-                            <div className="bg-[#0B0F17]/50 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                            <div className="bg-[#000000]/50 border border-[#292D3A] rounded-xl p-3 flex items-center justify-between">
                               <div className="space-y-0.5">
-                                <p className="text-xs font-bold text-[#F8FAFC]">Notification Sounds</p>
-                                <p className="text-[9px] text-[#6C5CE0]">Audio feedback on signals</p>
+                                <p className="text-xs font-bold text-[#FFFFFF]">Notification Sounds</p>
+                                <p className="text-[9px] text-white">Audio feedback on signals</p>
                               </div>
                               <button
                                 type="button"
@@ -3846,11 +3830,11 @@ export default function ChatDashboard() {
                                   showToast(`Notification sounds ${nextVal ? "enabled" : "disabled"}`, "info");
                                 }}
                                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                  notificationSounds ? "bg-white" : "bg-[#161A2B]"
+                                  notificationSounds ? "bg-white" : "bg-[#171A26]"
                                 }`}
                               >
                                 <span
-                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#0B0F17] shadow ring-0 transition duration-200 ease-in-out ${
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#000000] shadow ring-0 transition duration-200 ease-in-out ${
                                     notificationSounds ? "translate-x-4" : "translate-x-0"
                                   }`}
                                 />
@@ -3858,10 +3842,10 @@ export default function ChatDashboard() {
                             </div>
 
                             {/* Do Not Disturb Toggle */}
-                            <div className="bg-[#0B0F17]/50 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                            <div className="bg-[#000000]/50 border border-[#292D3A] rounded-xl p-3 flex items-center justify-between">
                               <div className="space-y-0.5">
-                                <p className="text-xs font-bold text-[#F8FAFC]">Do Not Disturb Mode</p>
-                                <p className="text-[9px] text-[#6C5CE0]">Silence all sound ringers</p>
+                                <p className="text-xs font-bold text-[#FFFFFF]">Do Not Disturb Mode</p>
+                                <p className="text-[9px] text-white">Silence all sound ringers</p>
                               </div>
                               <button
                                 type="button"
@@ -3881,11 +3865,11 @@ export default function ChatDashboard() {
                                   showToast(`Do Not Disturb ${nextVal ? "enabled" : "disabled"}`, "info");
                                 }}
                                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                  doNotDisturb ? "bg-white" : "bg-[#161A2B]"
+                                  doNotDisturb ? "bg-white" : "bg-[#171A26]"
                                 }`}
                               >
                                 <span
-                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#0B0F17] shadow ring-0 transition duration-200 ease-in-out ${
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#000000] shadow ring-0 transition duration-200 ease-in-out ${
                                     doNotDisturb ? "translate-x-4" : "translate-x-0"
                                   }`}
                                 />
@@ -3898,45 +3882,45 @@ export default function ChatDashboard() {
                       {/* Column 3: Secure Cyber Nodes & Address, Payment Settings */}
                       <div className="space-y-5">
                         {/* Form Bento Section 3: Web3 Credentials and Cyber Keys */}
-                        <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
-                          <div className="border-b border-white/5 pb-2">
+                        <div className="bg-[#171A26]/60 border border-[#292D3A] p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(255,255,255,0.03)]">
+                          <div className="border-b border-[#292D3A] pb-2">
                             <h3 className="text-xs font-black text-sky-100 hover:text-white uppercase tracking-widest font-mono">
                               Secure Cyber Nodes & Addresses
                             </h3>
-                            <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                            <p className="text-[9px] text-white mt-0.5 leading-relaxed">
                               Configure web3 wallets and developer handles.
                             </p>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
+                              <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
                                 GitHub Identity Node
                               </label>
                               <div className="relative">
-                                <Github className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-[#6C5CE0]" />
+                                <Github className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-white" />
                                 <input
                                   type="text"
                                   value={editGithubUrl}
                                   onChange={(e) => setEditGithubUrl(e.target.value)}
                                   placeholder="satoshinak"
-                                  className="w-full bg-[#0B0F17]/70 border border-white/[0.06] focus:border-[#6C5CE0]/40 focus:ring-1 focus:ring-[#6C5CE0]/20 rounded-xl pl-8 pr-2 py-2 text-xs text-[#94A3B8] focus:outline-none font-mono shadow-inner transition duration-150"
+                                  className="w-full bg-[#000000]/70 border border-[#292D3A] focus:border-white/20  focus:ring-1 focus:ring-white/20  rounded-xl pl-8 pr-2 py-2 text-xs text-[#A3A3A3] focus:outline-none font-mono shadow-inner transition duration-150"
                                 />
                               </div>
                             </div>
 
                             <div>
-                              <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
+                              <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
                                 Twitter / X Identity Node
                               </label>
                               <div className="relative">
-                                <Twitter className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-[#6C5CE0]" />
+                                <Twitter className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-white" />
                                 <input
                                   type="text"
                                   value={editTwitterUrl}
                                   onChange={(e) => setEditTwitterUrl(e.target.value)}
                                   placeholder="@satoshi"
-                                  className="w-full bg-[#0B0F17]/70 border border-white/[0.06] focus:border-[#6C5CE0]/40 focus:ring-1 focus:ring-[#6C5CE0]/20 rounded-xl pl-8 pr-2 py-2 text-xs text-[#94A3B8] focus:outline-none font-mono shadow-inner transition duration-150"
+                                  className="w-full bg-[#000000]/70 border border-[#292D3A] focus:border-white/20  focus:ring-1 focus:ring-white/20  rounded-xl pl-8 pr-2 py-2 text-xs text-[#A3A3A3] focus:outline-none font-mono shadow-inner transition duration-150"
                                 />
                               </div>
                             </div>
@@ -3944,24 +3928,24 @@ export default function ChatDashboard() {
 
                           {!isBdtMode && (
                           <div>
-                            <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
+                            <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1 pl-0.5">
                               Primary Wallet (Privy Verified)
                             </label>
-                            <div className="bg-[#0B0F17]/70 border border-emerald-500/15 rounded-xl px-3 py-2.5 flex items-center gap-2.5">
+                            <div className="bg-[#000000]/70 border border-emerald-500/15 rounded-xl px-3 py-2.5 flex items-center gap-2.5">
                               <Wallet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               <div className="min-w-0 flex-1">
                                 {userProfile?.walletAddress ? (
                                   <>
-                                    <p className="text-[10px] text-[#94A3B8] font-mono truncate">
+                                    <p className="text-[10px] text-[#A3A3A3] font-mono truncate">
                                       {userProfile.walletAddress.substring(0, 8)}...{userProfile.walletAddress.substring(userProfile.walletAddress.length - 6)}
                                     </p>
                                     <p className="text-[8px] text-emerald-400/70 font-medium truncate mt-0.5 flex items-center gap-1">
                                       <ShieldCheck className="w-2.5 h-2.5" />
-                                      {userProfile.walletProvider || "External wallet"} · verified by Privy
+                                      {userProfile.walletProvider || "External wallet"} Â· verified by Privy
                                     </p>
                                   </>
                                 ) : (
-                                  <p className="text-[10px] text-[#94A3B8] font-mono">No wallet linked</p>
+                                  <p className="text-[10px] text-[#A3A3A3] font-mono">No wallet linked</p>
                                 )}
                               </div>
                             </div>
@@ -3970,7 +3954,7 @@ export default function ChatDashboard() {
                                 type="button"
                                 onClick={handleChangeWallet}
                                 disabled={changingWallet || walletConnecting}
-                                className="bg-[#12172A]/80 hover:bg-[#6C5CE0]/10 border border-white/10 hover:border-[#6C5CE0]/40 text-sky-100 py-1.5 px-3 rounded-lg text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-[#171A26]/80 hover:bg-white/10 border border-[#292D3A] hover:border-white/20  text-sky-100 py-1.5 px-3 rounded-lg text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {changingWallet || walletConnecting ? (
                                   <Loader2 className="w-3 h-3 animate-spin text-sky-300" />
@@ -3980,13 +3964,13 @@ export default function ChatDashboard() {
                                 CHANGE WALLET
                               </button>
                               {userProfile?.walletLinkedAt && (
-                                <span className="text-[8px] text-[#6C5CE0] font-mono truncate">
+                                <span className="text-[8px] text-white font-mono truncate">
                                   linked {new Date(userProfile.walletLinkedAt).toLocaleDateString()}
                                 </span>
                               )}
                             </div>
-                            <p className="text-[8px] text-[#6C5CE0]/80 mt-1.5 leading-relaxed pl-0.5">
-                              The primary wallet is set by Privy after signing a connection — addresses are never entered manually.
+                            <p className="text-[8px] text-white/80 mt-1.5 leading-relaxed pl-0.5">
+                              The primary wallet is set by Privy after signing a connection â€” addresses are never entered manually.
                             </p>
                           </div>
                           )}
@@ -3994,13 +3978,13 @@ export default function ChatDashboard() {
 
                         {/* Form Bento Section 4: Web3 Wallet & Payment Management (hidden in BDT mode) */}
                         {!isBdtMode ? (
-                        <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(108, 92, 224,0.03)]">
-                          <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                        <div className="bg-[#171A26]/60 border border-[#292D3A] p-4.5 rounded-[2rem] space-y-3.5 shadow-[0_0_30px_rgba(255,255,255,0.03)]">
+                          <div className="border-b border-[#292D3A] pb-2 flex items-center justify-between">
                             <div>
                               <h3 className="text-xs font-black text-sky-100 hover:text-white uppercase tracking-widest font-mono">
                                 Payment Settings & Fuel Keys
                               </h3>
-                              <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                              <p className="text-[9px] text-white mt-0.5 leading-relaxed">
                                 Manage Web3 cryptographic tips and balance.
                               </p>
                             </div>
@@ -4009,15 +3993,15 @@ export default function ChatDashboard() {
 
                           <div className="grid grid-cols-1 gap-3">
                             {/* Balance block & Deposit side by side */}
-                            <div className="bg-[#0B0F17]/50 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                            <div className="bg-[#000000]/50 border border-[#292D3A] rounded-xl p-3 flex items-center justify-between">
                               <div>
-                                <p className="text-[8px] uppercase tracking-wider text-[#6C5CE0] font-bold font-mono">Wallet Fuel</p>
-                                <p className="text-lg font-black text-[#F8FAFC] font-mono mt-0.5">{walletBalance} SOL</p>
+                                <p className="text-[8px] uppercase tracking-wider text-white font-bold font-mono">Wallet Fuel</p>
+                                <p className="text-lg font-black text-[#FFFFFF] font-mono mt-0.5">{walletBalance} SOL</p>
                               </div>
                               <button
                                 type="button"
                                 onClick={handleSimulateDeposit}
-                                className="bg-[#12172A]/80 hover:bg-[#6C5CE0]/10 border border-white/10 hover:border-[#6C5CE0]/40 text-sky-100 py-1.5 px-3 rounded-lg text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01]"
+                                className="bg-[#171A26]/80 hover:bg-white/10 border border-[#292D3A] hover:border-white/20  text-sky-100 py-1.5 px-3 rounded-lg text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01]"
                               >
                                 REQUEST AIRDROP
                               </button>
@@ -4026,7 +4010,7 @@ export default function ChatDashboard() {
                             {/* Preference configurations */}
                             <div className="grid grid-cols-2 gap-3 items-center">
                               <div>
-                                <label className="block text-[#94A3B8] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
+                                <label className="block text-[#A3A3A3] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
                                   Tip Rate
                                 </label>
                                 <div className="grid grid-cols-4 gap-1">
@@ -4042,7 +4026,7 @@ export default function ChatDashboard() {
                                       className={`py-1 rounded-md text-[8px] font-bold font-mono border transition-all duration-150 cursor-pointer text-center ${
                                         activeTipRate === tipVal
                                           ? "bg-white text-neutral-950 border-white font-black shadow"
-                                          : "bg-[#0B0F17]/60 text-[#94A3B8] border-[#6C5CE0]/20 hover:bg-[#0D111D] hover:text-white"
+                                          : "bg-[#000000]/60 text-[#A3A3A3] border-white/20  hover:bg-[#0B0D14] hover:text-white"
                                       }`}
                                     >
                                       {tipVal}
@@ -4052,10 +4036,10 @@ export default function ChatDashboard() {
                               </div>
 
                               {/* Autoapprove toggle */}
-                              <div className="bg-[#0B0F17]/50 border border-white/5 rounded-xl p-2 flex items-center justify-between">
+                              <div className="bg-[#000000]/50 border border-[#292D3A] rounded-xl p-2 flex items-center justify-between">
                                 <div className="space-y-0.5">
-                                  <p className="text-[10px] font-bold text-[#F8FAFC]">Auto-Tips</p>
-                                  <p className="text-[8px] text-[#6C5CE0]">Auto approve tip</p>
+                                  <p className="text-[10px] font-bold text-[#FFFFFF]">Auto-Tips</p>
+                                  <p className="text-[8px] text-white">Auto approve tip</p>
                                 </div>
                                 <button
                                   type="button"
@@ -4066,11 +4050,11 @@ export default function ChatDashboard() {
                                     showToast(`Auto-Approve Tips ${nextVal ? "enabled" : "disabled"}`, "info");
                                   }}
                                   className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                    paymentAutoApprove ? "bg-white" : "bg-[#161A2B]"
+                                    paymentAutoApprove ? "bg-white" : "bg-[#171A26]"
                                   }`}
                                 >
                                   <span
-                                    className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-[#0B0F17] shadow ring-0 transition duration-200 ease-in-out ${
+                                    className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-[#000000] shadow ring-0 transition duration-200 ease-in-out ${
                                       paymentAutoApprove ? "translate-x-3.5" : "translate-x-0"
                                     }`}
                                   />
@@ -4080,22 +4064,22 @@ export default function ChatDashboard() {
                           </div>
                         </div>
                         ) : (
-                        <div className="bg-[#12172A]/60 border border-white/10 p-4.5 rounded-[2rem]">
-                          <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                        <div className="bg-[#171A26]/60 border border-[#292D3A] p-4.5 rounded-[2rem]">
+                          <div className="border-b border-[#292D3A] pb-2 flex items-center justify-between">
                             <div>
                               <h3 className="text-xs font-black text-sky-100 uppercase tracking-widest font-mono">
                                 Payment Settings
                               </h3>
-                              <p className="text-[9px] text-[#6C5CE0] mt-0.5 leading-relaxed">
+                              <p className="text-[9px] text-white mt-0.5 leading-relaxed">
                                 BDT payment methods & private payout number.
                               </p>
                             </div>
                             <Banknote className="w-3.5 h-3.5 text-sky-300" />
                           </div>
 
-                          {/* Payment methods — bKash active; others coming soon */}
+                          {/* Payment methods â€” bKash active; others coming soon */}
                           <div>
-                            <label className="block text-[#94A3B8] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
+                            <label className="block text-[#A3A3A3] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
                               Payment Method
                             </label>
                             <div className="space-y-1.5">
@@ -4109,29 +4093,29 @@ export default function ChatDashboard() {
                               <button
                                 type="button"
                                 disabled
-                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#0B0F17]/50 border border-white/5 text-left opacity-60 cursor-not-allowed"
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#000000]/50 border border-[#292D3A] text-left opacity-60 cursor-not-allowed"
                               >
-                                <span className="text-[10px] font-bold text-[#94A3B8]">Nagad</span>
-                                <span className="text-[8px] font-mono text-[#6C5CE0] uppercase">Coming Soon</span>
+                                <span className="text-[10px] font-bold text-[#A3A3A3]">Nagad</span>
+                                <span className="text-[8px] font-mono text-white uppercase">Coming Soon</span>
                               </button>
                               <button
                                 type="button"
                                 disabled
-                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#0B0F17]/50 border border-white/5 text-left opacity-60 cursor-not-allowed"
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#000000]/50 border border-[#292D3A] text-left opacity-60 cursor-not-allowed"
                               >
-                                <span className="text-[10px] font-bold text-[#94A3B8]">Rocket</span>
-                                <span className="text-[8px] font-mono text-[#6C5CE0] uppercase">Coming Soon</span>
+                                <span className="text-[10px] font-bold text-[#A3A3A3]">Rocket</span>
+                                <span className="text-[8px] font-mono text-white uppercase">Coming Soon</span>
                               </button>
                             </div>
                           </div>
 
-                          {/* Private payout number — validated + normalized */}
+                          {/* Private payout number â€” validated + normalized */}
                           <div>
-                            <label className="block text-[#94A3B8] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
+                            <label className="block text-[#A3A3A3] text-[8px] font-extrabold uppercase tracking-widest mb-1.5">
                               Mobile Number (for receiving payments)
                             </label>
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-[#0B0F17]/70 border border-white/[0.06] focus-within:border-[#6C5CE0]/50 rounded-xl px-3 py-2.5 flex items-center">
+                              <div className="flex-1 bg-[#000000]/70 border border-[#292D3A] focus-within:border-white/20  rounded-xl px-3 py-2.5 flex items-center">
                                 <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0 mr-2" />
                                 <input
                                   type="tel"
@@ -4145,7 +4129,7 @@ export default function ChatDashboard() {
                                 type="button"
                                 onClick={handleSavePayProfile}
                                 disabled={payProfileLoading}
-                                className="bg-[#12172A]/80 hover:bg-[#6C5CE0]/10 border border-white/10 hover:border-[#6C5CE0]/40 text-sky-100 py-2.5 px-3 rounded-xl text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-[#171A26]/80 hover:bg-white/10 border border-[#292D3A] hover:border-white/20  text-sky-100 py-2.5 px-3 rounded-xl text-[9px] font-bold font-mono cursor-pointer transition hover:scale-[1.01] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {payProfileLoading ? (
                                   <Loader2 className="w-3 h-3 animate-spin text-sky-300" />
@@ -4155,7 +4139,7 @@ export default function ChatDashboard() {
                                 SAVE
                               </button>
                             </div>
-                            <p className="flex items-start gap-1.5 text-[8px] text-[#6C5CE0]/80 mt-1.5 leading-relaxed pl-0.5">
+                            <p className="flex items-start gap-1.5 text-[8px] text-white/80 mt-1.5 leading-relaxed pl-0.5">
                               <Lock className="w-3 h-3 shrink-0 mt-px" />
                               Stored privately and never shown to other users. Set the number to
                               allow others to send you money via bKash.
@@ -4168,7 +4152,7 @@ export default function ChatDashboard() {
                     </div>
 
                     {/* Full-width Actions Bar at bottom */}
-                    <div className="mt-4 flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-[#12172A]/60 border border-white/10 rounded-2xl shadow-lg">
+                    <div className="mt-4 flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-[#171A26]/60 border border-[#292D3A] rounded-2xl shadow-lg">
                       {/* Disconnect on the left */}
                       <div>
                         <button
@@ -4186,7 +4170,7 @@ export default function ChatDashboard() {
                         <button
                           type="button"
                           onClick={handleBackToChats}
-                          className="flex-1 sm:flex-initial bg-[#0B0F17] border border-white/10 hover:bg-[#161A2B] text-[#94A3B8] hover:text-white py-2.5 px-5 rounded-xl text-xs font-bold font-mono uppercase tracking-widest cursor-pointer transition-all duration-150 active:scale-[0.99] shadow"
+                          className="flex-1 sm:flex-initial bg-[#000000] border border-[#292D3A] hover:bg-[#171A26] text-[#A3A3A3] hover:text-white py-2.5 px-5 rounded-xl text-xs font-bold font-mono uppercase tracking-widest cursor-pointer transition-all duration-150 active:scale-[0.99] shadow"
                         >
                           Cancel Changes
                         </button>
@@ -4221,10 +4205,10 @@ export default function ChatDashboard() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex-1 flex flex-col h-full overflow-hidden border-r border-white/[0.06]"
+                className="flex-1 flex flex-col h-full overflow-hidden border-r border-[#292D3A]"
               >
                 {/* Active Chat Header */}
-                <div className="sticky top-0 p-3 sm:p-4 bg-[#0D111D]/90 backdrop-blur-md border-b border-[#6C5CE0]/20 flex items-center gap-2 sm:gap-3 relative z-10 shrink-0">
+                <div className="sticky top-0 p-3 sm:p-4 bg-[#0B0D14]/90 backdrop-blur-md border-b border-white/20  flex items-center gap-2 sm:gap-3 relative z-10 shrink-0">
                   <div
                     className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group min-w-0 flex-1"
                     onClick={() => setShowDetailsSidebar(!showDetailsSidebar)}
@@ -4235,7 +4219,7 @@ export default function ChatDashboard() {
                         e.stopPropagation();
                         handleBackToChats();
                       }}
-                      className="p-1.5 rounded-lg bg-[#0D111D] border border-white/[0.06] text-[#94A3B8] hover:text-white md:hidden cursor-pointer shrink-0"
+                      className="p-1.5 rounded-lg bg-[#0B0D14] border border-[#292D3A] text-[#A3A3A3] hover:text-white md:hidden cursor-pointer shrink-0"
                     >
                       <ArrowLeft className="w-4 h-4" />
                     </button>
@@ -4245,10 +4229,10 @@ export default function ChatDashboard() {
                         src={activeChatFriend.avatarUrl}
                         alt={activeChatFriend.displayName}
                         referrerPolicy="no-referrer"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#0B0F17] border border-white/[0.06] object-cover group-hover:border-neutral-500 transition-all"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#000000] border border-[#292D3A] object-cover group-hover:border-neutral-500 transition-all"
                       />
                       <span
-                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white/[0.06] ${
+                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#292D3A] ${
                           activeChatFriend.status === "online"
                             ? "bg-emerald-500 animate-pulse"
                             : "bg-gray-500"
@@ -4257,7 +4241,7 @@ export default function ChatDashboard() {
                     </div>
 
                     <div className="min-w-0">
-                      <h2 className="text-sm sm:text-base font-bold text-[#F8FAFC] group-hover:text-white transition-colors truncate leading-tight">
+                      <h2 className="text-sm sm:text-base font-bold text-[#FFFFFF] group-hover:text-white transition-colors truncate leading-tight">
                         {activeChatFriend.displayName}
                       </h2>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-nowrap overflow-hidden">
@@ -4266,12 +4250,12 @@ export default function ChatDashboard() {
                             navigator.clipboard.writeText(`@${activeChatFriend.username}`);
                             showToast(`Copied username @${activeChatFriend.username}`, "success");
                           }}
-                          className="text-[10px] sm:text-[10.5px] text-[#94A3B8] font-mono cursor-pointer hover:text-white hover:underline transition-all truncate"
+                          className="text-[10px] sm:text-[10.5px] text-[#A3A3A3] font-mono cursor-pointer hover:text-white hover:underline transition-all truncate"
                           title="Click to copy username"
                         >
                           @{activeChatFriend.username}
                         </span>
-                        <span className="text-[10px] text-[#6C5CE0] shrink-0">•</span>
+                        <span className="text-[10px] text-white shrink-0">â€¢</span>
                         <span className={`text-[10px] sm:text-[10.5px] font-mono uppercase tracking-wider font-semibold whitespace-nowrap shrink-0 ${
                           activeChatFriend.status === "online" ? "text-emerald-400" : "text-gray-400"
                         }`}>
@@ -4290,10 +4274,10 @@ export default function ChatDashboard() {
                           navigator.clipboard.writeText(activeChatFriend.walletAddress);
                           showToast("Copied wallet address to clipboard!", "success");
                         }}
-                        className="hidden lg:inline-flex text-[10px] font-mono bg-[#0D111D] border border-white/[0.06] hover:border-white/[0.06] text-[#94A3B8] hover:text-white px-2 py-1 rounded-lg items-center gap-1 cursor-pointer transition-all"
+                        className="hidden lg:inline-flex text-[10px] font-mono bg-[#0B0D14] border border-[#292D3A] hover:border-[#292D3A] text-[#A3A3A3] hover:text-white px-2 py-1 rounded-lg items-center gap-1 cursor-pointer transition-all"
                         title="Click to copy full wallet address"
                       >
-                        <Wallet className="w-3 h-3 text-[#6C5CE0]" />
+                        <Wallet className="w-3 h-3 text-white" />
                         {activeChatFriend.walletAddress.substring(0, 8)}...
                       </span>
                     )}
@@ -4306,8 +4290,8 @@ export default function ChatDashboard() {
                       disabled={!canInteractWith(activeChatFriend.uid)}
                       className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
                         !canInteractWith(activeChatFriend.uid)
-                          ? "text-[#334155] opacity-40 pointer-events-none"
-                          : "text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10"
+                          ? "text-[#4D4D4D] opacity-40 pointer-events-none"
+                          : "text-[#A3A3A3] hover:text-white hover:bg-white/10"
                       }`}
                     >
                       <Phone className="w-4 h-4" />
@@ -4322,8 +4306,8 @@ export default function ChatDashboard() {
                       disabled={!canInteractWith(activeChatFriend.uid)}
                       className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
                         !canInteractWith(activeChatFriend.uid)
-                          ? "text-[#334155] opacity-40 pointer-events-none"
-                          : "text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10"
+                          ? "text-[#4D4D4D] opacity-40 pointer-events-none"
+                          : "text-[#A3A3A3] hover:text-white hover:bg-white/10"
                       }`}
                     >
                       <Video className="w-4 h-4" />
@@ -4334,8 +4318,8 @@ export default function ChatDashboard() {
                       title="Toggle partner details sidebar"
                       className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border transition-all cursor-pointer flex items-center justify-center ${
                         showDetailsSidebar
-                          ? "bg-[#161A2B] text-white border-white/[0.06]"
-                          : "text-[#6C5CE0] hover:text-[#94A3B8] hover:bg-[#0D111D] border-transparent hover:border-white/[0.06]"
+                          ? "bg-[#171A26] text-white border-[#292D3A]"
+                          : "text-white hover:text-[#A3A3A3] hover:bg-[#0B0D14] border-transparent hover:border-[#292D3A]"
                       }`}
                     >
                       <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -4345,13 +4329,13 @@ export default function ChatDashboard() {
 
                 {/* MESSAGES THREAD PANELS */}
                 <div
-                  className="flex-1 overflow-y-auto px-2 py-2 sm:px-5 sm:py-5 space-y-4 custom-scrollbar flex flex-col pt-6 bg-[radial-gradient(circle_at_top,#161A2B_0%,#0D111D_35%,#0B0F17_100%)]"
+                  className="flex-1 overflow-y-auto px-2 py-2 sm:px-5 sm:py-5 space-y-4 custom-scrollbar flex flex-col pt-6 bg-[radial-gradient(circle_at_top,#111111_0%,#050505_35%,#000000_100%)]"
                   id="message_feed_container"
                   onClick={() => setActiveMessagePopupId(null)}
                 >
                   {activeChatMessages.length === 0 ? (
                     <div className="my-auto-only py-24 text-center">
-                      <Lock className="w-5 h-5 text-[#6C5CE0] mx-auto mb-2 drop-shadow-[0_0_8px_rgba(108, 92, 224,0.12)]" />
+                      <Lock className="w-5 h-5 text-white mx-auto mb-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.12)]" />
                       <p className="text-xs text-sky-100">Messages are secure and end-to-end synchronized.</p>
                       <p className="text-[10px] text-sky-300/50 mt-1">Start chatting by typing a greeting below.</p>
                     </div>
@@ -4377,26 +4361,26 @@ export default function ChatDashboard() {
                                 className={`flex items-center gap-2 px-4 py-2 rounded-full border text-[11px] font-medium ${
                                   isMissedOrFailed
                                     ? "bg-red-500/10 border-red-500/20 text-red-300"
-                                    : "bg-[#12172A]/60 border-white/10 text-[#94A3B8]"
+                                    : "bg-[#171A26]/60 border-[#292D3A] text-[#A3A3A3]"
                                 }`}
                               >
                                 <CallIcon className="w-3.5 h-3.5 shrink-0" />
-                                <span>{msg.text.replace(/^[📞📹]\s*/, "")}</span>
-                                {displayTime && <span className="text-[#6C5CE0]/60">· {displayTime}</span>}
+                                <span>{msg.text.replace(/^[ðŸ“žðŸ“¹]\s*/, "")}</span>
+                                {displayTime && <span className="text-white/60">Â· {displayTime}</span>}
                               </div>
                             </div>
                           );
                         }
 
                         // PAYMENT SYSTEM MESSAGE: centered pill (Messenger/WhatsApp
-                        // style) — never rendered as a normal chat bubble.
+                        // style) â€” never rendered as a normal chat bubble.
                         if (msg.payment) {
                           return (
                             <div key={msg.id || index} className="flex justify-center my-1.5">
                               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-200/90">
                                 <Coins className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                                 <span>{msg.text}</span>
-                                {displayTime && <span className="text-emerald-400/50">· {displayTime}</span>}
+                                {displayTime && <span className="text-emerald-400/50">Â· {displayTime}</span>}
                               </div>
                             </div>
                           );
@@ -4413,7 +4397,7 @@ export default function ChatDashboard() {
                                 src={(msg.senderUsername === "sovereign_bot" || msg.senderUsername === "mahi_bot") ? "https://res.cloudinary.com/dzwbn3pvh/image/upload/v1783072499/image_1_1_3_zd9aey.png" : activeChatFriend.avatarUrl}
                                 alt={(msg.senderUsername === "sovereign_bot" || msg.senderUsername === "mahi_bot") ? "MAHI AI" : activeChatFriend.displayName}
                                 referrerPolicy="no-referrer"
-                                className="w-7 h-7 rounded-full bg-[#0D111D] cursor-pointer select-none object-cover shrink-0 mb-1 border border-[#6C5CE0]/20"
+                                className="w-7 h-7 rounded-full bg-[#0B0D14] cursor-pointer select-none object-cover shrink-0 mb-1 border border-white/20 "
                               />
                             )}
 
@@ -4421,13 +4405,13 @@ export default function ChatDashboard() {
                               {/* Reactions hover picker */}
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className={`absolute -top-9 ${isSelf ? "right-2" : "left-2"} bg-[#0B0F17]/95 backdrop-blur-md border border-white/[0.06] rounded-full py-1.5 px-3 shadow-2xl flex items-center gap-2.5 transition-all duration-200 z-50 origin-bottom ${
+                                className={`absolute -top-9 ${isSelf ? "right-2" : "left-2"} bg-[#000000]/95 backdrop-blur-md border border-[#292D3A] rounded-full py-1.5 px-3 shadow-2xl flex items-center gap-2.5 transition-all duration-200 z-50 origin-bottom ${
                                   activeMessagePopupId === msg.id
                                     ? "opacity-100 scale-100 pointer-events-auto"
                                     : "opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto scale-90 group-hover:scale-100 hover:opacity-100"
                                 }`}>
                                 <div className="flex items-center gap-1">
-                                  {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
+                                  {["ðŸ‘", "â¤ï¸", "ðŸ˜‚", "ðŸ˜®", "ðŸ˜¢", "ðŸ™"].map((emoji) => (
                                     <button
                                       key={emoji}
                                       type="button"
@@ -4441,7 +4425,7 @@ export default function ChatDashboard() {
                                     </button>
                                   ))}
                                 </div>
-                                <div className="w-[1px] h-3 bg-[#161A2B] shrink-0" />
+                                <div className="w-[1px] h-3 bg-[#171A26] shrink-0" />
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -4450,7 +4434,7 @@ export default function ChatDashboard() {
                                     const inputEl = document.getElementById("chat-input-field");
                                     if (inputEl) inputEl.focus();
                                   }}
-                                  className="flex items-center gap-1 text-[9px] font-bold text-[#94A3B8] hover:text-white transition-colors duration-100 px-1 cursor-pointer"
+                                  className="flex items-center gap-1 text-[9px] font-bold text-[#A3A3A3] hover:text-white transition-colors duration-100 px-1 cursor-pointer"
                                   title="Reply"
                                 >
                                   <CornerUpLeft className="w-3 h-3 shrink-0" />
@@ -4460,7 +4444,7 @@ export default function ChatDashboard() {
                                   <>
                                     {!msg.isSticker && !msg.audioUrl && msg.text && !msg.text.startsWith("[AI_AGENT_DEPLOY]") && (
                                       <>
-                                        <div className="w-[1px] h-3 bg-[#161A2B] shrink-0" />
+                                        <div className="w-[1px] h-3 bg-[#171A26] shrink-0" />
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -4471,7 +4455,7 @@ export default function ChatDashboard() {
                                             const inputEl = document.getElementById("chat-input-field");
                                             if (inputEl) inputEl.focus();
                                           }}
-                                          className="flex items-center gap-1 text-[9px] font-bold text-[#94A3B8] hover:text-white transition-colors duration-100 px-1 cursor-pointer"
+                                          className="flex items-center gap-1 text-[9px] font-bold text-[#A3A3A3] hover:text-white transition-colors duration-100 px-1 cursor-pointer"
                                           title="Edit"
                                         >
                                           <Pencil className="w-3 h-3 shrink-0" />
@@ -4479,7 +4463,7 @@ export default function ChatDashboard() {
                                         </button>
                                       </>
                                     )}
-                                    <div className="w-[1px] h-3 bg-[#161A2B] shrink-0" />
+                                    <div className="w-[1px] h-3 bg-[#171A26] shrink-0" />
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -4511,17 +4495,17 @@ export default function ChatDashboard() {
                                     ? "select-none relative cursor-pointer"
                                     : `p-3 rounded-2xl text-xs leading-relaxed break-words shadow-lg transition-all relative cursor-pointer select-none ${
                                         isSelf
-                                          ? "bg-[#6C5CE0] text-white font-medium rounded-[28px] rounded-br-md px-5 py-4 shadow-sm"
+                                          ? "bg-white text-black font-medium rounded-[28px] rounded-br-md px-5 py-4 shadow-sm"
                                           : (msg.senderUsername === "sovereign_bot" || msg.senderUsername === "mahi_bot")
-                                          ? "bg-[#0D111D]/90 backdrop-blur-xl border border-white/[0.06] text-white rounded-[24px] rounded-bl-md shadow-[0_0_25px_rgba(108, 92, 224,0.12)] px-5 py-4"
-                                          : "bg-[#161A2B]/95 backdrop-blur-md border border-white/[0.08] text-white rounded-[24px] rounded-bl-md px-5 py-4 shadow-sm"
+                                          ? "bg-[#0B0D14]/90 backdrop-blur-xl border border-[#292D3A] text-white rounded-[24px] rounded-bl-md shadow-[0_0_25px_rgba(255,255,255,0.12)] px-5 py-4"
+                                          : "bg-[#171A26]/95 backdrop-blur-md border border-[#292D3A] text-white rounded-[24px] rounded-bl-md px-5 py-4 shadow-sm"
                                       }`
                                 }
                               >
                                 {(msg.senderUsername === "sovereign_bot" || msg.senderUsername === "mahi_bot") && (
-                                  <div className="flex items-center gap-1.5 text-[8.5px] font-bold text-[#94A3B8] uppercase tracking-widest mb-1.5 font-mono">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#94A3B8] animate-pulse" />
-                                    MAHI (AI) • MAHIX
+                                  <div className="flex items-center gap-1.5 text-[8.5px] font-bold text-[#A3A3A3] uppercase tracking-widest mb-1.5 font-mono">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#A3A3A3] animate-pulse" />
+                                    MAHI (AI) â€¢ MAHIX
                                   </div>
                                 )}
                                 {msg.replyTo && !msg.isSticker && (
@@ -4563,12 +4547,12 @@ export default function ChatDashboard() {
                                         }}
                                       />
                                       <div className="absolute bottom-0.5 right-0.5 flex items-center gap-0.5 bg-black/55 backdrop-blur-sm rounded-full px-1.5 py-0.5 select-none">
-                                        <span className="text-[6px] text-[#6C5CE0] font-mono tracking-widest uppercase">
+                                        <span className="text-[6px] text-white font-mono tracking-widest uppercase">
                                           {displayTime}
                                         </span>
                                         {isSelf && (
-                                          <span className={`text-[6px] font-mono tracking-widest uppercase font-bold ${msg.seen ? "text-blue-400" : "text-yellow-400"}`}>
-                                            {msg.seen ? "•Seen" : "•Unseen"}
+                                          <span className={`text-[6px] font-mono tracking-widest uppercase font-bold ${msg.seen ? "text-white" : "text-yellow-400"}`}>
+                                            {msg.seen ? "â€¢Seen" : "â€¢Unseen"}
                                           </span>
                                         )}
                                       </div>
@@ -4607,8 +4591,8 @@ export default function ChatDashboard() {
                                     try {
                                       const data = JSON.parse(msg.text.slice("[AI_AGENT_DEPLOY]".length));
                                       return (
-                                        <div className="flex flex-col gap-2.5 p-1 w-72 max-w-full text-[#F8FAFC] select-text">
-                                          <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                                        <div className="flex flex-col gap-2.5 p-1 w-72 max-w-full text-[#FFFFFF] select-text">
+                                          <div className="flex items-center justify-between border-b border-[#292D3A] pb-2">
                                             <div className="flex items-center gap-2">
                                               <Bot className="w-5 h-5 text-sky-400 animate-pulse" />
                                               <div>
@@ -4622,34 +4606,34 @@ export default function ChatDashboard() {
                                             </div>
                                           </div>
 
-                                          <div className="space-y-1.5 text-[10px] font-sans text-[#94A3B8] bg-black/40 p-2.5 rounded-lg border border-white/5">
-                                            <p className="font-mono text-[8px] uppercase tracking-wider text-[#6C5CE0]">Node Directives</p>
+                                          <div className="space-y-1.5 text-[10px] font-sans text-[#A3A3A3] bg-black/40 p-2.5 rounded-lg border border-[#292D3A]">
+                                            <p className="font-mono text-[8px] uppercase tracking-wider text-white">Node Directives</p>
                                             <p className="leading-relaxed italic">"{data.directive}"</p>
                                           </div>
 
                                           <div className="grid grid-cols-2 gap-2 text-center font-mono text-[9px]">
-                                            <div className="bg-white/5 border border-white/5 rounded-lg p-1.5">
-                                              <span className="text-[#6C5CE0] text-[8px] uppercase tracking-wider block mb-0.5">Escrow Funding</span>
+                                            <div className="bg-white/5 border border-[#292D3A] rounded-lg p-1.5">
+                                              <span className="text-white text-[8px] uppercase tracking-wider block mb-0.5">Escrow Funding</span>
                                               <span className="font-black text-white">{data.funding} SOL</span>
                                             </div>
-                                            <div className="bg-white/5 border border-white/5 rounded-lg p-1.5">
-                                              <span className="text-[#6C5CE0] text-[8px] uppercase tracking-wider block mb-0.5">Est. Yield (APR)</span>
+                                            <div className="bg-white/5 border border-[#292D3A] rounded-lg p-1.5">
+                                              <span className="text-white text-[8px] uppercase tracking-wider block mb-0.5">Est. Yield (APR)</span>
                                               <span className="font-black text-sky-400">{data.yield || "+1.25%"}</span>
                                             </div>
-                                            <div className="bg-white/5 border border-white/5 rounded-lg p-1.5">
-                                              <span className="text-[#6C5CE0] text-[8px] uppercase tracking-wider block mb-0.5">Node Uptime</span>
-                                              <span className="font-black text-[#94A3B8]">{data.uptime || "99.9%"}</span>
+                                            <div className="bg-white/5 border border-[#292D3A] rounded-lg p-1.5">
+                                              <span className="text-white text-[8px] uppercase tracking-wider block mb-0.5">Node Uptime</span>
+                                              <span className="font-black text-[#A3A3A3]">{data.uptime || "99.9%"}</span>
                                             </div>
-                                            <div className="bg-white/5 border border-white/5 rounded-lg p-1.5">
-                                              <span className="text-[#6C5CE0] text-[8px] uppercase tracking-wider block mb-0.5">Virtual Shards</span>
-                                              <span className="font-black text-blue-400">10 vCPUs</span>
+                                            <div className="bg-white/5 border border-[#292D3A] rounded-lg p-1.5">
+                                              <span className="text-white text-[8px] uppercase tracking-wider block mb-0.5">Virtual Shards</span>
+                                              <span className="font-black text-white">10 vCPUs</span>
                                             </div>
                                           </div>
 
                                           <button
                                             type="button"
                                             onClick={() => showToast(`Synchronized telemetry connection to "${data.name}"`, "info")}
-                                            className="w-full mt-1 py-1 px-2 rounded bg-[#6C5CE0]/15 hover:bg-[#6C5CE0]/25 border border-[#6C5CE0]/30 text-sky-300 hover:text-sky-200 text-[9px] font-black font-mono tracking-widest uppercase transition-all cursor-pointer"
+                                            className="w-full mt-1 py-1 px-2 rounded bg-white/15 hover:bg-white/25 border border-white/20  text-sky-300 hover:text-sky-200 text-[9px] font-black font-mono tracking-widest uppercase transition-all cursor-pointer"
                                           >
                                             RE-PING TELEMETRY NODE
                                           </button>
@@ -4664,32 +4648,32 @@ export default function ChatDashboard() {
                                     try {
                                       const data = JSON.parse(msg.text.slice("[WEB3_PAYMENT]".length));
                                       return (
-                                        <div className="flex flex-col gap-2 p-1 w-64 max-w-full text-[#F8FAFC]">
-                                          <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                        <div className="flex flex-col gap-2 p-1 w-64 max-w-full text-[#FFFFFF]">
+                                          <div className="flex items-center gap-2 border-b border-[#292D3A] pb-2">
                                             <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                                               <Coins className="w-5 h-5 animate-pulse" />
                                             </div>
                                             <div>
                                               <h4 className="text-[10px] font-black tracking-widest font-mono text-emerald-400 uppercase">PAYMENT SUCCESSFUL</h4>
-                                              <span className="text-[8px] text-[#6C5CE0] font-mono uppercase tracking-wider">Secured Web3 State</span>
+                                              <span className="text-[8px] text-white font-mono uppercase tracking-wider">Secured Web3 State</span>
                                             </div>
                                           </div>
 
                                           <div className="text-center py-2.5 bg-emerald-950/20 border border-emerald-500/10 rounded-xl my-0.5">
-                                            <p className="text-[10px] font-mono uppercase text-[#6C5CE0] tracking-wider">Total Transferred</p>
+                                            <p className="text-[10px] font-mono uppercase text-white tracking-wider">Total Transferred</p>
                                             <p className="text-2xl font-black font-mono text-emerald-400 tracking-tight mt-0.5 drop-shadow-[0_0_10px_rgba(34, 197, 94,0.2)]">
                                               {data.amount} SOL
                                             </p>
                                           </div>
 
-                                          <div className="space-y-1.5 text-[9px] font-mono text-[#94A3B8] bg-black/30 p-2 rounded-lg border border-white/5">
+                                          <div className="space-y-1.5 text-[9px] font-mono text-[#A3A3A3] bg-black/30 p-2 rounded-lg border border-[#292D3A]">
                                             <div className="flex justify-between">
                                               <span>RECIPIENT:</span>
                                               <span className="text-white font-bold">{data.recipient}</span>
                                             </div>
                                             <div className="flex justify-between gap-2">
                                               <span>MEMO:</span>
-                                              <span className="text-[#94A3B8] text-right truncate max-w-[150px]" title={data.memo}>
+                                              <span className="text-[#A3A3A3] text-right truncate max-w-[150px]" title={data.memo}>
                                                 {data.memo}
                                               </span>
                                             </div>
@@ -4699,7 +4683,7 @@ export default function ChatDashboard() {
                                             </div>
                                           </div>
 
-                                          <div className="flex items-center justify-between text-[8px] font-mono text-[#6C5CE0] bg-white/5 px-2 py-1 rounded-md mt-0.5">
+                                          <div className="flex items-center justify-between text-[8px] font-mono text-white bg-white/5 px-2 py-1 rounded-md mt-0.5">
                                             <span className="truncate max-w-[140px]" title={data.txId}>SIGN: {data.txId}</span>
                                             <button
                                               type="button"
@@ -4727,16 +4711,16 @@ export default function ChatDashboard() {
                               {/* Metadata and reactions pill wrapper */}
                               <div className={`flex items-center gap-1.5 mt-0.5 px-1 select-none ${isSelf ? "flex-row-reverse" : "flex-row"}`}>
                                 {!msg.isSticker && (
-                                  <p className="text-[8px] text-[#6C5CE0] font-mono tracking-widest uppercase select-none">
+                                  <p className="text-[8px] text-white font-mono tracking-widest uppercase select-none">
                                     {displayTime}
-                                    {msg.edited && <span className="italic normal-case ml-1 opacity-75">· edited</span>}
+                                    {msg.edited && <span className="italic normal-case ml-1 opacity-75">Â· edited</span>}
                                   </p>
                                 )}
 
                                 {isSelf && !msg.isSticker && (
                                   <p
                                     className={`text-[8px] font-mono tracking-widest uppercase select-none font-bold ${
-                                      msg.seen ? "text-blue-400" : "text-yellow-400"
+                                      msg.seen ? "text-white" : "text-yellow-400"
                                     }`}
                                   >
                                     {msg.seen ? "Seen" : "Unseen"}
@@ -4761,7 +4745,7 @@ export default function ChatDashboard() {
                                           className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono border transition-all cursor-pointer ${
                                             hasReacted
                                               ? "bg-white/10 text-white border-white/25 font-bold scale-105"
-                                              : "bg-[#0D111D]/65 text-[#94A3B8] border-white/[0.06] hover:border-white/[0.06]"
+                                              : "bg-[#0B0D14]/65 text-[#A3A3A3] border-[#292D3A] hover:border-[#292D3A]"
                                           }`}
                                         >
                                           <span>{emoji}</span>
@@ -4791,13 +4775,13 @@ export default function ChatDashboard() {
                               <img
                                 src={activeChatFriend.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${activeChatFriend.uid}`}
                                 alt={activeChatFriend.displayName}
-                                className="w-[28px] h-[28px] rounded-full border border-white/[0.06] shadow-md object-cover select-none"
+                                className="w-[28px] h-[28px] rounded-full border border-[#292D3A] shadow-md object-cover select-none"
                                 referrerPolicy="no-referrer"
                               />
                             )}
                             <div className="flex flex-col max-w-[70%] items-start relative">
-                              <div className="p-3.5 rounded-2xl bg-[#0D111D] border border-white/[0.06] text-[#F8FAFC] rounded-bl-none shadow-lg flex items-center gap-1.5 animate-pulse">
-                                <span className="text-[11px] text-[#94A3B8] font-medium mr-1 select-none">
+                              <div className="p-3.5 rounded-2xl bg-[#0B0D14] border border-[#292D3A] text-[#FFFFFF] rounded-bl-none shadow-lg flex items-center gap-1.5 animate-pulse">
+                                <span className="text-[11px] text-[#A3A3A3] font-medium mr-1 select-none">
                                   @{activeChatFriend?.username} is writing
                                 </span>
                                 <div className="flex items-center gap-1">
@@ -4818,7 +4802,7 @@ export default function ChatDashboard() {
                 </div>
 
                 {/* MESSAGE SEED INPUT BAR API */}
-                <div className="shrink-0 px-4 pb-4 bg-[#0B0F17]">
+                <div className="shrink-0 px-4 pb-4 bg-[#000000]">
                   
                   <AnimatePresence>
                     {editingMessage && (
@@ -4826,17 +4810,17 @@ export default function ChatDashboard() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mb-3 bg-[#0D111D] border border-[#6C5CE0]/40 rounded-xl p-3 flex items-start gap-4 justify-between select-none overflow-hidden"
+                        className="mb-3 bg-[#0B0D14] border border-white/20  rounded-xl p-3 flex items-start gap-4 justify-between select-none overflow-hidden"
                       >
                         <div className="flex items-start gap-2.5 min-w-0">
-                          <div className="p-1.5 rounded-lg bg-[#0B0F17] text-[#6C5CE0] mt-0.5 shrink-0 border border-[#6C5CE0]/30">
+                          <div className="p-1.5 rounded-lg bg-[#000000] text-white mt-0.5 shrink-0 border border-white/20 ">
                             <Pencil className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[10px] font-bold font-mono text-[#6C5CE0] uppercase tracking-wider">
+                            <p className="text-[10px] font-bold font-mono text-white uppercase tracking-wider">
                               Editing message
                             </p>
-                            <p className="text-xs text-[#94A3B8] line-clamp-1 italic mt-0.5 font-sans">
+                            <p className="text-xs text-[#A3A3A3] line-clamp-1 italic mt-0.5 font-sans">
                               {editingMessage.text}
                             </p>
                           </div>
@@ -4847,7 +4831,7 @@ export default function ChatDashboard() {
                             setEditingMessage(null);
                             setMsgText("");
                           }}
-                          className="p-1 rounded-lg hover:bg-[#161A2B] text-[#6C5CE0] hover:text-white transition-colors cursor-pointer"
+                          className="p-1 rounded-lg hover:bg-[#171A26] text-white hover:text-white transition-colors cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -4860,25 +4844,25 @@ export default function ChatDashboard() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mb-3 bg-[#0D111D] border border-white/[0.06] rounded-xl p-3 flex items-start gap-4 justify-between select-none overflow-hidden"
+                        className="mb-3 bg-[#0B0D14] border border-[#292D3A] rounded-xl p-3 flex items-start gap-4 justify-between select-none overflow-hidden"
                       >
                         <div className="flex items-start gap-2.5 min-w-0">
-                          <div className="p-1.5 rounded-lg bg-[#0B0F17] text-[#94A3B8] mt-0.5 shrink-0 border border-white/[0.06]">
+                          <div className="p-1.5 rounded-lg bg-[#000000] text-[#A3A3A3] mt-0.5 shrink-0 border border-[#292D3A]">
                             <CornerUpLeft className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[10px] font-bold font-mono text-[#94A3B8] uppercase tracking-wider">
+                            <p className="text-[10px] font-bold font-mono text-[#A3A3A3] uppercase tracking-wider">
                               Replying to <span className="text-white">@{replyingToMessage.senderUsername}</span>
                             </p>
-                            <p className="text-xs text-[#94A3B8] line-clamp-1 italic mt-0.5 font-sans">
-                              {replyingToMessage.text || (replyingToMessage.imageUrl ? "📷 Image attachment" : "")}
+                            <p className="text-xs text-[#A3A3A3] line-clamp-1 italic mt-0.5 font-sans">
+                              {replyingToMessage.text || (replyingToMessage.imageUrl ? "ðŸ“· Image attachment" : "")}
                             </p>
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => setReplyingToMessage(null)}
-                          className="p-1 rounded-lg hover:bg-[#161A2B] text-[#6C5CE0] hover:text-white transition-colors cursor-pointer"
+                          className="p-1 rounded-lg hover:bg-[#171A26] text-white hover:text-white transition-colors cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -4893,9 +4877,9 @@ export default function ChatDashboard() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 15 }}
-                        className="absolute bottom-16 left-0 right-0 bg-[#0D111D]/95 border border-[#6C5CE0]/30 rounded-2xl shadow-2xl z-50 p-3 flex flex-col gap-2.5 max-h-80 max-w-full overflow-hidden backdrop-blur-md"
+                        className="absolute bottom-16 left-0 right-0 bg-[#0B0D14]/95 border border-white/20  rounded-2xl shadow-2xl z-50 p-3 flex flex-col gap-2.5 max-h-80 max-w-full overflow-hidden backdrop-blur-md"
                       >
-                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center justify-between border-b border-[#292D3A] pb-2">
                           <span className="text-xs font-bold font-mono text-sky-300 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5" />
                             GIF SEARCH
@@ -4903,7 +4887,7 @@ export default function ChatDashboard() {
                           <button
                             type="button"
                             onClick={() => setShowGifPicker(false)}
-                            className="text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                            className="text-[#A3A3A3] hover:text-white transition-colors cursor-pointer"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -4916,7 +4900,7 @@ export default function ChatDashboard() {
                             setGifSearchQuery(e.target.value);
                             searchGifs(e.target.value);
                           }}
-                          className="bg-[#12172A] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#F8FAFC] placeholder-[#6C5CE0] focus:outline-none focus:border-[#6C5CE0]/50 w-full"
+                          className="bg-[#171A26] border border-[#292D3A] rounded-lg px-3 py-1.5 text-xs text-[#FFFFFF] placeholder-white/40 focus:outline-none focus:border-white/20  w-full"
                         />
                         <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-48 custom-scrollbar">
                           {isLoadingGifs ? (
@@ -4934,7 +4918,7 @@ export default function ChatDashboard() {
                                    setShowGifPicker(false);
                                    showToast("GIF sent successfully!", "success");
                                  }}
-                                 className="rounded-lg overflow-hidden border border-white/5 hover:border-[#6C5CE0]/50 transition-all aspect-video relative group cursor-pointer"
+                                 className="rounded-lg overflow-hidden border border-[#292D3A] hover:border-white/20  transition-all aspect-video relative group cursor-pointer"
                                >
                                  <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[9px] text-white">
@@ -4953,7 +4937,7 @@ export default function ChatDashboard() {
                                    setShowGifPicker(false);
                                    showToast("GIF sent successfully!", "success");
                                  }}
-                                 className="rounded-lg overflow-hidden border border-white/5 hover:border-[#6C5CE0]/50 transition-all aspect-video relative group cursor-pointer"
+                                 className="rounded-lg overflow-hidden border border-[#292D3A] hover:border-white/20  transition-all aspect-video relative group cursor-pointer"
                                >
                                  <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[9px] text-white">
@@ -4971,9 +4955,9 @@ export default function ChatDashboard() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 15 }}
-                        className="absolute bottom-16 left-0 right-0 bg-[#0D111D]/95 border border-[#6C5CE0]/30 rounded-2xl shadow-2xl z-50 p-3 flex flex-col gap-2.5 max-h-80 max-w-full overflow-hidden backdrop-blur-md"
+                        className="absolute bottom-16 left-0 right-0 bg-[#0B0D14]/95 border border-white/20  rounded-2xl shadow-2xl z-50 p-3 flex flex-col gap-2.5 max-h-80 max-w-full overflow-hidden backdrop-blur-md"
                       >
-                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center justify-between border-b border-[#292D3A] pb-2">
                           <span className="text-xs font-bold font-mono text-sky-300 flex items-center gap-1.5">
                             <Smile className="w-3.5 h-3.5 text-sky-400" />
                             STICKER EXPRESSIONS
@@ -4981,7 +4965,7 @@ export default function ChatDashboard() {
                           <button
                             type="button"
                             onClick={() => setShowStickerPicker(false)}
-                            className="text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                            className="text-[#A3A3A3] hover:text-white transition-colors cursor-pointer"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -4998,11 +4982,11 @@ export default function ChatDashboard() {
                                 setShowStickerPicker(false);
                                 showToast("Sticker sent successfully!", "success");
                               }}
-                              className="p-1.5 rounded-xl border border-white/5 hover:border-[#6C5CE0]/40 bg-white/5 hover:bg-white/10 transition-all flex flex-col items-center justify-center aspect-square cursor-pointer hover:scale-105"
+                              className="p-1.5 rounded-xl border border-[#292D3A] hover:border-white/20  bg-white/5 hover:bg-white/10 transition-all flex flex-col items-center justify-center aspect-square cursor-pointer hover:scale-105"
                               title={sticker.name}
                             >
                               <img src={sticker.url} alt={sticker.name} className="w-10 h-10 object-contain" />
-                              <span className="text-[8px] text-[#94A3B8] mt-1 truncate max-w-full font-mono">{sticker.name}</span>
+                              <span className="text-[8px] text-[#A3A3A3] mt-1 truncate max-w-full font-mono">{sticker.name}</span>
                             </button>
                           ))}
                         </div>
@@ -5024,7 +5008,7 @@ export default function ChatDashboard() {
                   <div
   className="absolute inset-0 rounded-[36px]"
   style={{
-    background: 'conic-gradient(from var(--composer-glow-angle, 0deg), #6C5CE7, #8B5CF6, #A78BFA, #F472B6, #F9A8D4, #A78BFA, #8B5CF6, #6C5CE7)',
+    background: 'conic-gradient(from var(--composer-glow-angle, 0deg), #D4D4D4, #D4D4D4, #E5E5E5, #D4D4D4, #D4D4D4, #E5E5E5, #D4D4D4, #D4D4D4)',
     filter: 'blur(6px)',
     opacity: 0.20,
     animation: 'composer-glow-rotate 10s linear infinite',
@@ -5032,10 +5016,10 @@ export default function ChatDashboard() {
 />
                   <form
   onSubmit={handleSendMessage}
-  className="relative flex items-center gap-3 bg-[#0D111D]/90 backdrop-blur-2xl border border-white/[0.06] rounded-[32px] px-4 py-3 shadow-[0_0_30px_rgba(108,92,224,0.12)] pointer-events-auto"
+  className="relative flex items-center gap-3 bg-[#0B0D14]/90 backdrop-blur-2xl border border-[#292D3A] rounded-[32px] px-4 py-3 shadow-[0_0_30px_rgba(255,255,255,0.12)] pointer-events-auto"
 >
                     {isUploadingVoice && (
-                      <div className="absolute inset-0 bg-[#0D111D]/90 rounded-xl flex items-center justify-center gap-2 z-30">
+                      <div className="absolute inset-0 bg-[#0B0D14]/90 rounded-xl flex items-center justify-center gap-2 z-30">
                         <Loader2 className="w-4.5 h-4.5 animate-spin text-sky-400" />
                         <span className="text-[10px] text-sky-300 font-mono uppercase tracking-wider">Sending secure voice note...</span>
                       </div>
@@ -5053,7 +5037,7 @@ export default function ChatDashboard() {
                           <button
                             type="button"
                             onClick={cancelRecording}
-                            className="px-3 py-1.5 rounded-lg bg-[#0D111D] border border-white/[0.06] text-[#94A3B8] hover:text-white text-xs hover:border-red-500/30 transition-all cursor-pointer"
+                            className="px-3 py-1.5 rounded-lg bg-[#0B0D14] border border-[#292D3A] text-[#A3A3A3] hover:text-white text-xs hover:border-red-500/30 transition-all cursor-pointer"
                           >
                             Discard
                           </button>
@@ -5088,8 +5072,8 @@ export default function ChatDashboard() {
                             onClick={() => setShowMobileToolbar(!showMobileToolbar)}
                             className={`w-10 h-10 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
                               showMobileToolbar
-                                ? "bg-[#6C5CE0] text-white rotate-45 shadow-[0_0_16px_rgba(108, 92, 224,0.12)]"
-                                : "bg-gradient-to-b from-white/[0.10] to-white/[0.02] border border-white/[0.14] text-[#94A3B8] hover:text-white"
+                                ? "bg-white text-black rotate-45 shadow-[0_0_16px_rgba(255,255,255,0.12)]"
+                                : "bg-gradient-to-b from-white/[0.10] to-white/[0.02] border border-white/[0.14] text-[#A3A3A3] hover:text-white"
                             }`}
                           >
                             <span className="text-lg font-light leading-none">+</span>
@@ -5110,7 +5094,7 @@ export default function ChatDashboard() {
                                   animate={{ opacity: 1, y: 0, scale: 1 }}
                                   exit={{ opacity: 0, y: 10, scale: 0.9 }}
                                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                  className="absolute bottom-full left-0 mb-3 bg-[#12172A]/95 border border-white/10 rounded-2xl shadow-2xl p-3 backdrop-blur-xl z-50 min-w-[200px]"
+                                  className="absolute bottom-full left-0 mb-3 bg-[#171A26]/95 border border-[#292D3A] rounded-2xl shadow-2xl p-3 backdrop-blur-xl z-50 min-w-[200px]"
                                 >
                                   <div className="grid grid-cols-3 gap-2">
                                     <button
@@ -5123,11 +5107,11 @@ export default function ChatDashboard() {
                                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                                     >
                                       {isUploadingImage ? (
-                                        <Loader2 className="w-5 h-5 animate-spin text-[#94A3B8]" />
+                                        <Loader2 className="w-5 h-5 animate-spin text-[#A3A3A3]" />
                                       ) : (
-                                        <ImageIcon className="w-5 h-5 text-[#94A3B8]" />
+                                        <ImageIcon className="w-5 h-5 text-[#A3A3A3]" />
                                       )}
-                                      <span className="text-[9px] text-[#94A3B8] font-mono">Image</span>
+                                      <span className="text-[9px] text-[#A3A3A3] font-mono">Image</span>
                                     </button>
 
                                     <button
@@ -5138,8 +5122,8 @@ export default function ChatDashboard() {
                                       }}
                                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                                     >
-                                      <Bot className="w-5 h-5 text-[#94A3B8]" />
-                                      <span className="text-[9px] text-[#94A3B8] font-mono">AI</span>
+                                      <Bot className="w-5 h-5 text-[#A3A3A3]" />
+                                      <span className="text-[9px] text-[#A3A3A3] font-mono">AI</span>
                                     </button>
 
                                     <button
@@ -5150,7 +5134,7 @@ export default function ChatDashboard() {
                                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                                     >
                                       <Coins className="w-5 h-5 text-emerald-400" />
-                                      <span className="text-[9px] text-[#94A3B8] font-mono">Pay</span>
+                                      <span className="text-[9px] text-[#A3A3A3] font-mono">Pay</span>
                                     </button>
 
                                     <button
@@ -5163,7 +5147,7 @@ export default function ChatDashboard() {
                                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                                     >
                                       <Sparkles className="w-5 h-5 text-sky-300" />
-                                      <span className="text-[9px] text-[#94A3B8] font-mono">GIF</span>
+                                      <span className="text-[9px] text-[#A3A3A3] font-mono">GIF</span>
                                     </button>
 
                                     <button
@@ -5176,7 +5160,7 @@ export default function ChatDashboard() {
                                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                                     >
                                       <Smile className="w-5 h-5 text-sky-200" />
-                                      <span className="text-[9px] text-[#94A3B8] font-mono">Sticker</span>
+                                      <span className="text-[9px] text-[#A3A3A3] font-mono">Sticker</span>
                                     </button>
 
                                     <button
@@ -5189,8 +5173,8 @@ export default function ChatDashboard() {
                                       }}
                                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                                     >
-                                      <Mic className="w-5 h-5 text-[#94A3B8]" />
-                                      <span className="text-[9px] text-[#94A3B8] font-mono">Voice</span>
+                                      <Mic className="w-5 h-5 text-[#A3A3A3]" />
+                                      <span className="text-[9px] text-[#A3A3A3] font-mono">Voice</span>
                                     </button>
                                   </div>
                                 </motion.div>
@@ -5206,7 +5190,7 @@ export default function ChatDashboard() {
                             disabled={isUploadingImage}
                             onClick={() => fileInputRef.current?.click()}
                             title="Attach image"
-                            className="relative w-9 h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-gradient-to-b from-white/[0.10] to-white/[0.02] border border-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] text-[#94A3B8] hover:text-white hover:from-white/[0.16] hover:to-white/[0.04] hover:border-white/25 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_14px_rgba(255,255,255,0.15)] hover:scale-[1.08] active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-50"
+                            className="relative w-9 h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-gradient-to-b from-white/[0.10] to-white/[0.02] border border-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] text-[#A3A3A3] hover:text-white hover:from-white/[0.16] hover:to-white/[0.04] hover:border-white/25 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_14px_rgba(255,255,255,0.15)] hover:scale-[1.08] active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-50"
                           >
                             {isUploadingImage ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -5223,7 +5207,7 @@ export default function ChatDashboard() {
                               }
                             }}
                             title="Chat with MAHI AI (MAHIX)"
-                            className="relative w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-b from-[#6C5CE0]/25 to-[#6C5CE0]/[0.04] border border-[#6C5CE0]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] text-[#94A3B8] hover:text-[#94A3B8] hover:border-[#6C5CE0]/70 hover:from-[#6C5CE0]/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(108, 92, 224,0.12)] hover:scale-[1.08] active:scale-95 transition-all duration-200 cursor-pointer"
+                            className="relative w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-b from-white/25 to-white/[0.04] border border-white/20  shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] text-[#A3A3A3] hover:text-[#A3A3A3] hover:border-white/20  hover:from-white/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(255,255,255,0.12)] hover:scale-[1.08] active:scale-95 transition-all duration-200 cursor-pointer"
                           >
                             <Bot className="w-[17px] h-[17px] animate-pulse" strokeWidth={2} />
                           </button>
@@ -5248,8 +5232,8 @@ export default function ChatDashboard() {
                             title="Send GIF"
                             className={`relative w-9 h-9 rounded-full flex items-center justify-center border text-[9.5px] font-extrabold font-mono tracking-tight transition-all duration-200 cursor-pointer active:scale-95 ${
                               showGifPicker
-                                ? "bg-gradient-to-b from-[#6C5CE0]/45 to-[#6C5CE0]/20 border-[#6C5CE0]/70 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_16px_rgba(108, 92, 224,0.12)] scale-[1.08]"
-                                : "bg-gradient-to-b from-[#6C5CE0]/20 to-[#6C5CE0]/[0.04] border-[#6C5CE0]/25 text-sky-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] hover:text-white hover:border-[#6C5CE0]/70 hover:from-[#6C5CE0]/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(108, 92, 224,0.12)] hover:scale-[1.08]"
+                                ? "bg-gradient-to-b from-white/45 to-white/20 border-white/20  text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_16px_rgba(255,255,255,0.12)] scale-[1.08]"
+                                : "bg-gradient-to-b from-white/20 to-white/[0.04] border-white/20  text-sky-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] hover:text-white hover:border-white/20  hover:from-white/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(255,255,255,0.12)] hover:scale-[1.08]"
                             }`}
                           >
                             GIF
@@ -5264,8 +5248,8 @@ export default function ChatDashboard() {
                             title="Send sticker"
                             className={`relative w-9 h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center border transition-all duration-200 cursor-pointer active:scale-95 ${
                               showStickerPicker
-                                ? "bg-gradient-to-b from-[#6C5CE0]/45 to-[#6C5CE0]/20 border-[#6C5CE0]/70 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_16px_rgba(108, 92, 224,0.12)] scale-[1.08]"
-                                : "bg-gradient-to-b from-[#6C5CE0]/20 to-[#6C5CE0]/[0.04] border-[#6C5CE0]/25 text-sky-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] hover:text-white hover:border-[#6C5CE0]/70 hover:from-[#6C5CE0]/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(108, 92, 224,0.12)] hover:scale-[1.08]"
+                                ? "bg-gradient-to-b from-white/45 to-white/20 border-white/20  text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_16px_rgba(255,255,255,0.12)] scale-[1.08]"
+                                : "bg-gradient-to-b from-white/20 to-white/[0.04] border-white/20  text-sky-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] hover:text-white hover:border-white/20  hover:from-white/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(255,255,255,0.12)] hover:scale-[1.08]"
                             }`}
                           >
                             <Smile className="w-[17px] h-[17px]" strokeWidth={2} />
@@ -5279,7 +5263,7 @@ export default function ChatDashboard() {
                               startRecording();
                             }}
                             title="Record voice note"
-                            className="relative w-9 h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-gradient-to-b from-[#6C5CE0]/25 to-[#6C5CE0]/[0.04] border border-[#6C5CE0]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] text-[#94A3B8] hover:text-[#94A3B8] hover:border-[#6C5CE0]/70 hover:from-[#6C5CE0]/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(108, 92, 224,0.12)] hover:scale-[1.08] active:scale-95 transition-all duration-200 cursor-pointer"
+                            className="relative w-9 h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-gradient-to-b from-white/25 to-white/[0.04] border border-white/20  shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.35)] text-[#A3A3A3] hover:text-[#A3A3A3] hover:border-white/20  hover:from-white/40 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_16px_rgba(255,255,255,0.12)] hover:scale-[1.08] active:scale-95 transition-all duration-200 cursor-pointer"
                           >
                             <Mic className="w-[17px] h-[17px]" strokeWidth={2} />
                           </button>
@@ -5326,32 +5310,32 @@ export default function ChatDashboard() {
                     }
                     className={
                       isMobileView
-                        ? "mica-with-mobile-nav absolute inset-0 z-30 w-full bg-[#0D111D] backdrop-blur-xl flex flex-col overflow-y-auto overscroll-contain"
-                        : "border-l border-white/[0.06] bg-[#0D111D]/40 backdrop-blur-md h-full flex flex-col shrink-0 overflow-y-auto"
+                        ? "mica-with-mobile-nav absolute inset-0 z-30 w-full bg-[#0B0D14] backdrop-blur-xl flex flex-col overflow-y-auto overscroll-contain"
+                        : "border-l border-[#292D3A] bg-[#151824]/30 backdrop-blur-md h-full flex flex-col shrink-0 overflow-y-auto"
                     }
                     id="partner_sidebar_panel"
                   >
                     {/* Sidebar Header */}
-                    <div className="p-4 border-b border-white/[0.06] flex items-center justify-between gap-2">
-                      <span className="min-w-0 flex items-center gap-1.5 text-[10px] text-[#94A3B8] font-bold uppercase tracking-widest">
+                    <div className="p-4 border-b border-[#292D3A] flex items-center justify-between gap-2">
+                      <span className="min-w-0 flex items-center gap-1.5 text-[10px] text-[#A3A3A3] font-bold uppercase tracking-widest">
                         {isMobileView && (
                           <button
                             type="button"
                             onClick={() => setShowDetailsSidebar(false)}
                             title="Back to chat"
                             aria-label="Back to chat"
-                            className="p-1.5 -ml-1.5 rounded-lg hover:bg-[#12172A] text-[#6C5CE0] hover:text-[#94A3B8] transition-colors cursor-pointer shrink-0"
+                            className="p-1.5 -ml-1.5 rounded-lg hover:bg-[#171A26] text-white hover:text-[#A3A3A3] transition-colors cursor-pointer shrink-0"
                           >
                             <ArrowLeft className="w-4 h-4" />
                           </button>
                         )}
-                        <User className="w-3.5 h-3.5 text-[#6C5CE0] shrink-0" />
+                        <User className="w-3.5 h-3.5 text-white shrink-0" />
                         <span className="truncate">Chat Profile details</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => setShowDetailsSidebar(false)}
-                        className="p-1 rounded hover:bg-[#12172A] text-[#6C5CE0] hover:text-[#94A3B8] transition-colors cursor-pointer shrink-0"
+                        className="p-1 rounded hover:bg-[#171A26] text-white hover:text-[#A3A3A3] transition-colors cursor-pointer shrink-0"
                         title={isMobileView ? "Close" : "Close"}
                         aria-label="Close chat profile details"
                       >
@@ -5367,15 +5351,15 @@ export default function ChatDashboard() {
                             src={activeChatFriend.avatarUrl}
                             alt={activeChatFriend.displayName}
                             referrerPolicy="no-referrer"
-                            className="w-28 h-28 rounded-full bg-[#0B0F17] border-2 border-[#6C5CE0]/30 object-cover shadow-[0_0_30px_rgba(108, 92, 224,0.12)]"
+                            className="w-28 h-28 rounded-full bg-[#000000] border-2 border-white/20  object-cover shadow-[0_0_30px_rgba(255,255,255,0.12)]"
                           />
                           <span
-                            className={`absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full border-2 border-white/[0.06] ${
+                            className={`absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full border-2 border-[#292D3A] ${
                               activeChatFriend.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-gray-500"
                             }`}
                           />
                         </div>
-                        <h3 className="text-lg font-black text-[#F8FAFC] mt-3 truncate max-w-full">
+                        <h3 className="text-lg font-black text-[#FFFFFF] mt-3 truncate max-w-full">
                           {activeChatFriend.displayName}
                         </h3>
                         <span
@@ -5383,7 +5367,7 @@ export default function ChatDashboard() {
                             navigator.clipboard.writeText(`@${activeChatFriend.username}`);
                             showToast(`Copied username @${activeChatFriend.username}`, "success");
                           }}
-                          className="text-xs text-[#6C5CE0] font-mono cursor-pointer hover:underline transition-all truncate max-w-full"
+                          className="text-xs text-white font-mono cursor-pointer hover:underline transition-all truncate max-w-full"
                           title="Click to copy username"
                         >
                           @{activeChatFriend.username}
@@ -5409,7 +5393,7 @@ export default function ChatDashboard() {
 
                       {/* Quick Actions (Mute / Pay / Block) */}
                       <div className="space-y-2">
-                        <span className="text-[9px] text-[#6C5CE0] font-bold uppercase tracking-wider block">
+                        <span className="text-[9px] text-[#717589] font-bold uppercase tracking-wider block">
                           Quick Actions
                         </span>
                         <div className="flex items-center justify-center gap-3">
@@ -5418,10 +5402,10 @@ export default function ChatDashboard() {
                             <button
                               type="button"
                               onClick={() => handleToggleMuteChat(activeChatId, activeChatFriend.displayName)}
-                              className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-200 cursor-pointer hover:scale-[1.05] active:scale-95 ${
+                              className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-200 cursor-pointer hover:bg-[#151824] ${
                                 mutedChatIds.includes(activeChatId)
-                                  ? "bg-[#12172A]/80 border-white/[0.14] text-white"
-                                  : "bg-[#0B0F17]/60 border-white/[0.08] text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80 hover:border-white/[0.14]"
+                                  ? "bg-[#151824] border-[#9875FF]/25 text-[#91B9FF]"
+                                  : "bg-[#11131D] border-[#292D3A] text-[#A1A5B5] hover:text-[#91B9FF] hover:border-[#9875FF]/20"
                               }`}
                             >
                               {mutedChatIds.includes(activeChatId) ? (
@@ -5430,12 +5414,12 @@ export default function ChatDashboard() {
                                 <Bell className="w-[18px] h-[18px]" strokeWidth={2} />
                               )}
                             </button>
-                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
+                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0B0D14] border border-[#292D3A] text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
                               Mute Conversation
                             </span>
                           </div>
 
-                          {/* Pay — opens the native BDT send popup in BDT mode, otherwise Arc USDC */}
+                          {/* Pay â€” opens the native BDT send popup in BDT mode, otherwise Arc USDC */}
                             <div className="relative group">
                             <button
                               type="button"
@@ -5443,18 +5427,18 @@ export default function ChatDashboard() {
                               disabled={!canInteractWith(activeChatFriend.uid)}
                               className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-200 ${
                                 canInteractWith(activeChatFriend.uid)
-                                  ? "border-white/[0.08] bg-[#0B0F17]/60 text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80 hover:border-white/[0.14] hover:scale-[1.05] active:scale-95 cursor-pointer"
-                                  : "border-white/[0.04] bg-[#0B0F17]/40 text-[#334155] opacity-40 pointer-events-none"
+                                  ? "border-[#292D3A] bg-[#11131D] text-[#91B9FF]/80 hover:text-[#91B9FF] hover:bg-[#151824] hover:border-[#91B9FF]/25 cursor-pointer"
+                                  : "border-white/[0.04] bg-[#000000]/40 text-[#4D4D4D] opacity-40 pointer-events-none"
                               }`}
                             >
                               <Coins className="w-[18px] h-[18px]" strokeWidth={2} />
                             </button>
-                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
+                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0B0D14] border border-[#292D3A] text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
                               {isBdtMode ? "Send Money" : "Send USDC"}
                             </span>
                           </div>
 
-                          {/* Block / Unblock — toggles the blocked state for this user */}
+                          {/* Block / Unblock â€” toggles the blocked state for this user */}
                           <div className="relative group">
                             <button
                               type="button"
@@ -5462,7 +5446,7 @@ export default function ChatDashboard() {
                               className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-200 cursor-pointer hover:scale-[1.05] active:scale-95 ${
                                 blockedUids.includes(activeChatFriend.uid)
                                   ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40"
-                                  : "bg-[#0B0F17]/60 border-white/[0.08] text-[#94A3B8] hover:text-white hover:bg-[#12172A]/80 hover:border-white/[0.14]"
+                                  : "bg-[#000000]/60 border-[#292D3A] text-[#A3A3A3] hover:text-white hover:bg-[#171A26]/80 hover:border-white/[0.14]"
                               }`}
                             >
                               {blockedUids.includes(activeChatFriend.uid) ? (
@@ -5471,12 +5455,12 @@ export default function ChatDashboard() {
                                 <ShieldOff className="w-[18px] h-[18px]" strokeWidth={2} />
                               )}
                             </button>
-                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
+                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0B0D14] border border-[#292D3A] text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
                               {blockedUids.includes(activeChatFriend.uid) ? "Unblock User" : "Block User"}
                             </span>
                           </div>
 
-                          {/* Unfriend — removes the friendship only; chat history stays intact */}
+                          {/* Unfriend â€” removes the friendship only; chat history stays intact */}
                           <div className="relative group">
                             <button
                               type="button"
@@ -5486,7 +5470,7 @@ export default function ChatDashboard() {
                             >
                               <UserMinus className="w-[18px] h-[18px]" strokeWidth={2} />
                             </button>
-                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0D111D] border border-white/10 text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
+                            <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#0B0D14] border border-[#292D3A] text-[9px] text-white font-medium whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-xl z-20">
                               Unfriend
                             </span>
                           </div>
@@ -5495,11 +5479,11 @@ export default function ChatDashboard() {
 
                       {/* Bio status section */}
                       <div className="space-y-1.5">
-                        <span className="text-[9px] text-[#6C5CE0] font-bold uppercase tracking-wider block">
+                        <span className="text-[9px] text-white font-bold uppercase tracking-wider block">
                           Personal Bio
                         </span>
-                        <div className="p-3 bg-[#0B0F17]/40 border border-white/[0.06] rounded-xl relative overflow-hidden">
-                          <p className="text-xs text-[#94A3B8] leading-normal font-sans italic whitespace-pre-wrap">
+                        <div className="p-3 bg-[#000000]/40 border border-[#292D3A] rounded-xl relative overflow-hidden">
+                          <p className="text-xs text-[#A3A3A3] leading-normal font-sans italic whitespace-pre-wrap">
                             {activeChatFriend.bio || "No custom status bio provided yet."}
                           </p>
                         </div>
@@ -5507,7 +5491,7 @@ export default function ChatDashboard() {
 
                       {/* Social Integrations */}
                       <div className="space-y-2">
-                        <span className="text-[9px] text-[#6C5CE0] font-bold uppercase tracking-wider block">
+                        <span className="text-[9px] text-white font-bold uppercase tracking-wider block">
                           Verified Links
                         </span>
 
@@ -5517,17 +5501,17 @@ export default function ChatDashboard() {
                               href={`https://github.com/${activeChatFriend.githubUrl}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-center justify-between p-2.5 bg-[#0B0F17] hover:bg-[#0D111D] border border-white/[0.06] hover:border-white/[0.06] rounded-xl text-[#94A3B8] hover:text-white transition-all group cursor-pointer"
+                              className="flex items-center justify-between p-2.5 bg-[#000000] hover:bg-[#0B0D14] border border-[#292D3A] hover:border-[#292D3A] rounded-xl text-[#A3A3A3] hover:text-white transition-all group cursor-pointer"
                             >
                               <div className="flex items-center gap-2">
-                                <Github className="w-4 h-4 text-[#6C5CE0] group-hover:text-[#94A3B8]" />
+                                <Github className="w-4 h-4 text-white group-hover:text-[#A3A3A3]" />
                                 <span className="text-[11px] font-mono">{activeChatFriend.githubUrl}</span>
                               </div>
-                              <ExternalLink className="w-3 h-3 text-[#6C5CE0]" />
+                              <ExternalLink className="w-3 h-3 text-white" />
                             </a>
                           ) : (
-                            <div className="p-2.5 bg-[#0B0F17]/30 border border-white/[0.06] border-dashed rounded-xl text-center">
-                              <span className="text-[10px] text-[#6C5CE0] italic">No GitHub account linked</span>
+                            <div className="p-2.5 bg-[#000000]/30 border border-[#292D3A] border-dashed rounded-xl text-center">
+                              <span className="text-[10px] text-white italic">No GitHub account linked</span>
                             </div>
                           )}
 
@@ -5536,17 +5520,17 @@ export default function ChatDashboard() {
                               href={`https://twitter.com/${activeChatFriend.twitterUrl.replace('@', '')}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-center justify-between p-2.5 bg-[#0B0F17] hover:bg-[#0D111D] border border-white/[0.06] hover:border-white/[0.06] rounded-xl text-[#94A3B8] hover:text-white transition-all group cursor-pointer"
+                              className="flex items-center justify-between p-2.5 bg-[#000000] hover:bg-[#0B0D14] border border-[#292D3A] hover:border-[#292D3A] rounded-xl text-[#A3A3A3] hover:text-white transition-all group cursor-pointer"
                             >
                               <div className="flex items-center gap-2">
-                                <Twitter className="w-4 h-4 text-[#6C5CE0] group-hover:text-[#94A3B8]" />
+                                <Twitter className="w-4 h-4 text-white group-hover:text-[#A3A3A3]" />
                                 <span className="text-[11px] font-mono">{activeChatFriend.twitterUrl}</span>
                               </div>
-                              <ExternalLink className="w-3 h-3 text-[#6C5CE0]" />
+                              <ExternalLink className="w-3 h-3 text-white" />
                             </a>
                           ) : (
-                            <div className="p-2.5 bg-[#0B0F17]/30 border border-white/[0.06] border-dashed rounded-xl text-center">
-                              <span className="text-[10px] text-[#6C5CE0] italic">No Twitter address linked</span>
+                            <div className="p-2.5 bg-[#000000]/30 border border-[#292D3A] border-dashed rounded-xl text-center">
+                              <span className="text-[10px] text-white italic">No Twitter address linked</span>
                             </div>
                           )}
                         </div>
@@ -5555,12 +5539,12 @@ export default function ChatDashboard() {
                       {/* Cryptocurrency address card */}
                       {activeChatFriend.walletAddress && !isBdtMode && (
                         <div className="space-y-1.5">
-                          <span className="text-[9px] text-[#6C5CE0] font-bold uppercase tracking-wider block">
+                          <span className="text-[9px] text-white font-bold uppercase tracking-wider block">
                             Cryptocurrency Wallet
                           </span>
-                          <div className="bg-[#0B0F17]/60 p-3 border border-white/[0.06] rounded-xl">
+                          <div className="bg-[#000000]/60 p-3 border border-[#292D3A] rounded-xl">
                             <div className="flex items-center justify-between gap-1.5">
-                              <span className="text-[9px] text-[#94A3B8] font-mono select-all truncate">
+                              <span className="text-[9px] text-[#A3A3A3] font-mono select-all truncate">
                                 {activeChatFriend.walletAddress}
                               </span>
                               <button
@@ -5569,13 +5553,13 @@ export default function ChatDashboard() {
                                   navigator.clipboard.writeText(activeChatFriend.walletAddress || "");
                                   showToast("Wallet address copied safely to clipboard!", "success");
                                 }}
-                                className="p-1 rounded bg-[#0B0F17] hover:bg-[#12172A] text-[#94A3B8] hover:text-white border border-white/[0.06] transition-colors cursor-pointer shrink-0"
+                                className="p-1 rounded bg-[#000000] hover:bg-[#171A26] text-[#A3A3A3] hover:text-white border border-[#292D3A] transition-colors cursor-pointer shrink-0"
                                 title="Copy address"
                               >
                                 <Copy className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                            <span className="text-[8px] text-[#6C5CE0] font-bold block mt-1 uppercase tracking-wider">
+                            <span className="text-[8px] text-white font-bold block mt-1 uppercase tracking-wider">
                               Solana / Ethereum / EVM Address
                             </span>
                           </div>
@@ -5602,7 +5586,7 @@ export default function ChatDashboard() {
 
       {/* MOBILE BOTTOM NAVIGATION - fixed to the viewport, safe-area aware, evenly spaced and always reachable. Rendered as a direct child of the root layout (never inside the sidebar pane) so it stays visible on every tab, including Settings / Deal Room / Wallet where the sidebar pane itself is collapsed. */}
       <nav
-        className="mica-mobile-nav md:hidden fixed inset-x-0 bottom-0 z-40 bg-[#0D111D] border-t border-white/5 shadow-[0_-8px_35px_rgba(0,0,0,0.6)] px-1 pt-1"
+        className="mica-mobile-nav md:hidden fixed inset-x-0 bottom-0 z-40 bg-[#0B0D14] border-t border-[#292D3A] shadow-[0_-8px_35px_rgba(0,0,0,0.6)] px-1 pt-1"
         id="bottom_navbar_tabs"
         aria-label="Primary"
       >
@@ -5617,12 +5601,12 @@ export default function ChatDashboard() {
               <Home
                 className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "home"
-                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                    ? "text-white fill-white/10 drop-shadow-[0_0_12px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white hover:text-[#A3A3A3]"
                 }`}
               />
               {activeTab === "home" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
               )}
             </div>
           </button>
@@ -5637,12 +5621,12 @@ export default function ChatDashboard() {
               <MessageCircle
                 className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "chats"
-                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                    ? "text-white fill-white/10 drop-shadow-[0_0_12px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white hover:text-[#A3A3A3]"
                 }`}
               />
               {activeTab === "chats" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
               )}
             </div>
           </button>
@@ -5657,12 +5641,12 @@ export default function ChatDashboard() {
               <Phone
                 className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "calls"
-                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                    ? "text-white fill-white/10 drop-shadow-[0_0_12px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white hover:text-[#A3A3A3]"
                 }`}
               />
               {activeTab === "calls" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
               )}
             </div>
           </button>
@@ -5676,23 +5660,23 @@ export default function ChatDashboard() {
             <div
               className={`relative p-1.5 rounded-full transition-all duration-200 border ${
                 activeTab === "friends"
-                  ? "bg-gradient-to-tr from-[#6C5CE0]/25 to-[#6C5CE0]/25 border-[#6C5CE0]/50 shadow-[0_0_14px_rgba(108, 92, 224,0.12)]"
-                  : "bg-white/[0.03] border-white/10 group-hover:border-white/20 group-hover:bg-white/[0.06]"
+                  ? "bg-gradient-to-tr from-white/25 to-white/25 border-white/20  shadow-[0_0_14px_rgba(255,255,255,0.12)]"
+                  : "bg-white/[0.03] border-[#292D3A] group-hover:border-white/20 group-hover:bg-white/[0.06]"
               }`}
             >
               <UserPlus
                 className={`w-5 h-5 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "friends"
-                    ? "text-[#6C5CE0] drop-shadow-[0_0_10px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] group-hover:text-[#94A3B8]"
+                    ? "text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white group-hover:text-[#A3A3A3]"
                 }`}
               />
               {pendingReceived.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 border border-[#292D3A] rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
               )}
             </div>
             {activeTab === "friends" && (
-              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
             )}
           </button>
 
@@ -5706,15 +5690,15 @@ export default function ChatDashboard() {
               <Bell
                 className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "notifications"
-                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                    ? "text-white fill-white/10 drop-shadow-[0_0_12px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white hover:text-[#A3A3A3]"
                 }`}
               />
               {appNotifications.length > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border border-[#292D3A] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
               )}
               {activeTab === "notifications" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
               )}
             </div>
           </button>
@@ -5730,12 +5714,12 @@ export default function ChatDashboard() {
               <Wallet
                 className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "wallet"
-                    ? "text-[#6C5CE0] fill-[#6C5CE0]/10 drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                    ? "text-white fill-white/10 drop-shadow-[0_0_12px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white hover:text-[#A3A3A3]"
                 }`}
               />
               {activeTab === "wallet" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
               )}
             </div>
           </button>
@@ -5751,12 +5735,12 @@ export default function ChatDashboard() {
               <Handshake
                 className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "dealroom"
-                    ? "text-[#6C5CE0] drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                    ? "text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white hover:text-[#A3A3A3]"
                 }`}
               />
               {activeTab === "dealroom" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
               )}
             </div>
           </button>
@@ -5771,15 +5755,15 @@ export default function ChatDashboard() {
               <Settings
                 className={`w-6 h-6 transition-all duration-200 group-hover:scale-110 ${
                   activeTab === "settings"
-                    ? "text-[#6C5CE0] drop-shadow-[0_0_12px_rgba(108, 92, 224,0.12)] scale-110"
-                    : "text-[#6C5CE0] hover:text-[#94A3B8]"
+                    ? "text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.12)] scale-110"
+                    : "text-white hover:text-[#A3A3A3]"
                 }`}
               />
               {(!userProfile?.walletAddress || !userProfile?.bio) && (
-                <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 border border-white/[0.06] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+                <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 border border-[#292D3A] rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
               )}
               {activeTab === "settings" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-[#6C5CE0] rounded-full shadow-[0_0_8px_rgba(108, 92, 224,0.12)] animate-pulse" />
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.12)] animate-pulse" />
               )}
             </div>
           </button>
@@ -5826,21 +5810,21 @@ export default function ChatDashboard() {
             initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 right-6 z-[100] max-w-sm w-full bg-[#0D111D]/95 backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3 text-sm select-none pointer-events-auto hover:border-white/[0.06] transition"
+            className="fixed bottom-6 right-6 z-[100] max-w-sm w-full bg-[#0B0D14]/95 backdrop-blur-xl border border-[#292D3A] rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3 text-sm select-none pointer-events-auto hover:border-[#292D3A] transition"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <span className={`w-2 h-2 rounded-full shrink-0 ${
                 toastMsg.type === "success" ? "bg-emerald-500 shadow-[0_0_8px_rgba(34, 197, 94,0.6)] animate-pulse" :
                 toastMsg.type === "error" ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" :
-                "bg-blue-500 shadow-[0_0_8px_rgba(108, 92, 224,0.12)]"
+                " bg-white/10  shadow-[0_0_8px_rgba(255,255,255,0.12)]"
               }`} />
-              <p className="text-xs font-semibold text-[#F8FAFC] truncate">
+              <p className="text-xs font-semibold text-[#FFFFFF] truncate">
                 {toastMsg.text}
               </p>
             </div>
             <button
               onClick={() => setToastMsg(null)}
-              className="text-[#6C5CE0] hover:text-[#94A3B8] p-0.5 rounded transition"
+              className="text-white hover:text-[#A3A3A3] p-0.5 rounded transition"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -5848,7 +5832,7 @@ export default function ChatDashboard() {
         )}
       </AnimatePresence>
 
-      {/* AI Agent Deployment Modal overlay (crypto-only — hidden in BDT mode) */}
+      {/* AI Agent Deployment Modal overlay (crypto-only â€” hidden in BDT mode) */}
       <AnimatePresence>
         {!isBdtMode && showDeployModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -5859,19 +5843,19 @@ export default function ChatDashboard() {
               onClick={() => {
                 if (!isDeploying) setShowDeployModal(false);
               }}
-              className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
+              className="absolute inset-0 bg-[#000000]/85 backdrop-blur-md"
             />
 
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-[#0D111D]/95 border border-[#6C5CE0]/45 rounded-3xl w-full max-w-lg p-6 shadow-2xl relative z-10 overflow-hidden backdrop-blur-xl"
+              className="bg-[#0B0D14]/95 border border-white/20  rounded-3xl w-full max-w-lg p-6 shadow-2xl relative z-10 overflow-hidden backdrop-blur-xl"
             >
               {/* Card headers */}
-              <div className="flex items-start justify-between border-b border-white/5 pb-4 mb-4">
+              <div className="flex items-start justify-between border-b border-[#292D3A] pb-4 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-[#6C5CE0]/10 border border-[#6C5CE0]/20 text-sky-400">
+                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/20  text-sky-400">
                     <Bot className="w-5 h-5 animate-pulse" />
                   </div>
                   <div>
@@ -5882,7 +5866,7 @@ export default function ChatDashboard() {
                 {!isDeploying && (
                   <button
                     onClick={() => setShowDeployModal(false)}
-                    className="p-1.5 rounded-lg border border-white/5 text-[#94A3B8] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg border border-[#292D3A] text-[#A3A3A3] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -5890,10 +5874,10 @@ export default function ChatDashboard() {
               </div>
 
               {/* Wallet node balance card */}
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 mb-5 select-none">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-[#292D3A] mb-5 select-none">
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-sky-400" />
-                  <span className="text-[10px] font-bold font-mono text-[#94A3B8]">NODE ACTIVE WALLET</span>
+                  <span className="text-[10px] font-bold font-mono text-[#A3A3A3]">NODE ACTIVE WALLET</span>
                 </div>
                 <span className="text-xs font-black font-mono text-white">{walletBalance} SOL</span>
               </div>
@@ -5907,11 +5891,11 @@ export default function ChatDashboard() {
                   </div>
 
                   {/* Terminal emulator container */}
-                  <div className="bg-black/80 border border-white/5 rounded-xl p-3.5 h-48 overflow-y-auto font-mono text-[9px] text-[#94A3B8] space-y-1.5 custom-scrollbar">
+                  <div className="bg-black/80 border border-[#292D3A] rounded-xl p-3.5 h-48 overflow-y-auto font-mono text-[9px] text-[#A3A3A3] space-y-1.5 custom-scrollbar">
                     {deploymentLogs.map((log, lIdx) => {
-                      const isHeader = log.startsWith("▶") || log.startsWith("✓");
+                      const isHeader = log.startsWith("â–¶") || log.startsWith("âœ“");
                       return (
-                        <div key={lIdx} className={`${isHeader ? "text-sky-400 font-bold" : "text-[#94A3B8]"} leading-relaxed`}>
+                        <div key={lIdx} className={`${isHeader ? "text-sky-400 font-bold" : "text-[#A3A3A3]"} leading-relaxed`}>
                           {log}
                         </div>
                       );
@@ -5923,12 +5907,12 @@ export default function ChatDashboard() {
                 <div className="space-y-4">
                   {/* Name field */}
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Agent Identifier</label>
+                    <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Agent Identifier</label>
                     <input
                       type="text"
                       value={agentName}
                       onChange={(e) => setAgentName(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#6C5CE0]/50 focus:ring-1 focus:ring-[#6C5CE0]/30 transition-all font-mono"
+                      className="w-full bg-black/40 border border-[#292D3A] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white/20  focus:ring-1 focus:ring-white/20  transition-all font-mono"
                       placeholder="e.g. Arb Miner Node"
                     />
                   </div>
@@ -5936,11 +5920,11 @@ export default function ChatDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     {/* Model drop down selector */}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Model Core Architecture</label>
+                      <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Model Core Architecture</label>
                       <select
                         value={agentModel}
                         onChange={(e) => setAgentModel(e.target.value)}
-                        className="w-full bg-[#0D111D] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#6C5CE0]/50 transition-all font-mono cursor-pointer"
+                        className="w-full bg-[#0B0D14] border border-[#292D3A] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white/20  transition-all font-mono cursor-pointer"
                       >
                         <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                         <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
@@ -5950,7 +5934,7 @@ export default function ChatDashboard() {
 
                     {/* Funding amount input */}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Shard Funding Escrow (SOL)</label>
+                      <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Shard Funding Escrow (SOL)</label>
                       <input
                         type="number"
                         step="0.05"
@@ -5958,26 +5942,26 @@ export default function ChatDashboard() {
                         max={parseFloat(walletBalance)}
                         value={agentFunding}
                         onChange={(e) => setAgentFunding(e.target.value)}
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#6C5CE0]/50 transition-all font-mono"
+                        className="w-full bg-black/40 border border-[#292D3A] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white/20  transition-all font-mono"
                       />
                     </div>
                   </div>
 
                   {/* Directive field */}
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Node Target Directives</label>
+                    <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Node Target Directives</label>
                     <textarea
                       value={agentDirective}
                       onChange={(e) => setAgentDirective(e.target.value)}
                       rows={3}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-[#6C5CE0] focus:outline-none focus:border-[#6C5CE0]/50 transition-all font-sans resize-none leading-relaxed"
+                      className="w-full bg-black/40 border border-[#292D3A] rounded-xl px-3.5 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-white/20  transition-all font-sans resize-none leading-relaxed"
                       placeholder="Specify strict operational rules or AI intelligence directives..."
                     />
                   </div>
 
                   {/* Operational Warnings */}
-                  <p className="text-[8.5px] text-sky-300/40 font-mono leading-relaxed bg-[#12172A]/45 p-3 rounded-xl border border-white/5">
-                    <span className="font-bold text-sky-300 uppercase tracking-widest block mb-0.5">⚠️ DEPLOYMENT LEDGER NOTICE</span>
+                  <p className="text-[8.5px] text-sky-300/40 font-mono leading-relaxed bg-[#171A26]/45 p-3 rounded-xl border border-[#292D3A]">
+                    <span className="font-bold text-sky-300 uppercase tracking-widest block mb-0.5">âš ï¸ DEPLOYMENT LEDGER NOTICE</span>
                     Deploying this customized AI proxy will immediately transfer and secure your selected SOL amount in an escrow smart contract on-chain. Disassembling active proxies will release the remaining shard credits to your node.
                   </p>
 
@@ -5986,14 +5970,14 @@ export default function ChatDashboard() {
                     <button
                       type="button"
                       onClick={() => setShowDeployModal(false)}
-                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#0D111D] border border-white/[0.06] hover:border-neutral-500 text-[#94A3B8] hover:text-white text-xs font-bold transition-all cursor-pointer"
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#0B0D14] border border-[#292D3A] hover:border-neutral-500 text-[#A3A3A3] hover:text-white text-xs font-bold transition-all cursor-pointer"
                     >
                       ABORT
                     </button>
                     <button
                       type="button"
                       onClick={executeAgentDeployment}
-                      className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#6C5CE0] to-[#6C5CE0] text-white hover:brightness-110 shadow-lg shadow-[#6C5CE0]/15 text-xs font-black font-mono tracking-widest uppercase transition-all cursor-pointer"
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-white/20 to-white/15 text-white hover:brightness-110 shadow-lg shadow-white/20 text-xs font-black font-mono tracking-widest uppercase transition-all cursor-pointer"
                     >
                       LAUNCH PROVISION
                     </button>
@@ -6005,7 +5989,7 @@ export default function ChatDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Arc USDC Send USDC payment popup (Chat Profile Details -> Pay) — crypto mode only */}
+      {/* Arc USDC Send USDC payment popup (Chat Profile Details -> Pay) â€” crypto mode only */}
       {!isBdtMode && (
         <SendUsdcModal
           open={showUsdcPaymentModal}
@@ -6070,7 +6054,7 @@ export default function ChatDashboard() {
         onNotify={showToast}
       />
 
-      {/* Web3 Secure Payment Modal overlay (crypto-only — hidden in BDT mode) */}
+      {/* Web3 Secure Payment Modal overlay (crypto-only â€” hidden in BDT mode) */}
       <AnimatePresence>
         {!isBdtMode && showPaymentModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -6081,30 +6065,30 @@ export default function ChatDashboard() {
               onClick={() => {
                 if (!isPaying) setShowPaymentModal(false);
               }}
-              className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
+              className="absolute inset-0 bg-[#000000]/85 backdrop-blur-md"
             />
 
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-[#0B0F17]/95 border border-emerald-500/40 rounded-3xl w-full max-w-md p-6 shadow-2xl relative z-10 overflow-hidden backdrop-blur-xl"
+              className="bg-[#000000]/95 border border-emerald-500/40 rounded-3xl w-full max-w-md p-6 shadow-2xl relative z-10 overflow-hidden backdrop-blur-xl"
             >
               {/* Card headers */}
-              <div className="flex items-start justify-between border-b border-white/5 pb-4 mb-4">
+              <div className="flex items-start justify-between border-b border-[#292D3A] pb-4 mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                     <Coins className="w-5 h-5 animate-bounce" />
                   </div>
                   <div>
                     <h3 className="text-sm font-black tracking-widest font-mono text-emerald-400 uppercase">SECURE PAYMENT DISPATCH</h3>
-                    <p className="text-[10px] text-[#6C5CE0] font-mono mt-0.5">Settle instant off-grid smart contract transactions</p>
+                    <p className="text-[10px] text-white font-mono mt-0.5">Settle instant off-grid smart contract transactions</p>
                   </div>
                 </div>
                 {!isPaying && (
                   <button
                     onClick={() => setShowPaymentModal(false)}
-                    className="p-1.5 rounded-lg border border-white/5 text-[#94A3B8] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg border border-[#292D3A] text-[#A3A3A3] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -6112,10 +6096,10 @@ export default function ChatDashboard() {
               </div>
 
               {/* Wallet node balance card */}
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 mb-5 select-none">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-[#292D3A] mb-5 select-none">
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-emerald-400" />
-                  <span className="text-[10px] font-bold font-mono text-[#94A3B8]">NODE ACTIVE WALLET</span>
+                  <span className="text-[10px] font-bold font-mono text-[#A3A3A3]">NODE ACTIVE WALLET</span>
                 </div>
                 <span className="text-xs font-black font-mono text-white">{walletBalance} SOL</span>
               </div>
@@ -6129,22 +6113,22 @@ export default function ChatDashboard() {
                   </div>
 
                   {/* Transaction Steps indicators */}
-                  <div className="space-y-3 font-mono text-[10px] px-2 bg-black/40 p-4 rounded-2xl border border-white/5">
+                  <div className="space-y-3 font-mono text-[10px] px-2 bg-black/40 p-4 rounded-2xl border border-[#292D3A]">
                     <div className="flex items-center justify-between">
-                      <span className="text-[#6C5CE0]">1. SECURE EPHEMERAL SIGNATURE</span>
-                      <span className={paymentStep >= 1 ? "text-emerald-400 font-bold" : "text-[#6C5CE0]"}>
-                        {paymentStep === 1 ? "PROCESSING..." : paymentStep > 1 ? "✓ COMPLETED" : "PENDING..."}
+                      <span className="text-white">1. SECURE EPHEMERAL SIGNATURE</span>
+                      <span className={paymentStep >= 1 ? "text-emerald-400 font-bold" : "text-white"}>
+                        {paymentStep === 1 ? "PROCESSING..." : paymentStep > 1 ? "âœ“ COMPLETED" : "PENDING..."}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[#6C5CE0]">2. BROADCASTING TO ORE RPC NODES</span>
-                      <span className={paymentStep >= 2 ? "text-emerald-400 font-bold" : "text-[#6C5CE0]"}>
-                        {paymentStep === 2 ? "PROCESSING..." : paymentStep > 2 ? "✓ COMPLETED" : "PENDING..."}
+                      <span className="text-white">2. BROADCASTING TO ORE RPC NODES</span>
+                      <span className={paymentStep >= 2 ? "text-emerald-400 font-bold" : "text-white"}>
+                        {paymentStep === 2 ? "PROCESSING..." : paymentStep > 2 ? "âœ“ COMPLETED" : "PENDING..."}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[#6C5CE0]">3. MEMPOOL BLOCK CONFIRMATION</span>
-                      <span className={paymentStep >= 3 ? "text-emerald-400 font-bold animate-pulse" : "text-[#6C5CE0]"}>
+                      <span className="text-white">3. MEMPOOL BLOCK CONFIRMATION</span>
+                      <span className={paymentStep >= 3 ? "text-emerald-400 font-bold animate-pulse" : "text-white"}>
                         {paymentStep === 3 ? "CONFIRMING..." : "PENDING..."}
                       </span>
                     </div>
@@ -6154,19 +6138,19 @@ export default function ChatDashboard() {
                 <div className="space-y-4">
                   {/* Recipient Field */}
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Recipient Peer Node</label>
+                    <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Recipient Peer Node</label>
                     <input
                       type="text"
                       disabled
                       value={paymentRecipient}
-                      className="w-full bg-black/30 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-[#94A3B8] font-mono cursor-not-allowed"
+                      className="w-full bg-black/30 border border-[#292D3A] rounded-xl px-3.5 py-2.5 text-xs text-[#A3A3A3] font-mono cursor-not-allowed"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     {/* Amount Input */}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Transfer Amount (SOL)</label>
+                      <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Transfer Amount (SOL)</label>
                       <input
                         type="number"
                         step="0.05"
@@ -6174,17 +6158,17 @@ export default function ChatDashboard() {
                         max={parseFloat(walletBalance)}
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all font-mono"
+                        className="w-full bg-black/40 border border-[#292D3A] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all font-mono"
                       />
                     </div>
 
                     {/* Transaction speed selector */}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Mempool Priority</label>
+                      <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Mempool Priority</label>
                       <select
                         value={paymentSpeed}
                         onChange={(e) => setPaymentSpeed(e.target.value)}
-                        className="w-full bg-[#0B0F17] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all font-mono cursor-pointer"
+                        className="w-full bg-[#000000] border border-[#292D3A] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all font-mono cursor-pointer"
                       >
                         <option value="standard">Standard Fee</option>
                         <option value="fast">Priority Fee</option>
@@ -6195,12 +6179,12 @@ export default function ChatDashboard() {
 
                   {/* Memo description field */}
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black font-mono tracking-widest text-[#94A3B8] uppercase">Secure Memo Reference</label>
+                    <label className="text-[9px] font-black font-mono tracking-widest text-[#A3A3A3] uppercase">Secure Memo Reference</label>
                     <input
                       type="text"
                       value={paymentMemo}
                       onChange={(e) => setPaymentMemo(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all font-sans"
+                      className="w-full bg-black/40 border border-[#292D3A] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all font-sans"
                       placeholder="e.g. Services fee or node cluster sync fee"
                     />
                   </div>
@@ -6219,7 +6203,7 @@ export default function ChatDashboard() {
                     <button
                       type="button"
                       onClick={() => setShowPaymentModal(false)}
-                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#0D111D] border border-white/[0.06] hover:border-neutral-500 text-[#94A3B8] hover:text-white text-xs font-bold transition-all cursor-pointer"
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#0B0D14] border border-[#292D3A] hover:border-neutral-500 text-[#A3A3A3] hover:text-white text-xs font-bold transition-all cursor-pointer"
                     >
                       ABORT
                     </button>
@@ -6240,3 +6224,8 @@ export default function ChatDashboard() {
     </div>
   );
 }
+
+
+
+
+

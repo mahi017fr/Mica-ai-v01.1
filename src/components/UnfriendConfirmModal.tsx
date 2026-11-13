@@ -22,14 +22,14 @@ const UnfriendConfirmModal: React.FC<UnfriendConfirmModalProps> = ({ open, displ
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onCancel}
-            className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
+            className="absolute inset-0 bg-[#000000]/85 backdrop-blur-md"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative z-10 bg-[#0B0F17]/95 border border-red-500/30 rounded-3xl w-full max-w-md p-6 shadow-2xl backdrop-blur-xl"
+            className="relative z-10 bg-[#000000]/95 border border-red-500/30 rounded-3xl w-full max-w-md p-6 shadow-2xl backdrop-blur-xl"
           >
             <div className="flex items-start justify-between border-b border-red-500/10 pb-4 mb-4">
               <div className="flex items-center gap-3">
@@ -40,7 +40,7 @@ const UnfriendConfirmModal: React.FC<UnfriendConfirmModalProps> = ({ open, displ
                   <h3 className="text-sm font-black tracking-wide font-sans text-white uppercase">
                     Unfriend
                   </h3>
-                  <p className="text-[10px] text-[#94A3B8] mt-0.5 font-mono">
+                  <p className="text-[10px] text-[#A3A3A3] mt-0.5 font-mono">
                     {displayName || "this user"}
                   </p>
                 </div>
@@ -48,13 +48,13 @@ const UnfriendConfirmModal: React.FC<UnfriendConfirmModalProps> = ({ open, displ
               <button
                 type="button"
                 onClick={onCancel}
-                className="p-1.5 rounded-lg border border-white/5 text-[#94A3B8] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                className="p-1.5 rounded-lg border border-white/5 text-[#A3A3A3] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-[#94A3B8] leading-relaxed font-sans">
+            <p className="text-xs text-[#A3A3A3] leading-relaxed font-sans">
               Unfriend {displayName || "this user"}?
               <span className="block mt-1.5">{UNFRIEND_MESSAGE}</span>
             </p>
@@ -63,7 +63,7 @@ const UnfriendConfirmModal: React.FC<UnfriendConfirmModalProps> = ({ open, displ
               <button
                 type="button"
                 onClick={onCancel}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-[#0D111D] border border-white/[0.06] hover:border-neutral-500 text-[#94A3B8] hover:text-white text-xs font-bold transition-all cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-[#050505] border border-white/[0.06] hover:border-neutral-500 text-[#A3A3A3] hover:text-white text-xs font-bold transition-all cursor-pointer"
               >
                 Cancel
               </button>

@@ -131,10 +131,10 @@ const CallHistory: React.FC<CallHistoryProps> = ({ friends }) => {
 
   if (calls.length === 0) {
     return (
-      <div className="p-6 text-center border border-dashed border-white/[0.06] rounded-2xl bg-[#0D111D]/10">
-        <PhoneCall className="w-6 h-6 text-[#6C5CE0] mx-auto mb-2" />
-        <p className="text-xs text-[#6C5CE0] font-medium">No call history yet</p>
-        <p className="text-[10px] text-[#6C5CE0] mt-1 leading-normal">
+      <div className="p-6 text-center border border-dashed border-white/[0.06] rounded-2xl bg-[#050505]/10">
+        <PhoneCall className="w-6 h-6 text-white mx-auto mb-2" />
+        <p className="text-xs text-white font-medium">No call history yet</p>
+        <p className="text-[10px] text-white mt-1 leading-normal">
           Your audio and video calls with friends will show up here, just like on Messenger or WhatsApp.
         </p>
       </div>
@@ -175,38 +175,38 @@ const CallHistory: React.FC<CallHistoryProps> = ({ friends }) => {
         return (
           <div
             key={item.id}
-            className="w-full p-2.5 rounded-xl flex items-center justify-between bg-[#12172A]/40 border border-transparent hover:bg-[#6C5CE0]/10 transition-all duration-200"
+            className="w-full p-2.5 rounded-xl flex items-center justify-between bg-[#0A0A0A]/40 border border-transparent hover:bg-white/10 transition-all duration-200"
           >
             <div className="flex items-center gap-3 min-w-0">
               <img
                 src={item.peerAvatar}
                 alt={item.peerName}
                 referrerPolicy="no-referrer"
-                className="w-9.5 h-9.5 rounded-full bg-[#161A2B] border border-white/10 object-cover shrink-0"
+                className="w-9.5 h-9.5 rounded-full bg-[#111111] border border-white/10 object-cover shrink-0"
               />
               <div className="min-w-0 pr-1">
-                <p className="text-xs font-bold text-[#F8FAFC] truncate leading-none">{item.peerName}</p>
+                <p className="text-xs font-bold text-[#FFFFFF] truncate leading-none">{item.peerName}</p>
                 <p
                   className={`text-[10px] mt-1.5 flex items-center gap-1 font-medium ${
-                    isMissedOrFailed ? "text-red-400" : "text-[#94A3B8]"
+                    isMissedOrFailed ? "text-red-400" : "text-[#A3A3A3]"
                   }`}
                 >
                   <DirectionIcon className="w-3 h-3 shrink-0" />
                   <span className="truncate">{statusLabel}</span>
-                  <span className="text-[#6C5CE0]/60">· {formatWhen(item.createdAt)}</span>
+                  <span className="text-white/60">· {formatWhen(item.createdAt)}</span>
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[#6C5CE0] mr-1">
+              <span className="text-white mr-1">
                 <TypeIcon className="w-3.5 h-3.5" />
               </span>
               <button
                 type="button"
                 onClick={() => handleCallBack(item, "audio")}
                 title={`Call ${item.peerName}`}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[#6C5CE0] hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-all cursor-pointer"
               >
                 <Phone className="w-4 h-4" />
               </button>
@@ -214,7 +214,7 @@ const CallHistory: React.FC<CallHistoryProps> = ({ friends }) => {
                 type="button"
                 onClick={() => handleCallBack(item, "video")}
                 title={`Video call ${item.peerName}`}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[#6C5CE0] hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-all cursor-pointer"
               >
                 <Video className="w-4 h-4" />
               </button>

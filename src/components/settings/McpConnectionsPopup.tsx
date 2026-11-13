@@ -91,7 +91,7 @@ const McpConnectionsPopup: React.FC<McpConnectionsPopupProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 6 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 w-full max-w-[660px] max-h-[86vh] sm:max-h-[88vh] flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0B0F17] shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
+            className="relative z-10 w-full max-w-[660px] max-h-[86vh] sm:max-h-[88vh] flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#000000] shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
           >
             {/* Header */}
             <div className="shrink-0 flex items-start justify-between gap-4 border-b border-white/[0.08] px-4 py-3.5 sm:px-5">
@@ -99,7 +99,7 @@ const McpConnectionsPopup: React.FC<McpConnectionsPopupProps> = ({
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.14em] text-white">
                   MCP Connections
                 </h2>
-                <p className="mt-1 text-[12px] leading-relaxed text-[#8B93A7]">
+                <p className="mt-1 text-[12px] leading-relaxed text-[#8F8F8F]">
                   External tools and servers connected to your workspace.
                 </p>
               </div>
@@ -108,7 +108,7 @@ const McpConnectionsPopup: React.FC<McpConnectionsPopupProps> = ({
                 <button
                   type="button"
                   onClick={() => connectActionRef.current?.()}
-                  className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#6C5CE0] px-3 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#7A6BE8] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-[10px] bg-white px-3 py-2 text-[12px] font-semibold text-black transition-colors hover:bg-white cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 text-white" />
                   Connect MCP

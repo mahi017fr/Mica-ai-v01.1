@@ -353,7 +353,7 @@ export default function SendUsdcModal({
           <div className="flex items-center justify-between p-3.5 bg-emerald-500/[0.05] border border-emerald-500/15 rounded-2xl select-none">
             <div className="flex items-center gap-2.5">
               <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8]">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#A3A3A3]">
                 Available Balance
               </span>
             </div>
@@ -367,7 +367,7 @@ export default function SendUsdcModal({
               <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
                 <Coins className="w-4 h-4 text-emerald-400" />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8]">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#A3A3A3]">
                 Available Balance
               </span>
             </div>
@@ -424,7 +424,7 @@ export default function SendUsdcModal({
               <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
                 <Coins className="w-4 h-4 text-emerald-400" />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8]">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#A3A3A3]">
                 Available Balance
               </span>
             </div>
@@ -448,7 +448,7 @@ export default function SendUsdcModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleBackdrop}
-            className="absolute inset-0 bg-[#070A12]/80 backdrop-blur-xl"
+            className="absolute inset-0 bg-[#000000]/80 backdrop-blur-xl"
           />
 
           <motion.div
@@ -456,22 +456,22 @@ export default function SendUsdcModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 18 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            className="relative w-full max-w-md bg-[#0B0F17]/95 border border-white/10 rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden backdrop-blur-2xl"
+            className="relative w-full max-w-md bg-[#000000]/95 border border-white/10 rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.6)] overflow-hidden backdrop-blur-2xl"
           >
             {/* Top gradient glow */}
-            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-40 bg-[#6366F1]/25 blur-[70px] rounded-full pointer-events-none" />
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-40 bg-white/25 blur-[70px] rounded-full pointer-events-none" />
             <div className="absolute -bottom-28 -right-16 w-64 h-40 bg-emerald-500/10 blur-[70px] rounded-full pointer-events-none" />
 
             <div className="relative">
               {/* Header */}
               <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-white/[0.06]">
                 <div className="flex items-center gap-3.5">
-                  <div className="p-3 rounded-2xl bg-gradient-to-br from-[#6366F1]/25 to-[#6C5CE0]/10 border border-[#6366F1]/30 text-white">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-white/25 to-white/10 border border-white/20  text-white">
                     <CircleDollarSign className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-[17px] font-black tracking-tight text-[#F8FAFC]">Send USDC</h3>
-                    <p className="text-[11px] text-[#94A3B8] font-medium">
+                    <h3 className="text-[17px] font-black tracking-tight text-[#FFFFFF]">Send USDC</h3>
+                    <p className="text-[11px] text-[#A3A3A3] font-medium">
                       Transfer USDC securely through Arc Network.
                     </p>
                   </div>
@@ -480,7 +480,7 @@ export default function SendUsdcModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="p-1.5 rounded-lg text-[#94A3B8] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#A3A3A3] hover:text-white hover:bg-white/5 transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -496,16 +496,16 @@ export default function SendUsdcModal({
                         src={recipient?.avatarUrl}
                         alt={recipient?.displayName || "Recipient"}
                         referrerPolicy="no-referrer"
-                        className="w-12 h-12 rounded-full object-cover border border-[#6366F1]/30 bg-[#0D111D]"
+                        className="w-12 h-12 rounded-full object-cover border border-white/20  bg-[#050505]"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-[14px] font-bold text-white truncate">
                           {recipient?.displayName || "Unknown"}
                         </p>
-                        <p className="text-[11px] font-mono text-[#6C5CE0] truncate">
+                        <p className="text-[11px] font-mono text-white truncate">
                           @{recipient?.username || "unknown"}
                         </p>
-                        <p className="text-[10px] font-mono text-[#94A3B8] truncate mt-0.5 flex items-center gap-1">
+                        <p className="text-[10px] font-mono text-[#A3A3A3] truncate mt-0.5 flex items-center gap-1">
                           <Wallet className="w-3 h-3" />
                           {shortAddress(recipientWallet)}
                         </p>
@@ -521,7 +521,7 @@ export default function SendUsdcModal({
 
                     {/* Amount input */}
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold uppercase tracking-widest text-[#94A3B8]">
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-[#A3A3A3]">
                         Amount
                       </label>
                       <div className="relative">
@@ -535,13 +535,13 @@ export default function SendUsdcModal({
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleSendClick();
                           }}
-                          className="w-full bg-black/40 border border-white/10 focus:border-[#6366F1]/60 focus:ring-1 focus:ring-[#6366F1]/20 rounded-2xl pl-4 pr-24 py-3.5 text-lg font-mono font-bold text-white placeholder:text-white/20 focus:outline-none transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full bg-black/40 border border-white/10 focus:border-white/20  focus:ring-1 focus:ring-white/20  rounded-2xl pl-4 pr-24 py-3.5 text-lg font-mono font-bold text-white placeholder:text-white/20 focus:outline-none transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <button
                           type="button"
                           onClick={handleMax}
                           disabled={maxLocked}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-[#6366F1]/15 border border-[#6366F1]/30 text-[10px] font-black text-[#A5B4FC] hover:bg-[#6366F1]/30 hover:text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-white/15 border border-white/20  text-[10px] font-black text-white hover:bg-white/30 hover:text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           MAX
                         </button>
@@ -588,7 +588,7 @@ export default function SendUsdcModal({
                         { label: "Estimated Fee", value: `${fmtUsdc(0)} USDC` },
                       ].map((row) => (
                         <div key={row.label} className="flex items-center justify-between">
-                          <span className="text-[10px] font-medium text-[#94A3B8]">{row.label}</span>
+                          <span className="text-[10px] font-medium text-[#A3A3A3]">{row.label}</span>
                           <span className="text-[11px] font-bold text-white font-mono">{row.value}</span>
                         </div>
                       ))}
@@ -599,7 +599,7 @@ export default function SendUsdcModal({
                       <button
                         type="button"
                         onClick={onClose}
-                        className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[#94A3B8] hover:text-white hover:bg-white/[0.08] text-[13px] font-semibold transition-all cursor-pointer"
+                        className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[#A3A3A3] hover:text-white hover:bg-white/[0.08] text-[13px] font-semibold transition-all cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -607,7 +607,7 @@ export default function SendUsdcModal({
                         type="button"
                         onClick={handleSendClick}
                         disabled={sendLocked}
-                        className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-[#6366F1] via-[#6C5CE0] to-[#8B5CF6] text-white hover:brightness-110 shadow-[0_6px_24px_rgba(99,102,241,0.3)] text-[13px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                        className="flex-1 py-3 rounded-2xl bg-white text-black hover:brightness-110 shadow-[0_6px_24px_rgba(255,255,255,0.3)] text-[13px] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:brightness-100"
                       >
                         <ArrowUpRight className="w-4 h-4" />
                         Send USDC
@@ -619,13 +619,13 @@ export default function SendUsdcModal({
                 {stage === "confirm" && (
                   <div className="space-y-4">
                     <div className="text-center pt-1">
-                      <div className="mx-auto w-14 h-14 rounded-2xl bg-[#6366F1]/15 border border-[#6366F1]/30 flex items-center justify-center">
-                        <ArrowUpRight className="w-7 h-7 text-[#A5B4FC]" />
+                      <div className="mx-auto w-14 h-14 rounded-2xl bg-white/15 border border-white/20  flex items-center justify-center">
+                        <ArrowUpRight className="w-7 h-7 text-white" />
                       </div>
                       <h4 className="text-lg font-black text-white mt-3">
                         Send {parsedAmount ? fmtUsdc(parsedAmount) : "—"} USDC
                       </h4>
-                      <p className="text-[12px] text-[#94A3B8] font-medium mt-0.5">
+                      <p className="text-[12px] text-[#A3A3A3] font-medium mt-0.5">
                         to {recipient ? `@${recipient.username}` : "recipient"} ?
                       </p>
                     </div>
@@ -639,7 +639,7 @@ export default function SendUsdcModal({
                         { label: "Estimated Fee", value: `${fmtUsdc(0)} USDC` },
                       ].map((row) => (
                         <div key={row.label} className="flex items-center justify-between">
-                          <span className="text-[10px] font-medium text-[#94A3B8]">{row.label}</span>
+                          <span className="text-[10px] font-medium text-[#A3A3A3]">{row.label}</span>
                           <span className="text-[11px] font-bold text-white font-mono">{row.value}</span>
                         </div>
                       ))}
@@ -664,7 +664,7 @@ export default function SendUsdcModal({
                           setError("");
                           setStage("form");
                         }}
-                        className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[#94A3B8] hover:text-white hover:bg-white/[0.08] text-[13px] font-semibold transition-all cursor-pointer"
+                        className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[#A3A3A3] hover:text-white hover:bg-white/[0.08] text-[13px] font-semibold transition-all cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -684,14 +684,14 @@ export default function SendUsdcModal({
                   <div className="py-10 space-y-5">
                     <div className="flex flex-col items-center justify-center gap-4">
                       <div className="relative">
-                        <div className="absolute inset-0 rounded-full bg-[#6366F1]/20 blur-xl animate-pulse" />
-                        <Loader2 className="w-12 h-12 animate-spin text-[#818CF8] relative" />
+                        <div className="absolute inset-0 rounded-full bg-white/20 blur-xl animate-pulse" />
+                        <Loader2 className="w-12 h-12 animate-spin text-white relative" />
                       </div>
                       <div className="text-center">
                         <p className="text-[13px] font-black text-white tracking-wide">
                           {procStep || "Processing Payment"}
                         </p>
-                        <p className="text-[11px] text-[#94A3B8] mt-1 font-mono">
+                        <p className="text-[11px] text-[#A3A3A3] mt-1 font-mono">
                           Arc · Circle USDC ·{" "}
                           {parsedAmount ? `${fmtUsdc(parsedAmount)} USDC` : ""}
                         </p>
@@ -705,7 +705,7 @@ export default function SendUsdcModal({
                         "Waiting for network confirmation",
                         "Finalizing payment",
                       ].map((step, i) => (
-                        <div key={step} className="flex items-center gap-2 text-[11px] font-medium text-[#94A3B8]">
+                        <div key={step} className="flex items-center gap-2 text-[11px] font-medium text-[#A3A3A3]">
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
                               i === 0 ? "bg-emerald-400 animate-pulse" : "bg-white/10"
@@ -731,7 +731,7 @@ export default function SendUsdcModal({
                       <p className="text-[13px] text-emerald-300 font-bold font-mono mt-1">
                         {fmtUsdc(receipt.amount)} USDC Sent
                       </p>
-                      <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                      <p className="text-[11px] text-[#A3A3A3] mt-0.5">
                         to {recipient ? `@${recipient.username}` : "recipient"} · via Arc
                       </p>
                     </div>
@@ -739,19 +739,19 @@ export default function SendUsdcModal({
                     {/* Transaction hash */}
                     <div className="p-3.5 bg-black/40 border border-white/[0.06] rounded-2xl">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-[#94A3B8]">
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-[#A3A3A3]">
                           Transaction Hash
                         </span>
                         <button
                           type="button"
                           onClick={handleCopyHash}
-                          className="flex items-center gap-1 text-[9px] font-bold text-[#6C5CE0] hover:text-white transition-colors cursor-pointer"
+                          className="flex items-center gap-1 text-[9px] font-bold text-white hover:text-white transition-colors cursor-pointer"
                         >
                           {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                           {copied ? "Copied" : "Copy Hash"}
                         </button>
                       </div>
-                      <p className="text-[11px] font-mono text-[#94A3B8] break-all leading-relaxed">
+                      <p className="text-[11px] font-mono text-[#A3A3A3] break-all leading-relaxed">
                         {receipt.transactionHash}
                       </p>
                     </div>
@@ -763,7 +763,7 @@ export default function SendUsdcModal({
                           href={txUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-full py-2.5 rounded-2xl bg-[#6366F1]/15 border border-[#6366F1]/30 text-[11px] font-semibold text-[#A5B4FC] hover:bg-[#6366F1]/25 hover:text-white flex items-center justify-center gap-2 transition-all"
+                          className="w-full py-2.5 rounded-2xl bg-white/15 border border-white/20  text-[11px] font-semibold text-white hover:bg-white/25 hover:text-white flex items-center justify-center gap-2 transition-all"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                           View Transaction
@@ -771,7 +771,7 @@ export default function SendUsdcModal({
                       ) : (
                         <button
                           type="button"
-                          className="w-full py-2.5 rounded-2xl bg-white/[0.03] border border-white/10 text-[11px] font-semibold text-[#94A3B8] cursor-default"
+                          className="w-full py-2.5 rounded-2xl bg-white/[0.03] border border-white/10 text-[11px] font-semibold text-[#A3A3A3] cursor-default"
                         >
                           View Transaction — Explorer unavailable
                         </button>
@@ -781,7 +781,7 @@ export default function SendUsdcModal({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#6366F1] via-[#6C5CE0] to-[#8B5CF6] text-white hover:brightness-110 shadow-[0_6px_24px_rgba(99,102,241,0.3)] text-[13px] font-bold transition-all cursor-pointer"
+                      className="w-full py-3 rounded-2xl bg-white text-black hover:brightness-110 shadow-[0_6px_24px_rgba(255,255,255,0.3)] text-[13px] font-bold transition-all cursor-pointer"
                     >
                       Close
                     </button>

@@ -11,7 +11,7 @@ interface GlowButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> 
 
 /**
  * Neumorphic / Soft-UI button for dark mode.
- * Background: #0B0F17 family, Accent: #6C5CE0 (coral red).
+ * Background: #000000 family, Accent: #FFFFFF (coral red).
  *
  * Usage:
  *   <GlowButton onClick={handleClick}>Sign in</GlowButton>

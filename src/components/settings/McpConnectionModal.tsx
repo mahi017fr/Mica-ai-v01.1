@@ -173,9 +173,9 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
   };
 
   const inputCls =
-    "w-full rounded-xl border border-white/[0.08] bg-[#0B0F17] px-3 py-2.5 text-[13px] text-white placeholder:text-white/25 focus:border-[#6C5CE0]/60 focus:outline-none focus:ring-2 focus:ring-[#6C5CE0]/15 transition-colors";
+    "w-full rounded-xl border border-white/[0.08] bg-[#000000] px-3 py-2.5 text-[13px] text-white placeholder:text-white/25 focus:border-white/20  focus:outline-none focus:ring-2 focus:ring-white/20  transition-colors";
   const labelCls =
-    "block mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8B93A7]";
+    "block mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8F8F8F]";
 
   const modal = (
     <AnimatePresence>
@@ -194,7 +194,7 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 6 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 w-full max-w-[520px] max-h-[88vh] flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111722] shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
+            className="relative z-10 w-full max-w-[520px] max-h-[88vh] flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#080808] shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
           >
             {/* Header */}
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-4">
@@ -202,7 +202,7 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
                 <h3 className="text-[13px] font-bold uppercase tracking-[0.14em] text-white">
                   {isEditing ? "Edit MCP Connection" : "Connect MCP"}
                 </h3>
-                <p className="mt-1 text-[12px] leading-relaxed text-[#8B93A7]">
+                <p className="mt-1 text-[12px] leading-relaxed text-[#8F8F8F]">
                   {isEditing
                     ? "Update the endpoint or rotate the stored credential"
                     : "Register an external tool server for your MICA agent"}
@@ -275,14 +275,14 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
                     className={`${inputCls} cursor-pointer appearance-none pr-9`}
                   >
                     {AUTH_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value} className="bg-[#0B0F17]">
+                      <option key={option.value} value={option.value} className="bg-[#000000]">
                         {option.label}
                       </option>
                     ))}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white" />
                 </div>
-                <p className="mt-1.5 text-[11px] text-[#8B93A7]">{activeAuth.hint}</p>
+                <p className="mt-1.5 text-[11px] text-[#8F8F8F]">{activeAuth.hint}</p>
               </div>
 
               {authType === "api_key_header" ? (
@@ -302,7 +302,7 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
                     className={`${inputCls} font-mono`}
                   />
                   {!connection ? null : (
-                    <p className="mt-1.5 text-[11px] text-[#8B93A7]">
+                    <p className="mt-1.5 text-[11px] text-[#8F8F8F]">
                       Leave blank to keep the header name currently in use.
                     </p>
                   )}
@@ -341,11 +341,11 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
                     </button>
                   </div>
                   {keepExistingSecret ? (
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#8B93A7]">
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#8F8F8F]">
                       A credential is already stored. Leave this blank to keep it.
                     </p>
                   ) : (
-                    <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-[#8B93A7]">
+                    <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-[#8F8F8F]">
                       <KeyRound className="mt-px h-3 w-3 shrink-0 text-white" />
                       Encrypted on the MICA server before storage. It is never sent back to this
                       browser.
@@ -368,7 +368,7 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="rounded-[10px] border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-[12px] font-semibold text-[#A7B0C0] transition-colors hover:border-white/20 hover:text-white cursor-pointer disabled:opacity-50"
+                className="rounded-[10px] border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-[12px] font-semibold text-[#B3B3B3] transition-colors hover:border-white/20 hover:text-white cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -376,7 +376,7 @@ const McpConnectionModal: React.FC<McpConnectionModalProps> = ({
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#6C5CE0] px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#7A6BE8] cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-[10px] bg-white px-4 py-2 text-[12px] font-semibold text-black transition-colors hover:bg-white cursor-pointer disabled:opacity-50"
               >
                 {saving ? (
                   <>

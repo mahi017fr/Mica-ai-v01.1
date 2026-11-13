@@ -75,7 +75,7 @@ const CallOverlay: React.FC = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#0D111D] border border-red-500/40 text-red-300 text-xs font-mono px-4 py-2.5 rounded-xl shadow-2xl"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#050505] border border-red-500/40 text-red-300 text-xs font-mono px-4 py-2.5 rounded-xl shadow-2xl"
           >
             {callError}
           </motion.div>
@@ -91,9 +91,9 @@ const CallOverlay: React.FC = () => {
             className="fixed inset-0 z-[90] bg-black flex flex-col overflow-hidden"
           >
             {/* Ambient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0D111D] via-[#0B0F17] to-black" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#050505] via-[#000000] to-black" />
             <div className="absolute inset-0 opacity-30" style={{
-              backgroundImage: "radial-gradient(circle at 30% 20%, rgba(148, 163, 184,0.25), transparent 45%), radial-gradient(circle at 70% 80%, rgba(108, 92, 224,0.2), transparent 45%)",
+              backgroundImage: "radial-gradient(circle at 30% 20%, rgba(148, 163, 184,0.25), transparent 45%), radial-gradient(circle at 70% 80%, rgba(255,255,255,0.2), transparent 45%)",
             }} />
 
             {/* --- VIDEO CALL: connected/connecting layer with actual media --- */}
@@ -114,7 +114,7 @@ const CallOverlay: React.FC = () => {
 
             {/* Top bar: peer identity + timer */}
             <div className="relative z-10 flex flex-col items-center pt-[calc(2.5rem+env(safe-area-inset-top,0px))] px-6 shrink-0">
-              <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-[#94A3B8] mb-1">
+              <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-[#A3A3A3] mb-1">
                 {callStatus === "outgoing" && "Calling"}
                 {callStatus === "incoming" && (isVideoCall ? "Incoming video call" : "Incoming voice call")}
                 {callStatus === "connecting" && "Connecting"}
@@ -123,7 +123,7 @@ const CallOverlay: React.FC = () => {
               </span>
               <h2 className="text-xl font-bold text-white drop-shadow-lg">{activeCall.peerName}</h2>
               {callStatus === "connected" && (
-                <span className="text-sm font-mono text-[#F8FAFC] mt-1 tabular-nums">
+                <span className="text-sm font-mono text-[#FFFFFF] mt-1 tabular-nums">
                   {formatDuration(callDuration)}
                 </span>
               )}
@@ -137,12 +137,12 @@ const CallOverlay: React.FC = () => {
                     {(callStatus === "outgoing" || callStatus === "incoming") && (
                       <>
                         <motion.span
-                          className="absolute inset-0 rounded-full border-2 border-[#94A3B8]/40"
+                          className="absolute inset-0 rounded-full border-2 border-[#A3A3A3]/40"
                           animate={{ scale: [1, 1.5], opacity: [0.6, 0] }}
                           transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
                         />
                         <motion.span
-                          className="absolute inset-0 rounded-full border-2 border-[#94A3B8]/30"
+                          className="absolute inset-0 rounded-full border-2 border-[#A3A3A3]/30"
                           animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
                           transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut", delay: 0.4 }}
                         />
@@ -152,7 +152,7 @@ const CallOverlay: React.FC = () => {
                       src={activeCall.peerAvatar}
                       alt={activeCall.peerName}
                       referrerPolicy="no-referrer"
-                      className="w-32 h-32 rounded-full object-cover border-2 border-[#94A3B8]/50 shadow-[0_0_40px_rgba(148, 163, 184,0.35)] relative z-10"
+                      className="w-32 h-32 rounded-full object-cover border-2 border-[#A3A3A3]/50 shadow-[0_0_40px_rgba(148, 163, 184,0.35)] relative z-10"
                     />
                   </div>
                 </div>
@@ -161,10 +161,10 @@ const CallOverlay: React.FC = () => {
 
             {/* Local video PIP for video calls */}
             {isVideoCall && (callStatus === "connected" || callStatus === "connecting") && (
-              <div className="absolute top-24 right-4 z-20 w-20 h-28 sm:w-24 sm:h-32 md:w-28 md:h-36 rounded-2xl overflow-hidden border-2 border-white/20 bg-[#0D111D] shadow-2xl">
+              <div className="absolute top-24 right-4 z-20 w-20 h-28 sm:w-24 sm:h-32 md:w-28 md:h-36 rounded-2xl overflow-hidden border-2 border-white/20 bg-[#050505] shadow-2xl">
                 {isCameraOff ? (
-                  <div className="w-full h-full flex items-center justify-center bg-[#0D111D]">
-                    <VideoOff className="w-6 h-6 text-[#6C5CE0]" />
+                  <div className="w-full h-full flex items-center justify-center bg-[#050505]">
+                    <VideoOff className="w-6 h-6 text-white" />
                   </div>
                 ) : (
                   <video
@@ -199,8 +199,8 @@ const CallOverlay: React.FC = () => {
                 </div>
               ) : callStatus === "ended" ? (
                 <div className="h-16 flex items-center justify-center">
-                  <div className="w-14 h-14 rounded-full bg-[#161A2B] flex items-center justify-center">
-                    <PhoneOff className="w-5 h-5 text-[#94A3B8]" />
+                  <div className="w-14 h-14 rounded-full bg-[#111111] flex items-center justify-center">
+                    <PhoneOff className="w-5 h-5 text-[#A3A3A3]" />
                   </div>
                 </div>
               ) : (

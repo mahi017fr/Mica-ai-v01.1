@@ -78,7 +78,7 @@ export default function DealAIRecommendation({
                 Milestones
               </p>
               {ai.milestones.map((m, i) => (
-                <div key={i} className="flex gap-2 text-[11px] text-[#DCEBFF] leading-relaxed">
+                <div key={i} className="flex gap-2 text-[11px] text-[#E5E5E5] leading-relaxed">
                   {dot("bg-sky-400/70")} <span>{m}</span>
                 </div>
               ))}
@@ -116,7 +116,7 @@ export default function DealAIRecommendation({
           </div>
         </div>
       ) : (
-        <p className="text-[11px] text-[#94A3B8]">
+        <p className="text-[11px] text-[#A3A3A3]">
           {isBdtMode
             ? "Define the deal above and Mica will recommend the safest payment structure."
             : "Define the deal above and Mica will recommend the safest escrow structure."}
@@ -124,7 +124,7 @@ export default function DealAIRecommendation({
       )}
 
       <div className="space-y-2 pt-1 border-t border-white/[0.05]">
-        <p className="text-[9px] font-mono text-[#6C5CE0] uppercase tracking-wider font-bold">
+        <p className="text-[9px] font-mono text-white uppercase tracking-wider font-bold">
           Ask Mica about this deal
         </p>
         <div className="flex gap-2">

@@ -88,16 +88,16 @@ export default function DealWorkflow({
           exit={{ y: 16, scale: 0.98, opacity: 0 }}
           transition={{ type: "spring", damping: 26, stiffness: 260 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-white/10 bg-[#0B0F1E]/95 shadow-2xl shadow-black/50 backdrop-blur-xl"
+          className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-white/10 bg-[#000000]/95 shadow-2xl shadow-black/50 backdrop-blur-xl"
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#6C5CE0] to-[#8B5CF6] flex items-center justify-center shadow-lg shadow-[#6C5CE0]/30">
+              <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-white/20 to-white/15 flex items-center justify-center shadow-lg shadow-white/20">
                 <Sparkles className="w-4.5 h-4.5 text-white" />
               </div>
               <div>
                 <h2 className="text-[14px] font-black text-white tracking-wide">AI-Guided Deal Agreement</h2>
-                <p className="text-[10px] text-[#94A3B8]">
+                <p className="text-[10px] text-[#A3A3A3]">
                   {buyerName || "Buyer"} ↔ {sellerName || "Seller"} · {isBdtMode ? "BDT Payment" : "Arc USDC Escrow"}
                 </p>
               </div>
@@ -107,7 +107,7 @@ export default function DealWorkflow({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[#A3A3A3] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -117,8 +117,8 @@ export default function DealWorkflow({
           <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-3">
             {wf.loading && !deal ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <Loader2 className="w-6 h-6 animate-spin text-[#6C5CE0]" />
-                <p className="text-[11px] font-mono text-[#94A3B8]">Loading deal…</p>
+                <Loader2 className="w-6 h-6 animate-spin text-white" />
+                <p className="text-[11px] font-mono text-[#A3A3A3]">Loading deal…</p>
               </div>
             ) : (
               <>
@@ -150,11 +150,11 @@ export default function DealWorkflow({
                           {derivedState === "CANCELLED" ? (
                             <XCircle className="w-5 h-5 text-slate-400 shrink-0" />
                           ) : (
-                            <CheckCircle2 className="w-5 h-5 text-teal-300 shrink-0" />
+                            <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
                           )}
                           <div>
                             <p className="text-[12px] font-bold text-white">{termination.title}</p>
-                            <p className="text-[11px] text-[#94A3B8] mt-0.5">{termination.note}</p>
+                            <p className="text-[11px] text-[#A3A3A3] mt-0.5">{termination.note}</p>
                           </div>
                         </div>
                       </Section>
@@ -168,7 +168,7 @@ export default function DealWorkflow({
                       <button
                         type="button"
                         onClick={() => setShowSetup(true)}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#6C5CE0] hover:text-[#8B5CF6] transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-white hover:text-white transition-colors cursor-pointer"
                       >
                         <Edit3 className="w-3 h-3" /> Edit deal terms
                       </button>
@@ -227,9 +227,9 @@ export default function DealWorkflow({
                 )}
 
                 {busy && busyMessage && (
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#6C5CE0]/[0.08] border border-[#6C5CE0]/25">
-                    <Loader2 className="w-4 h-4 animate-spin text-[#A78BFA] shrink-0" />
-                    <p className="text-[11px] text-[#E0DAFF]">{busyMessage}</p>
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/[0.08] border border-white/20 ">
+                    <Loader2 className="w-4 h-4 animate-spin text-white shrink-0" />
+                    <p className="text-[11px] text-white">{busyMessage}</p>
                   </div>
                 )}
 
@@ -248,13 +248,13 @@ export default function DealWorkflow({
           </div>
 
           <div className="flex items-center justify-between px-5 py-3 border-t border-white/[0.06]">
-            <p className="text-[9px] font-mono text-[#94A3B8]">
+            <p className="text-[9px] font-mono text-[#A3A3A3]">
               {TIMELINE[Math.max(0, timelineIndex(derivedState))]?.label}
             </p>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold bg-white/[0.04] border border-white/10 text-[#94A3B8] hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold bg-white/[0.04] border border-white/10 text-[#A3A3A3] hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
             >
               <X className="w-3.5 h-3.5" /> Close
             </button>

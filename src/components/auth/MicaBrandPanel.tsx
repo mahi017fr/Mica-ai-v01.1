@@ -14,16 +14,8 @@ export default function MicaBrandPanel() {
       aria-hidden="true"
       className="relative hidden lg:flex w-[38%] xl:w-[40%] shrink-0 items-center justify-center overflow-hidden bg-black"
     >
-      {/* Purple / blue light diffusion */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(90% 70% at 18% 8%, rgba(108,92,224,0.42) 0%, rgba(108,92,224,0.12) 45%, transparent 72%)," +
-            "radial-gradient(85% 65% at 88% 88%, rgba(37,99,235,0.32) 0%, rgba(37,99,235,0.07) 50%, transparent 76%)," +
-            "radial-gradient(70% 55% at 70% 30%, rgba(124,58,237,0.18) 0%, transparent 70%)",
-        }}
-      />
+      {/* Purple / blue light diffusion — dark, soft and continuously drifting */}
+      <div className="absolute inset-0 pointer-events-none mica-brand-aurora" />
 
       {/* Halftone dot pattern — large field, masked so it dissolves into black */}
       <div
@@ -59,7 +51,7 @@ export default function MicaBrandPanel() {
         style={{
           background:
             "radial-gradient(120% 100% at 50% 50%, transparent 25%, rgba(0,0,0,0.55) 78%, rgba(0,0,0,0.9) 100%)," +
-            "linear-gradient(90deg, rgba(0,0,0,0.35) 0%, transparent 30%, transparent 72%, rgba(7,8,12,0.75) 100%)",
+            "linear-gradient(90deg, rgba(0,0,0,0.35) 0%, transparent 30%, transparent 68%, rgba(0,0,0,0.55) 84%, rgba(0,0,0,0.95) 96%, #000 100%)",
         }}
       />
 

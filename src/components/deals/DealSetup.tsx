@@ -82,8 +82,8 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
               onClick={() => setDealType(t)}
               className={`px-3 py-2 rounded-xl text-[10px] font-semibold tracking-[-0.01em] border transition-all cursor-pointer ${
                 dealType === t
-                ? "bg-[#6C5CE0]/20 border-[#8B7CF6]/60 text-white shadow-sm shadow-[#6C5CE0]/20"
-                  : "bg-[#12172A]/80 border-white/[0.09] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/40"
+                ? "bg-white/20 border-white/20  text-black shadow-sm shadow-white/20"
+                  : "bg-[#0A0A0A]/80 border-white/[0.09] text-[#A3A3A3] hover:text-white hover:border-white/20 "
               }`}
             >
               {t}
@@ -95,7 +95,7 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
           value={dealType}
           onChange={(e) => setDealType(e.target.value)}
           placeholder="e.g. Custom agreement…"
-          className={`${inputCls} mt-1 text-xs !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3 focus:!border-[#7C6AEE]/60`}
+          className={`${inputCls} mt-1 text-xs !rounded-xl !border-white/[0.09] !bg-[#070707] !px-4 !py-3 focus:!border-[#7C6AEE]/60`}
         />
       </div>
 
@@ -105,7 +105,7 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe the deliverables, scope, and any deadlines…"
-          className={`${inputCls} resize-none h-28 text-xs !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3 !leading-relaxed focus:!border-[#7C6AEE]/60`}
+          className={`${inputCls} resize-none h-28 text-xs !rounded-xl !border-white/[0.09] !bg-[#070707] !px-4 !py-3 !leading-relaxed focus:!border-[#7C6AEE]/60`}
         />
       </div>
 
@@ -124,7 +124,7 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
               }
             }}
             placeholder="0.00"
-            className={`${inputCls} !rounded-xl !border-white/[0.09] !bg-[#0D1324] !px-4 !py-3 font-mono text-sm font-semibold focus:!border-[#7C6AEE]/60`}
+            className={`${inputCls} !rounded-xl !border-white/[0.09] !bg-[#070707] !px-4 !py-3 font-mono text-sm font-semibold focus:!border-[#7C6AEE]/60`}
           />
         </div>
         <div>
@@ -132,7 +132,7 @@ export default function DealSetup({ deal, busy, onSave }: Props) {
           <div className="px-4 py-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-400/20 text-[11px] text-emerald-300 font-semibold tracking-[-0.01em]">
             100% of deal amount
           </div>
-          <p className="text-[9px] leading-relaxed text-[#7F8BA3] mt-1.5">
+          <p className="text-[9px] leading-relaxed text-[#858585] mt-1.5">
             Both buyer and seller post the same collateral {isBdtMode ? "toward this deal." : "into the escrow."}
           </p>
         </div>

@@ -9,21 +9,15 @@
 //   POST   /api/mcp/agent/chat              -> MCP-enabled agent chat turn
 //
 // ROUTING (Vercel, non-Next.js): the api/ directory maps each file to an
-// EXACT URL — a `[...path]` catch-all is NOT honoured at deeper levels, it
-// only matches a single segment. This file is therefore a real, exact-path
-// function at /api/mcp/gateway. Every deeper /api/mcp/* URL is deployed by its
-// own exact-path file that pins the segments and calls this handler:
-//
-//   api/mcp/connections.ts                -> GET  /api/mcp/connections
-//                                            POST /api/mcp/connections
-//   api/mcp/connections/[id].ts           -> PATCH/DELETE /api/mcp/connections/:id
-//   api/mcp/connections/[id]/test.ts      -> POST /api/mcp/connections/:id/test
-//   api/mcp/agent/chat.ts                 -> POST /api/mcp/agent/chat
-//
-// The `rewrites` entry in vercel.json still forwards any remaining /api/mcp/*
-// URL as `?path=<a/b/c>`, and requests that reach this function directly are
-// parsed from req.url — but the platform-level 404 that previously shadowed
-// these routes is eliminated by the files above, not by the rewrite.
+// EXACT URL, and a `[...path]` catch-all is NOT honoured at deeper levels (it
+// only matches a single segment). This file is therefore the ONE deployed
+// /api/mcp function, at the exact path /api/mcp/gateway. Every other
+// /api/mcp/* URL is forwarded here by the `rewrites` entry in vercel.json,
+// which passes the full remaining path as `?path=<a/b/c>` (path-to-regexp
+// `(.*)` capture, never a `^...$`-anchored regex — Vercel wraps the source in
+// its own anchors, so added anchors are escaped and the rule never matches).
+// `readPathSegments` below reads that query, falling back to req.url when the
+// function is called directly.
 //
 // This module is a thin transport shell. All logic — authentication, Firestore
 // access, encryption, SSRF validation and the MCP handshake — lives in
@@ -124,12 +118,33 @@ function jsonResponse(
   }
 }
 
+/**
+ * Split a captured `path` value into decoded segments. The rewrite in
+ * vercel.json may hand the multi-segment capture back either raw
+ * ("connections/abc") or percent-encoded ("connections%2Fabc"); normalizing
+ * both keeps routing identical. Connection ids are 24 hex chars, so decoding
+ * can never alter a real segment.
+ */
+function splitCapturedPath(value: string): string[] {
+  const normalized = /%2f/i.test(value) ? value.replace(/%2f/gi, "/") : value;
+  return normalized
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    });
+}
+
 function readPathSegments(req: VercelRequest): string[] {
   const raw = req.query.path;
   const fromQuery = Array.isArray(raw)
-    ? raw.flatMap((s) => s.split("/")).filter(Boolean)
+    ? raw.flatMap(splitCapturedPath)
     : typeof raw === "string" && raw.length > 0
-      ? raw.split("/").filter(Boolean)
+      ? splitCapturedPath(raw)
       : [];
   if (fromQuery.length > 0) return fromQuery;
 

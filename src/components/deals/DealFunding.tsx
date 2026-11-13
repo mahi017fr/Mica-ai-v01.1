@@ -90,27 +90,27 @@ export default function DealFunding({
     return (
       <Section title="Deal Payment" subtitle="Payment is settled natively in Bangladeshi Taka (BDT).">
         <div className="grid gap-2.5">
-          <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Amount</span>
+          <div className="p-3 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04] flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A3A3A3]">Amount</span>
             <p className="text-[16px] font-mono font-black text-white">{formatMoney(amount)}</p>
           </div>
 
           {terms?.description && (
-            <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between gap-3">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] shrink-0">Service</span>
-              <p className="text-[11px] font-medium text-[#E0DAFF] text-right truncate">{terms.description}</p>
+            <div className="p-3 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04] flex items-center justify-between gap-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#A3A3A3] shrink-0">Service</span>
+              <p className="text-[11px] font-medium text-white text-right truncate">{terms.description}</p>
             </div>
           )}
 
-          <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Payment Method</span>
+          <div className="p-3 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04] flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A3A3A3]">Payment Method</span>
             <span className="px-2 py-0.5 rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 text-[9px] font-mono font-bold">
               BDT
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Payment Status</span>
+          <div className="p-3 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04] flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A3A3A3]">Payment Status</span>
             <span className={`px-2 py-0.5 rounded-md border font-mono text-[9px] font-bold uppercase ${paid ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25" : "bg-amber-500/10 text-amber-300 border-amber-500/25"}`}>
               {paid ? "Paid" : "Payment Pending"}
             </span>
@@ -152,7 +152,7 @@ export default function DealFunding({
               value={cancelNote}
               onChange={(e) => setCancelNote(e.target.value)}
               placeholder="Optional cancel reason…"
-              className="flex-1 bg-[#12172A] border border-white/[0.08] rounded-xl px-3 py-2 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500/50 transition-all"
+              className="flex-1 bg-[#0A0A0A] border border-white/[0.08] rounded-xl px-3 py-2 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500/50 transition-all"
             />
             <ActionButton onClick={() => onCancel(cancelNote.trim())} disabled={!!busy} busy={busy === "cancel"} variant="danger">
               Cancel Deal
@@ -160,7 +160,7 @@ export default function DealFunding({
           </div>
         )}
 
-        <p className="text-[9px] text-[#94A3B8]">Network: BDT · Asset: Bangladeshi Taka</p>
+        <p className="text-[9px] text-[#A3A3A3]">Network: BDT · Asset: Bangladeshi Taka</p>
       </Section>
     );
   }
@@ -185,12 +185,12 @@ export default function DealFunding({
         ? "bg-amber-500/10 text-amber-300 border-amber-500/25"
         : status === "refunded"
         ? "bg-slate-500/10 text-slate-400 border-slate-400/20"
-        : "bg-white/[0.04] text-[#94A3B8] border-white/[0.06]";
+        : "bg-white/[0.04] text-[#A3A3A3] border-white/[0.06]";
     const isMyLeg = myRole === role;
     return (
-      <div className="p-3 rounded-xl bg-[#12172A]/40 border border-white/[0.04] space-y-2">
+      <div className="p-3 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04] space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#A3A3A3]">
             {role === "buyer" ? "🛒 Buyer · Price" : "🛍 Seller · Collateral"}
           </span>
           <span className={`px-2 py-0.5 rounded-md border font-mono text-[9px] font-bold uppercase ${badge}`}>
@@ -202,7 +202,7 @@ export default function DealFunding({
           <WalletChip address={role === "buyer" ? deal?.buyerWallet : deal?.sellerWallet} />
         </div>
         {leg?.txHash && (
-          <p className="text-[9px] font-mono text-[#94A3B8] break-all">tx {leg.txHash}</p>
+          <p className="text-[9px] font-mono text-[#A3A3A3] break-all">tx {leg.txHash}</p>
         )}
         {isMyLeg && canFund(role, deal) && (
           <ActionButton
@@ -285,13 +285,13 @@ export default function DealFunding({
 
       {escrow && escrow.custodyMode === "contract" && (
         <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-black/30 border border-white/[0.05]">
-          <span className="text-[10px] font-mono text-[#94A3B8]">Your USDC balance</span>
+          <span className="text-[10px] font-mono text-[#A3A3A3]">Your USDC balance</span>
           {balance.status === "success" ? (
             <span className="text-[13px] font-mono font-black text-emerald-300">{fmtUsdc(balance.balance)} USDC</span>
           ) : balance.status === "checking" ? (
-            <Loader2 className="w-4 h-4 animate-spin text-[#6C5CE0]" />
+            <Loader2 className="w-4 h-4 animate-spin text-white" />
           ) : (
-            <span className="text-[10px] font-mono text-[#94A3B8]">unavailable</span>
+            <span className="text-[10px] font-mono text-[#A3A3A3]">unavailable</span>
           )}
         </div>
       )}
@@ -310,7 +310,7 @@ export default function DealFunding({
             value={cancelNote}
             onChange={(e) => setCancelNote(e.target.value)}
             placeholder="Optional cancel reason…"
-            className="flex-1 bg-[#12172A] border border-white/[0.08] rounded-xl px-3 py-2 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500/50 transition-all"
+            className="flex-1 bg-[#0A0A0A] border border-white/[0.08] rounded-xl px-3 py-2 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500/50 transition-all"
           />
           <ActionButton
             onClick={() => onCancel(cancelNote.trim())}
@@ -324,7 +324,7 @@ export default function DealFunding({
       )}
 
       {ARC_NETWORK && (
-        <p className="text-[9px] text-[#94A3B8]">
+        <p className="text-[9px] text-[#A3A3A3]">
           Network: Arc ({ARC_NETWORK.chainId}) · Asset: Circle USDC
         </p>
       )}

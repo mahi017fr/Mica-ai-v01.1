@@ -206,14 +206,14 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
   const showList = !loading && connections.length > 0;
 
   const loadingBlock = (
-    <div className="flex items-center gap-2 py-4 text-[12px] text-[#8B93A7]">
+    <div className="flex items-center gap-2 py-4 text-[12px] text-[#8F8F8F]">
       <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
       Loading connections
     </div>
   );
 
   const errorBlock = !loadError ? null : (
-    <div className="flex items-start gap-2 rounded-xl border border-white/[0.08] bg-[#111722] px-3.5 py-3">
+    <div className="flex items-start gap-2 rounded-xl border border-white/[0.08] bg-[#080808] px-3.5 py-3">
       <AlertTriangle className="w-3.5 h-3.5 text-white shrink-0 mt-0.5" />
       <div className="min-w-0">
         <p className="text-[12px] text-red-400 leading-relaxed break-words">{loadError}</p>
@@ -245,7 +245,7 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="relative rounded-xl border border-white/[0.08] bg-[#111722] px-3.5 py-3 transition-colors hover:border-white/[0.16]"
+            className="relative rounded-xl border border-white/[0.08] bg-[#080808] px-3.5 py-3 transition-colors hover:border-white/[0.16]"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
@@ -259,11 +259,11 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
                   </span>
                 </div>
 
-                <p className="mt-1 pl-4 text-[11px] font-mono text-[#8B93A7] break-all">
+                <p className="mt-1 pl-4 text-[11px] font-mono text-[#8F8F8F] break-all">
                   {connection.endpointUrl}
                 </p>
 
-                <p className="mt-1 pl-4 flex flex-wrap items-center text-[11px] text-[#8B93A7]">
+                <p className="mt-1 pl-4 flex flex-wrap items-center text-[11px] text-[#8F8F8F]">
                   <span>{AUTH_LABEL[connection.authType]}</span>
                   {typeof connection.toolCount === "number" ? (
                     <>
@@ -325,7 +325,7 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
                       onClick={() => setMenuId(null)}
                       aria-hidden="true"
                     />
-                    <div className="absolute right-0 top-full mt-1.5 z-40 w-40 rounded-xl border border-white/[0.08] bg-[#111722] p-1 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
+                    <div className="absolute right-0 top-full mt-1.5 z-40 w-40 rounded-xl border border-white/[0.08] bg-[#080808] p-1 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
                       <button
                         type="button"
                         onClick={() => {
@@ -360,9 +360,9 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
   );
 
   const emptyState = (
-    <div className="rounded-xl border border-dashed border-white/[0.1] bg-[#111722] px-4 py-5">
+    <div className="rounded-xl border border-dashed border-white/[0.1] bg-[#080808] px-4 py-5">
       <p className="text-[13px] font-semibold text-white">No MCP servers connected</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-[#8B93A7]">
+      <p className="mt-1 text-[12px] leading-relaxed text-[#8F8F8F]">
         {variant === "panel"
           ? "Connect an external MCP server to give MICA access to its tools."
           : "Connect an MCP server to give MICA access to external tools."}
@@ -371,7 +371,7 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
         <button
           type="button"
           onClick={openCreate}
-          className="mt-3.5 inline-flex items-center gap-1.5 rounded-[10px] bg-[#6C5CE0] px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#7A6BE8] cursor-pointer"
+          className="mt-3.5 inline-flex items-center gap-1.5 rounded-[10px] bg-white px-3.5 py-2 text-[12px] font-semibold text-black transition-colors hover:bg-white cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5 text-white" />
           Connect MCP
@@ -383,7 +383,7 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
   const securityNote = (
     <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
       <Lock className="w-3.5 h-3.5 text-white shrink-0" />
-      <p className="text-[11px] leading-relaxed text-[#8B93A7]">
+      <p className="text-[11px] leading-relaxed text-[#8F8F8F]">
         Credentials are encrypted and never exposed to the browser.
       </p>
     </div>
@@ -407,17 +407,17 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 8 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 w-full max-w-[400px] rounded-2xl border border-white/[0.08] bg-[#111722] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
+            className="relative z-10 w-full max-w-[400px] rounded-2xl border border-white/[0.08] bg-[#080808] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
           >
             <h4 className="text-[13px] font-bold text-white">Delete MCP connection?</h4>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-[#8B93A7]">
+            <p className="mt-1.5 text-[12px] leading-relaxed text-[#8F8F8F]">
               "{confirmDelete.name}" and its stored credential will be permanently removed.
             </p>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmDelete(null)}
-                className="rounded-[10px] border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[12px] font-semibold text-[#A7B0C0] transition-colors hover:border-white/20 hover:text-white cursor-pointer"
+                className="rounded-[10px] border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-[12px] font-semibold text-[#B3B3B3] transition-colors hover:border-white/20 hover:text-white cursor-pointer"
               >
                 Cancel
               </button>
@@ -483,7 +483,7 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
   // SETTINGS — global Settings page card.
   // -------------------------------------------------------------------------
   return (
-    <div className="bg-[#12172A]/60 border border-white/10 p-4.5 sm:p-5 rounded-2xl space-y-3.5">
+    <div className="bg-[#0A0A0A]/60 border border-white/10 p-4.5 sm:p-5 rounded-2xl space-y-3.5">
       {/* Section header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -492,7 +492,7 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
             <h3 className="text-[11px] font-black text-white uppercase tracking-widest font-mono">
               MCP Connections
             </h3>
-            <p className="text-[10px] text-[#8B93A7] font-medium">
+            <p className="text-[10px] text-[#8F8F8F] font-medium">
               External Model Context Protocol servers
             </p>
           </div>
@@ -501,7 +501,7 @@ const McpConnectionsSection: React.FC<McpConnectionsSectionProps> = ({
         <button
           type="button"
           onClick={openCreate}
-          className="shrink-0 min-h-0 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-wider text-white hover:border-[#6C5CE0]/50 hover:bg-[#6C5CE0]/15 transition-colors duration-150 cursor-pointer"
+          className="shrink-0 min-h-0 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-wider text-white hover:border-white/20  hover:bg-white/15 transition-colors duration-150 cursor-pointer"
         >
           <Plus className="w-3 h-3 text-white" />
           Add MCP

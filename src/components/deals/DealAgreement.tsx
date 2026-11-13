@@ -53,33 +53,33 @@ export function DealAgreement({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
-          <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Price</p>
+        <div className="p-3 rounded-xl bg-[#000000]/70 border border-white/[0.06]">
+          <p className="text-[9px] font-mono text-[#A3A3A3] uppercase">Price</p>
           <p className="text-[12px] font-mono font-bold text-white mt-0.5">{isBdtMode ? formatMoney(terms.amount) : `${fmtUsdc(terms.amount)} USDC`}</p>
         </div>
-        <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
-          <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Collateral</p>
+        <div className="p-3 rounded-xl bg-[#000000]/70 border border-white/[0.06]">
+          <p className="text-[9px] font-mono text-[#A3A3A3] uppercase">Collateral</p>
           <p className="text-[12px] font-mono font-bold text-white mt-0.5">{terms.collateralPercent}%</p>
         </div>
-        <div className="p-3 rounded-xl bg-[#0A0F1E]/70 border border-white/[0.06]">
-          <p className="text-[9px] font-mono text-[#94A3B8] uppercase">Network</p>
+        <div className="p-3 rounded-xl bg-[#000000]/70 border border-white/[0.06]">
+          <p className="text-[9px] font-mono text-[#A3A3A3] uppercase">Network</p>
           <p className="text-[12px] font-mono font-bold text-white mt-0.5">{isBdtMode ? "BDT · Taka" : "Arc · USDC"}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/[0.05] bg-[#0A0F1E]/35 p-3.5 space-y-2">
-        <p className="text-[9px] font-mono text-[#6C5CE0] uppercase tracking-wider font-bold">Clauses</p>
+      <div className="rounded-2xl border border-white/[0.05] bg-[#000000]/35 p-3.5 space-y-2">
+        <p className="text-[9px] font-mono text-white uppercase tracking-wider font-bold">Clauses</p>
         {agreement.clauses.map((c, i) => (
-          <div key={i} className="flex gap-2 text-[11px] text-[#F8FAFC] leading-relaxed">
-            <span className="text-[#6C5CE0] font-mono shrink-0">{i + 1}.</span>
+          <div key={i} className="flex gap-2 text-[11px] text-[#FFFFFF] leading-relaxed">
+            <span className="text-white font-mono shrink-0">{i + 1}.</span>
             <span>{c}</span>
           </div>
         ))}
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-[9px] font-mono text-[#94A3B8]">
-          fingerprint: <span className="text-[#6C5CE0]">{agreement.contentHash.slice(0, 14)}…</span>
+        <p className="text-[9px] font-mono text-[#A3A3A3]">
+          fingerprint: <span className="text-white">{agreement.contentHash.slice(0, 14)}…</span>
         </p>
         {!locked && (
           <ActionButton onClick={onGenerate} disabled={busy} busy={busy} variant="ghost">
@@ -114,7 +114,7 @@ export function DealConsent({
   const locked = agreement.state === "locked" || !!agreement.lockedAt;
 
   const Row = ({ role, name, done, at }: { role: DealRole; name: string; done: boolean; at?: string }) => (
-    <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#12172A]/40 border border-white/[0.04]">
+    <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04]">
       <div className="flex items-center gap-2">
         <RoleTag role={role} />
         <span className="text-[11px] text-white font-semibold">{name}</span>
@@ -124,7 +124,7 @@ export function DealConsent({
           <Check className="w-3 h-3" /> Accepted
         </span>
       ) : (
-        <span className="text-[9px] font-mono text-[#94A3B8] uppercase">Pending</span>
+        <span className="text-[9px] font-mono text-[#A3A3A3] uppercase">Pending</span>
       )}
     </div>
   );
@@ -153,7 +153,7 @@ export function DealConsent({
           <Lock className="w-3.5 h-3.5" /> Agreement locked and immutable.{isBdtMode ? " The BDT payment can begin." : " Escrow funding can begin."}
         </p>
       )}
-      <p className="text-[9px] text-[#94A3B8]">
+      <p className="text-[9px] text-[#A3A3A3]">
         {isBdtMode ? "Payment method: " : "Your wallet: "}
         <WalletChip address={myRole === "seller" ? deal?.sellerWallet : deal?.buyerWallet} />
       </p>

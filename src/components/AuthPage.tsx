@@ -30,6 +30,7 @@ import { usePrivy } from "@privy-io/react-auth";
 
 // @ts-ignore
 import spaceGirlBg from "../assets/images/anime_space_girl_bg_1782060437755.jpg";
+import micaLogo from "../assets/images/mica2ndlogo.png";
 
 interface AuthPageProps {
   onAuthSuccess: (user: any) => void;
@@ -48,6 +49,14 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
 
   // Visual-only: tracks which input is focused for glass glow effect
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Ensure a freshly opened login page never restores temporary input values
+  useEffect(() => {
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setUsername("");
+  }, []);
 
   // System setup info collapsibility
   const [showFirebaseSetup, setShowFirebaseSetup] = useState(false);
@@ -258,23 +267,13 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
   };
 
   return (
-    <div id="auth_container" className="min-h-[100dvh] w-full flex bg-[#0B0F17] text-white overflow-hidden select-none relative">
+    <div id="auth_container" className="min-h-[100dvh] w-full flex bg-[#000000] text-white overflow-hidden select-none relative">
 
       {/* LEFT - branding artwork panel (visual only, hidden on mobile) */}
       <MicaBrandPanel />
 
       {/* RIGHT - login form: open, minimal, no card */}
-      <main className="relative flex flex-1 min-h-[100dvh] flex-col items-center justify-center overflow-y-auto custom-scrollbar px-6 pt-14 pb-36 sm:px-10 sm:pb-40">
-
-        {/* Subtle purple/blue ambience behind the form */}
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(65% 45% at 50% 0%, rgba(108,92,224,0.14) 0%, transparent 70%)," +
-              "radial-gradient(55% 40% at 50% 100%, rgba(37,99,235,0.08) 0%, transparent 75%)",
-          }}
-        />
+      <main className="relative flex flex-1 min-h-[100dvh] flex-col items-center justify-center overflow-y-auto custom-scrollbar bg-black px-6 pt-14 pb-36 sm:px-10 sm:pb-40">
 
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -291,7 +290,20 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
               transition={{ duration: 0.3 }}
               className="text-[30px] sm:text-[36px] font-semibold tracking-tight text-white leading-tight"
             >
-              {isLogin ? "Log in to MICA" : "Create your account"}
+              {isLogin ? (
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  <span>Log in to</span>
+                  <img
+                    src={micaLogo}
+                    alt="MICA"
+                    draggable={false}
+                    className="inline-block h-[30px] w-auto select-none sm:h-[37px]"
+                    style={{ filter: "brightness(0) invert(1)" }}
+                  />
+                </span>
+              ) : (
+                "Create your account"
+              )}
             </motion.h1>
 
             <p className="mt-2 text-sm font-normal tracking-wide text-zinc-500">
@@ -365,7 +377,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
               className="group flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 cursor-pointer transition-all duration-200 hover:border-white/15 hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="flex items-center gap-3">
-                <Wallet className="h-[18px] w-[18px] shrink-0 text-[#8B7FF0]" />
+                <Wallet className="h-[18px] w-[18px] shrink-0 text-white" />
                 <span className="text-sm font-medium text-zinc-200 transition-colors group-hover:text-white whitespace-nowrap">
                   Continue with Wallet
                 </span>
@@ -386,13 +398,13 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
           </div>
 
           {/* Email Form */}
-          <form onSubmit={handleEmailAuth} className="space-y-3">
+          <form onSubmit={handleEmailAuth} autoComplete="off" className="space-y-3">
 
             {/* Email Address */}
             <div
               className={`rounded-xl border bg-white/[0.03] px-4 py-3 transition-all duration-200 ${
                 focusedField === "email"
-                  ? "border-[#6C5CE0]/60 ring-2 ring-[#6C5CE0]/15"
+                  ? "border-white/60 ring-2 ring-white/15"
                   : "border-white/10 hover:border-white/20"
               }`}
             >
@@ -402,6 +414,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
               <input
                 type="email"
                 required
+                autoComplete="off"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onFocus={() => setFocusedField("email")}
@@ -416,7 +429,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
               <div
                 className={`rounded-xl border bg-white/[0.03] px-4 py-3 transition-all duration-200 ${
                   focusedField === "username"
-                    ? "border-[#6C5CE0]/60 ring-2 ring-[#6C5CE0]/15"
+                    ? "border-white/60 ring-2 ring-white/15"
                     : "border-white/10 hover:border-white/20"
                 }`}
               >
@@ -426,6 +439,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
                 <input
                   type="text"
                   required
+                  autoComplete="off"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onFocus={() => setFocusedField("username")}
@@ -440,7 +454,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
             <div
               className={`rounded-xl border bg-white/[0.03] px-4 py-3 transition-all duration-200 ${
                 focusedField === "password"
-                  ? "border-[#6C5CE0]/60 ring-2 ring-[#6C5CE0]/15"
+                  ? "border-white/60 ring-2 ring-white/15"
                   : "border-white/10 hover:border-white/20"
               }`}
             >
@@ -450,6 +464,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={() => setFocusedField("password")}
@@ -464,7 +479,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
               <div
                 className={`rounded-xl border bg-white/[0.03] px-4 py-3 transition-all duration-200 ${
                   focusedField === "confirmPassword"
-                    ? "border-[#6C5CE0]/60 ring-2 ring-[#6C5CE0]/15"
+                    ? "border-white/60 ring-2 ring-white/15"
                     : "border-white/10 hover:border-white/20"
                 }`}
               >
@@ -474,6 +489,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
                 <input
                   type="password"
                   required
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   onFocus={() => setFocusedField("confirmPassword")}
@@ -491,7 +507,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
               type="submit"
               disabled={loading}
               id="standard_auth_submit"
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6C5CE0] px-5 py-3.5 text-sm font-semibold text-white cursor-pointer transition-colors duration-200 hover:bg-[#7A6BE8] disabled:opacity-60 disabled:hover:scale-100"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-black cursor-pointer transition-colors duration-200 hover:bg-white/90 disabled:opacity-60 disabled:hover:scale-100"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -515,7 +531,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
                     setError("");
                     setIsLogin(false);
                   }}
-                  className="ml-0.5 font-semibold text-[#8B7FF0] transition-colors hover:text-[#A79BF2] cursor-pointer hover:underline"
+                  className="ml-0.5 font-semibold text-white transition-colors hover:text-white cursor-pointer hover:underline"
                 >
                   Sign up
                 </button>
@@ -529,7 +545,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
                     setError("");
                     setIsLogin(true);
                   }}
-                  className="ml-0.5 font-semibold text-[#8B7FF0] transition-colors hover:text-[#A79BF2] cursor-pointer hover:underline"
+                  className="ml-0.5 font-semibold text-white transition-colors hover:text-white cursor-pointer hover:underline"
                 >
                   Sign in
                 </button>

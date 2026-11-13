@@ -561,31 +561,31 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   // ─── LIST VIEW ────────────────────────────────────────────────────
   if (view === "list") {
     return (
-      <div className="flex-1 flex flex-col h-full bg-[#0D111D]/70 overflow-hidden">
+      <div className="flex-1 flex flex-col h-full bg-[#050505]/70 overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:px-6 bg-[#12172A]/95 backdrop-blur-md border-b border-white/5 flex items-center justify-between z-10 shrink-0 select-none">
+        <div className="p-4 sm:px-6 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-white/5 flex items-center justify-between z-10 shrink-0 select-none">
           <div className="flex items-center gap-3 w-full">
             <button
               onClick={onBack}
-              className="p-2 rounded-xl bg-[#12172A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-[#6C5CE0]/50 hover:bg-[#161A2B] cursor-pointer flex items-center justify-center mr-1"
+              className="p-2 rounded-xl bg-[#0A0A0A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-white/20  hover:bg-[#111111] cursor-pointer flex items-center justify-center mr-1"
               title="Back"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="min-w-0 flex-1">
               <h2 className="text-sm font-black text-white uppercase tracking-widest font-mono flex items-center gap-2">
-                <Handshake className="w-4 h-4 text-[#6C5CE0] drop-shadow-[0_0_8px_rgba(108,92,224,0.12)]" />
+                <Handshake className="w-4 h-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.12)]" />
                 Deal Room
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] text-[#94A3B8] font-sans font-medium">
+                <span className="text-[10px] text-[#A3A3A3] font-sans font-medium">
                   Secure Negotiation Workspace
                 </span>
               </div>
             </div>
             <button
               onClick={() => setView("create")}
-              className="p-2 rounded-xl bg-[#6C5CE0] hover:bg-[#5B4BD0] text-white transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+              className="p-2 rounded-xl bg-white hover:bg-neutral-200 text-black transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">New Room</span>
@@ -597,14 +597,14 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 custom-scrollbar space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-[#6C5CE0]" />
+              <Loader2 className="w-6 h-6 animate-spin text-white" />
             </div>
           ) : (
             <>
               {/* Pending Invitations */}
               {invitations.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="text-[10px] text-[#F472B6] font-extrabold uppercase tracking-wider px-1">
+                  <h3 className="text-[10px] text-[#D4D4D4] font-extrabold uppercase tracking-wider px-1">
                     Pending Invitations ({invitations.length})
                   </h3>
                   {invitations.map((inv) => {
@@ -619,15 +619,15 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                         key={inv.id}
                         className={`rounded-2xl p-4 border transition-all ${
                           isExpired
-                            ? "bg-[#12172A]/20 border-white/[0.04] opacity-60"
-                            : "bg-gradient-to-r from-[#F472B6]/[0.06] to-transparent border-[#F472B6]/20"
+                            ? "bg-[#0A0A0A]/20 border-white/[0.04] opacity-60"
+                            : "bg-gradient-to-r from-[#D4D4D4]/[0.06] to-transparent border-[#D4D4D4]/20"
                         }`}
                       >
                         {/* Top row: title + countdown */}
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <Handshake className="w-4 h-4 text-[#F472B6] shrink-0" />
+                              <Handshake className="w-4 h-4 text-[#D4D4D4] shrink-0" />
                               <p className="text-sm text-white font-semibold truncate">{inv.dealRoomTitle}</p>
                             </div>
                           </div>
@@ -635,8 +635,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                             isExpired
                               ? "bg-red-500/10 border-red-500/20 text-red-400"
                               : isExpiringSoon
-                              ? "bg-orange-500/10 border-orange-500/20 text-orange-400 animate-pulse"
-                              : "bg-[#6C5CE0]/10 border-[#6C5CE0]/20 text-[#A78BFA]"
+                              ? "bg-amber/10 border-amber/20 text-amber animate-pulse"
+                              : "bg-white/10 border-white/20  text-white"
                           }`}>
                             <Timer className="w-3 h-3" />
                             {isExpired ? "Expired" : formatCountdown(remaining)}
@@ -646,17 +646,17 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                         {/* Details grid */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3 px-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-[#94A3B8] font-mono uppercase">From</span>
+                            <span className="text-[9px] text-[#A3A3A3] font-mono uppercase">From</span>
                             <span className="text-[10px] text-white font-medium">@{inv.invitedByUsername}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-[#94A3B8] font-mono uppercase">Created</span>
+                            <span className="text-[9px] text-[#A3A3A3] font-mono uppercase">Created</span>
                             <span className="text-[10px] text-white font-medium">{formatCreatedTime(inv.createdAt)}</span>
                           </div>
                           <div className="flex items-center gap-1.5 col-span-2">
-                            <Hash className="w-3 h-3 text-[#94A3B8]" />
-                            <span className="text-[9px] text-[#94A3B8] font-mono uppercase">Room</span>
-                            <span className="text-[10px] text-[#6C5CE0] font-mono">{inv.dealRoomId.slice(0, 12)}...</span>
+                            <Hash className="w-3 h-3 text-[#A3A3A3]" />
+                            <span className="text-[9px] text-[#A3A3A3] font-mono uppercase">Room</span>
+                            <span className="text-[10px] text-white font-mono">{inv.dealRoomId.slice(0, 12)}...</span>
                           </div>
                         </div>
 
@@ -678,7 +678,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                             <button
                               onClick={() => handleDeclineInvite(inv)}
                               disabled={isAccepting || isDeclining}
-                              className="flex-1 px-3 py-2 rounded-xl bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-[#94A3B8] hover:text-red-400 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="flex-1 px-3 py-2 rounded-xl bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-[#A3A3A3] hover:text-red-400 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               {isDeclining ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -700,14 +700,14 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
 
               {/* Active Rooms */}
               <div className="space-y-3">
-                <h3 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
+                <h3 className="text-[10px] text-white font-extrabold uppercase tracking-wider px-1">
                   Your Deal Rooms ({rooms.length})
                 </h3>
                 {rooms.length === 0 ? (
-                  <div className="p-8 text-center border border-dashed border-white/[0.06] rounded-2xl bg-[#0D111D]/10">
-                    <Handshake className="w-8 h-8 text-[#6C5CE0]/40 mx-auto mb-3" />
-                    <p className="text-sm text-[#94A3B8] font-medium">No deal rooms yet</p>
-                    <p className="text-[10px] text-[#6C5CE0] mt-1">
+                  <div className="p-8 text-center border border-dashed border-white/[0.06] rounded-2xl bg-[#050505]/10">
+                    <Handshake className="w-8 h-8 text-white/40 mx-auto mb-3" />
+                    <p className="text-sm text-[#A3A3A3] font-medium">No deal rooms yet</p>
+                    <p className="text-[10px] text-white mt-1">
                       Create a secure workspace to negotiate deals.
                     </p>
                   </div>
@@ -727,8 +727,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                           onClick={() => openRoom(room)}
                           className={`w-full p-4 rounded-2xl text-left transition-all duration-200 cursor-pointer border ${
                             isExpired
-                              ? "bg-[#12172A]/20 border-white/[0.04] opacity-60"
-                              : "bg-[#12172A]/40 border-white/[0.06] hover:bg-[#6C5CE0]/[0.06] hover:border-[#6C5CE0]/20"
+                              ? "bg-[#0A0A0A]/20 border-white/[0.04] opacity-60"
+                              : "bg-[#0A0A0A]/40 border-white/[0.06] hover:bg-white/[0.06] hover:border-white/20 "
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -746,11 +746,11 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                                 )}
                               </div>
                               <div className="flex items-center gap-3 mt-2">
-                                <span className="flex items-center gap-1 text-[10px] text-[#94A3B8]">
+                                <span className="flex items-center gap-1 text-[10px] text-[#A3A3A3]">
                                   <Users className="w-3 h-3" />
                                   {room.participants.length} participant{room.participants.length !== 1 ? "s" : ""}
                                 </span>
-                                <span className="flex items-center gap-1 text-[10px] text-[#94A3B8]">
+                                <span className="flex items-center gap-1 text-[10px] text-[#A3A3A3]">
                                   <Clock className="w-3 h-3" />
                                   {isExpired ? "Expired" : formatCountdown(remaining)}
                                 </span>
@@ -764,7 +764,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                                     handleDeleteRoom(room.id);
                                   }
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#94A3B8] hover:text-red-400 transition-all cursor-pointer shrink-0"
+                                className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#A3A3A3] hover:text-red-400 transition-all cursor-pointer shrink-0"
                                 title="Delete room"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -787,9 +787,9 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
   // ─── CREATE ROOM VIEW ─────────────────────────────────────────────
   if (view === "create") {
     return (
-      <div className="flex-1 flex flex-col h-full bg-[#0D111D]/70 overflow-hidden">
+      <div className="flex-1 flex flex-col h-full bg-[#050505]/70 overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:px-6 bg-[#12172A]/95 backdrop-blur-md border-b border-white/5 flex items-center gap-3 z-10 shrink-0 select-none">
+        <div className="p-4 sm:px-6 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-white/5 flex items-center gap-3 z-10 shrink-0 select-none">
           <button
             onClick={() => {
               setView("list");
@@ -798,7 +798,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
               setInviteSearch("");
               setInviteResults([]);
             }}
-            className="p-2 rounded-xl bg-[#12172A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-[#6C5CE0]/50 hover:bg-[#161A2B] cursor-pointer flex items-center justify-center"
+            className="p-2 rounded-xl bg-[#0A0A0A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-white/20  hover:bg-[#111111] cursor-pointer flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -806,7 +806,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             <h2 className="text-sm font-black text-white uppercase tracking-widest font-mono">
               Create Deal Room
             </h2>
-            <p className="text-[10px] text-[#94A3B8] mt-0.5">Expires in 24 hours</p>
+            <p className="text-[10px] text-[#A3A3A3] mt-0.5">Expires in 24 hours</p>
           </div>
         </div>
 
@@ -815,7 +815,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           <div className="max-w-[700px] mx-auto space-y-6">
           {/* Room Title */}
           <div className="space-y-2">
-            <label className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider">
+            <label className="text-[10px] text-white font-extrabold uppercase tracking-wider">
               Room Title
             </label>
             <input
@@ -823,7 +823,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
               value={newRoomTitle}
               onChange={(e) => setNewRoomTitle(e.target.value)}
               placeholder="e.g. NFT Licensing Agreement"
-              className="w-full bg-[#12172A] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-[#6C5CE0]/60 focus:ring-1 focus:ring-[#6C5CE0]/20 transition-all"
+              className="w-full bg-[#0A0A0A] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-white/20  focus:ring-1 focus:ring-white/20  transition-all"
               maxLength={80}
             />
           </div>
@@ -831,10 +831,10 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           {/* Invite Users (max 3) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider">
+              <label className="text-[10px] text-white font-extrabold uppercase tracking-wider">
                 Invite Participants
               </label>
-              <span className="text-[10px] text-[#94A3B8] font-mono">
+              <span className="text-[10px] text-[#A3A3A3] font-mono">
                 {selectedInvitees.length}/3
               </span>
             </div>
@@ -845,17 +845,17 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                 {selectedInvitees.map((u) => (
                   <div
                     key={u.uid}
-                    className="flex items-center gap-2 bg-[#6C5CE0]/10 border border-[#6C5CE0]/30 rounded-lg px-3 py-1.5"
+                    className="flex items-center gap-2 bg-white/10 border border-white/20  rounded-lg px-3 py-1.5"
                   >
                     <img
                       src={u.avatarUrl || getAvatarUrl(u.uid)}
                       alt=""
-                      className="w-5 h-5 rounded-full bg-[#161A2B] border border-white/10"
+                      className="w-5 h-5 rounded-full bg-[#111111] border border-white/10"
                     />
                     <span className="text-xs text-white font-medium">{u.displayName}</span>
                     <button
                       onClick={() => toggleInvitee(u)}
-                      className="text-[#94A3B8] hover:text-red-400 transition-colors cursor-pointer"
+                      className="text-[#A3A3A3] hover:text-red-400 transition-colors cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -868,19 +868,19 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             {selectedInvitees.length < 3 && (
               <form onSubmit={handleInviteSearch} className="flex gap-2">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A3A3]" />
                   <input
                     type="text"
                     value={inviteSearch}
                     onChange={(e) => setInviteSearch(e.target.value)}
                     placeholder="Search by username..."
-                    className="w-full bg-[#12172A] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#6C5CE0]/60 transition-all"
+                    className="w-full bg-[#0A0A0A] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-white/20  transition-all"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={inviteLoading}
-                  className="px-4 py-2.5 rounded-xl bg-[#6C5CE0]/20 border border-[#6C5CE0]/30 text-[#6C5CE0] hover:bg-[#6C5CE0]/30 text-xs font-bold transition-all cursor-pointer disabled:opacity-40"
+                  className="px-4 py-2.5 rounded-xl bg-white/20 border border-white/20  text-white hover:bg-white/30 text-xs font-bold transition-all cursor-pointer disabled:opacity-40"
                 >
                   {inviteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Search"}
                 </button>
@@ -894,18 +894,18 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   <button
                     key={u.uid}
                     onClick={() => toggleInvitee(u)}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#6C5CE0]/[0.06] transition-all cursor-pointer text-left"
+                    className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.06] transition-all cursor-pointer text-left"
                   >
                     <img
                       src={u.avatarUrl || getAvatarUrl(u.uid)}
                       alt=""
-                      className="w-8 h-8 rounded-full bg-[#161A2B] border border-white/10"
+                      className="w-8 h-8 rounded-full bg-[#111111] border border-white/10"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-white font-semibold truncate">{u.displayName}</p>
-                      <p className="text-[10px] text-[#94A3B8] truncate">@{u.username}</p>
+                      <p className="text-[10px] text-[#A3A3A3] truncate">@{u.username}</p>
                     </div>
-                    <Plus className="w-4 h-4 text-[#6C5CE0] shrink-0" />
+                    <Plus className="w-4 h-4 text-white shrink-0" />
                   </button>
                 ))}
               </div>
@@ -916,7 +916,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           <button
             onClick={handleCreateRoom}
             disabled={!newRoomTitle.trim() || creatingRoom}
-            className="w-full py-3 rounded-xl bg-[#6C5CE0] hover:bg-[#5B4BD0] text-white text-sm font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl bg-white hover:bg-neutral-200 text-black text-sm font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {creatingRoom ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -927,10 +927,10 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           </button>
 
           {/* Info */}
-          <div className="p-3 rounded-xl bg-[#6C5CE0]/[0.04] border border-[#6C5CE0]/10 flex items-start gap-2.5">
-            <Shield className="w-4 h-4 text-[#6C5CE0] mt-0.5 shrink-0" />
+          <div className="p-3 rounded-xl bg-white/[0.04] border border-white/20  flex items-start gap-2.5">
+            <Shield className="w-4 h-4 text-white mt-0.5 shrink-0" />
             <div>
-              <p className="text-[10px] text-[#94A3B8] leading-relaxed">
+              <p className="text-[10px] text-[#A3A3A3] leading-relaxed">
                 Deal Rooms are encrypted, temporary workspaces that auto-expire after 24 hours.
                 All messages and files are permanently deleted upon expiry.
               </p>
@@ -957,16 +957,16 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
         buyerName={buyerProfile?.displayName}
         sellerName={sellerProfile?.displayName}
       >
-      <div className="flex-1 flex flex-col h-full bg-[#0D111D]/70 overflow-hidden">
+      <div className="flex-1 flex flex-col h-full bg-[#050505]/70 overflow-hidden">
         {/* Room Header */}
-        <div className="p-3 sm:px-5 bg-[#12172A]/95 backdrop-blur-md border-b border-white/5 flex items-center gap-3 z-10 shrink-0 select-none">
+        <div className="p-3 sm:px-5 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-white/5 flex items-center gap-3 z-10 shrink-0 select-none">
           <button
             onClick={() => {
               setView("list");
               setActiveRoomId(null);
               setActiveRoom(null);
             }}
-            className="p-2 rounded-xl bg-[#12172A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-[#6C5CE0]/50 cursor-pointer flex items-center justify-center shrink-0"
+            className="p-2 rounded-xl bg-[#0A0A0A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-white/20  cursor-pointer flex items-center justify-center shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -994,8 +994,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
               roomExpired
                 ? "bg-red-500/10 border-red-500/20 text-red-400"
                 : countdown < 3600000
-                ? "bg-orange-500/10 border-orange-500/20 text-orange-400 animate-pulse"
-                : "bg-[#6C5CE0]/10 border-[#6C5CE0]/20 text-[#A78BFA]"
+                ? "bg-amber/10 border-amber/20 text-amber animate-pulse"
+                : "bg-white/10 border-white/20  text-white"
             }`}
           >
             <Timer className="w-3.5 h-3.5" />
@@ -1009,7 +1009,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             onClick={() => setMobileRoomView((v) => (v === "chat" ? "guide" : "chat"))}
             title={mobileRoomView === "chat" ? "Open deal panel" : "Back to conversation"}
             aria-label={mobileRoomView === "chat" ? "Open deal panel" : "Back to conversation"}
-            className="lg:hidden p-2 rounded-xl bg-[#12172A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-[#6C5CE0]/50 cursor-pointer flex items-center justify-center shrink-0"
+            className="lg:hidden p-2 rounded-xl bg-[#0A0A0A] border border-white/10 text-sky-200 hover:text-white transition-all hover:border-white/20  cursor-pointer flex items-center justify-center shrink-0"
           >
             {mobileRoomView === "chat" ? <Handshake className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
           </button>
@@ -1021,24 +1021,24 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           <div
             className={`${
               mobileRoomView === "guide" ? "flex" : "hidden"
-            } lg:flex w-full lg:w-72 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5 bg-[#0D111D]/40 overflow-y-auto custom-scrollbar p-3 space-y-3 max-h-[40vh] lg:max-h-none`}
+            } lg:flex w-full lg:w-72 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5 bg-[#050505]/40 overflow-y-auto custom-scrollbar p-3 space-y-3 max-h-[40vh] lg:max-h-none`}
           >
-            <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
+            <h4 className="text-[10px] text-white font-extrabold uppercase tracking-wider px-1">
               Participants ({roomParticipants.length})
             </h4>
             {roomParticipants.map((p) => (
-              <div key={p.uid} className="flex items-center gap-2.5 p-2 rounded-xl bg-[#12172A]/40 border border-white/[0.04]">
+              <div key={p.uid} className="flex items-center gap-2.5 p-2 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04]">
                 <img
                   src={p.avatarUrl || getAvatarUrl(p.uid)}
                   alt=""
-                  className="w-8 h-8 rounded-full bg-[#161A2B] border border-white/10"
+                  className="w-8 h-8 rounded-full bg-[#111111] border border-white/10"
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-white font-semibold truncate">{p.displayName}</p>
-                  <p className="text-[9px] text-[#94A3B8] truncate">@{p.username}</p>
+                  <p className="text-[9px] text-[#A3A3A3] truncate">@{p.username}</p>
                 </div>
                 {p.uid === activeRoom.createdBy && (
-                  <span className="text-[8px] font-mono text-[#6C5CE0] bg-[#6C5CE0]/10 px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-[8px] font-mono text-white bg-white/10 px-1.5 py-0.5 rounded shrink-0">
                     CREATOR
                   </span>
                 )}
@@ -1046,7 +1046,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
                     selectedRoles[p.uid] === "buyer"
                       ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      : "bg-[#6C5CE0]/10 text-[#A78BFA] border border-[#6C5CE0]/20"
+                      : "bg-white/10 text-white border border-white/20 "
                   }`}>
                     {selectedRoles[p.uid] === "buyer" ? "BUYER" : "SELLER"}
                   </span>
@@ -1057,7 +1057,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             {/* Deal Summary */}
             <div className="mt-2 space-y-2">
               <div className="flex items-center justify-between px-1">
-                <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider">
+                <h4 className="text-[10px] text-white font-extrabold uppercase tracking-wider">
                   Deal Summary
                 </h4>
                 {isCreator && !roomExpired && (
@@ -1073,7 +1073,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                         setEditingSummary(true);
                       }
                     }}
-                    className="text-[9px] text-[#6C5CE0] hover:text-white transition-colors cursor-pointer"
+                    className="text-[9px] text-white hover:text-white transition-colors cursor-pointer"
                   >
                     {editingSummary ? (summarySaving ? "Saving..." : "Save") : "Edit"}
                   </button>
@@ -1084,11 +1084,11 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   value={dealSummary}
                   onChange={(e) => setDealSummary(e.target.value)}
                   placeholder="Describe the deal terms..."
-                  className="w-full bg-[#12172A] border border-white/[0.08] rounded-xl px-3 py-2 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-[#6C5CE0]/60 transition-all resize-none h-24"
+                  className="w-full bg-[#0A0A0A] border border-white/[0.08] rounded-xl px-3 py-2 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-white/20  transition-all resize-none h-24"
                 />
               ) : (
-                <div className="p-3 rounded-xl bg-[#12172A]/60 border border-white/[0.04] min-h-[40px]">
-                  <p className="text-[11px] text-[#94A3B8] leading-relaxed whitespace-pre-wrap">
+                <div className="p-3 rounded-xl bg-[#0A0A0A]/60 border border-white/[0.04] min-h-[40px]">
+                  <p className="text-[11px] text-[#A3A3A3] leading-relaxed whitespace-pre-wrap">
                     {dealSummary || "No deal summary yet."}
                   </p>
                 </div>
@@ -1116,9 +1116,9 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
               {/* Welcome banner */}
               <div className="text-center py-4">
-                <div className="inline-flex items-center gap-2 bg-[#6C5CE0]/[0.06] border border-[#6C5CE0]/15 rounded-full px-4 py-2">
-                  <Shield className="w-3.5 h-3.5 text-[#6C5CE0]" />
-                  <span className="text-[10px] text-[#94A3B8] font-medium">
+                <div className="inline-flex items-center gap-2 bg-white/[0.06] border border-white/20  rounded-full px-4 py-2">
+                  <Shield className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] text-[#A3A3A3] font-medium">
                     Messages are end-to-end encrypted and auto-delete after expiry
                   </span>
                 </div>
@@ -1128,8 +1128,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                 if (msg.isSystem) {
                   return (
                     <div key={msg.id} className="flex justify-center">
-                      <div className="bg-[#6C5CE0]/[0.06] border border-[#6C5CE0]/15 rounded-xl px-4 py-2.5 text-center max-w-sm">
-                        <p className="text-[11px] text-[#94A3B8] whitespace-pre-line leading-relaxed">{msg.text}</p>
+                      <div className="bg-white/[0.06] border border-white/20  rounded-xl px-4 py-2.5 text-center max-w-sm">
+                        <p className="text-[11px] text-[#A3A3A3] whitespace-pre-line leading-relaxed">{msg.text}</p>
                       </div>
                     </div>
                   );
@@ -1144,10 +1144,10 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                     <img
                       src={senderProfile?.avatarUrl || getAvatarUrl(msg.senderId)}
                       alt=""
-                      className="w-7 h-7 rounded-full bg-[#161A2B] border border-white/10 shrink-0 mt-1"
+                      className="w-7 h-7 rounded-full bg-[#111111] border border-white/10 shrink-0 mt-1"
                     />
                     <div className={`max-w-[75%] ${isSelf ? "items-end" : "items-start"} flex flex-col`}>
-                      <span className={`text-[9px] font-mono mb-1 ${isSelf ? "text-[#6C5CE0]" : "text-[#94A3B8]"}`}>
+                      <span className={`text-[9px] font-mono mb-1 ${isSelf ? "text-white" : "text-[#A3A3A3]"}`}>
                         {isSelf ? "You" : `@${msg.senderUsername}`}
                       </span>
                       {msg.imageUrl ? (
@@ -1160,8 +1160,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                         <div
                           className={`rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed ${
                             isSelf
-                              ? "bg-[#6C5CE0] text-white rounded-br-md"
-                              : "bg-[#12172A] border border-white/[0.06] text-[#F8FAFC] rounded-bl-md"
+                              ? "bg-white text-black rounded-br-md"
+                              : "bg-[#0A0A0A] border border-white/[0.06] text-[#FFFFFF] rounded-bl-md"
                           }`}
                         >
                           {msg.text}
@@ -1177,19 +1177,19 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
 
             {/* Message Input */}
             {roomExpired ? (
-              <div className="p-4 border-t border-white/5 bg-[#0D111D]/60 flex items-center justify-center gap-2">
+              <div className="p-4 border-t border-white/5 bg-[#050505]/60 flex items-center justify-center gap-2">
                 <Lock className="w-4 h-4 text-red-400/60" />
-                <span className="text-xs text-[#94A3B8]/60 font-medium">Room expired — read only</span>
+                <span className="text-xs text-[#A3A3A3]/60 font-medium">Room expired — read only</span>
               </div>
             ) : !rolesComplete ? (
-              <div className="p-4 border-t border-white/5 bg-[#0D111D]/60 flex items-center justify-center gap-2">
-                <Shield className="w-4 h-4 text-[#6C5CE0]/60" />
-                <span className="text-xs text-[#94A3B8]/80 font-medium">Waiting for both participants to confirm their roles.</span>
+              <div className="p-4 border-t border-white/5 bg-[#050505]/60 flex items-center justify-center gap-2">
+                <Shield className="w-4 h-4 text-white/60" />
+                <span className="text-xs text-[#A3A3A3]/80 font-medium">Waiting for both participants to confirm their roles.</span>
               </div>
             ) : (
               <form
                 onSubmit={handleSendMessage}
-                className="p-3 sm:p-4 border-t border-white/5 bg-[#0D111D]/60 backdrop-blur-md flex items-center gap-3"
+                className="p-3 sm:p-4 border-t border-white/5 bg-[#050505]/60 backdrop-blur-md flex items-center gap-3"
               >
                 <input
                   type="file"
@@ -1203,7 +1203,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   <button
                     type="button"
                     onClick={() => setShowAttachmentMenu(prev => !prev)}
-                    className="p-2.5 rounded-xl bg-[#12172A] border border-white/[0.06] text-[#94A3B8] hover:text-white hover:border-[#6C5CE0]/30 transition-all cursor-pointer shrink-0"
+                    className="p-2.5 rounded-xl bg-[#0A0A0A] border border-white/[0.06] text-[#A3A3A3] hover:text-white hover:border-white/20  transition-all cursor-pointer shrink-0"
                     title="Attach"
                   >
                     <Plus className="w-4 h-4" />
@@ -1216,40 +1216,40 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.9, y: 10 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute bottom-full mb-2 left-0 bg-[#12172A] border border-white/[0.08] rounded-xl p-1.5 shadow-xl backdrop-blur-xl min-w-[170px] z-50 origin-bottom-left"
+                          className="absolute bottom-full mb-2 left-0 bg-[#0A0A0A] border border-white/[0.08] rounded-xl p-1.5 shadow-xl backdrop-blur-xl min-w-[170px] z-50 origin-bottom-left"
                         >
                           <button
                             type="button"
                             onClick={() => { fileInputRef.current?.click(); setShowAttachmentMenu(false); }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#A3A3A3] hover:text-white hover:bg-white/10 transition-all text-xs text-left"
                           >
                             <span className="text-base">🖼</span>
                             <span>Image</span>
                           </button>
                           <button
                             type="button"
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#A3A3A3] hover:text-white hover:bg-white/10 transition-all text-xs text-left"
                           >
                             <span className="text-base">📄</span>
                             <span>File</span>
                           </button>
                           <button
                             type="button"
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#A3A3A3] hover:text-white hover:bg-white/10 transition-all text-xs text-left"
                           >
                             <span className="text-base">📷</span>
                             <span>Camera</span>
                           </button>
                           <button
                             type="button"
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#A3A3A3] hover:text-white hover:bg-white/10 transition-all text-xs text-left"
                           >
                             <span className="text-base">🎤</span>
                             <span>Voice</span>
                           </button>
                           <button
                             type="button"
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#6C5CE0]/10 transition-all text-xs text-left"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#A3A3A3] hover:text-white hover:bg-white/10 transition-all text-xs text-left"
                           >
                             <span className="text-base">📍</span>
                             <span>Location</span>
@@ -1264,13 +1264,13 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   value={msgText}
                   onChange={(e) => setMsgText(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 bg-[#12172A] border border-white/[0.08] rounded-full px-5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:outline-none focus:border-[#6C5CE0]/60 focus:ring-1 focus:ring-[#6C5CE0]/20 transition-all"
+                  className="flex-1 bg-[#0A0A0A] border border-white/[0.08] rounded-full px-5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:outline-none focus:border-white/20  focus:ring-1 focus:ring-white/20  transition-all"
                   disabled={sending}
                 />
                 <button
                   type="submit"
                   disabled={!msgText.trim() || sending}
-                  className="p-2.5 rounded-full bg-[#6C5CE0] hover:bg-[#5B4BD0] text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  className="p-2.5 rounded-full bg-white hover:bg-neutral-200 text-black transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                 >
                   {sending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1287,11 +1287,11 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
           <div
             className={`${
               mobileRoomView === "guide" ? "flex" : "hidden"
-            } lg:flex flex-1 shrink-0 flex-col border-t lg:border-t-0 lg:border-l border-white/5 bg-[#0D111D]/40 overflow-hidden`}
+            } lg:flex flex-1 shrink-0 flex-col border-t lg:border-t-0 lg:border-l border-white/5 bg-[#050505]/40 overflow-hidden`}
           >
             {/* Header */}
             <div className="px-4 pt-4 pb-3 border-b border-white/[0.06] shrink-0">
-              <span className="text-xs font-bold text-[#F8FAFC]">Mica AI</span>
+              <span className="text-xs font-bold text-[#FFFFFF]">Mica AI</span>
             </div>
             {/* Character */}
             <div className="flex flex-col items-center justify-start overflow-hidden shrink-0">
@@ -1306,12 +1306,12 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
             </div>
             {/* Deal Roles */}
             <div className="px-3 pb-3 space-y-2">
-              <h4 className="text-[10px] text-[#6C5CE0] font-extrabold uppercase tracking-wider px-1">
+              <h4 className="text-[10px] text-white font-extrabold uppercase tracking-wider px-1">
                 Deal Roles
               </h4>
               {rolesComplete && buyerProfile && sellerProfile ? (
                 <>
-                  <div className="p-2.5 rounded-xl bg-[#12172A]/40 border border-white/[0.04] space-y-1.5">
+                  <div className="p-2.5 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04] space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🛒</span>
                       <span className="text-[10px] font-bold text-emerald-400">Buyer</span>
@@ -1320,34 +1320,34 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                       <img
                         src={buyerProfile.avatarUrl || getAvatarUrl(buyerUid!)}
                         alt=""
-                        className="w-7 h-7 rounded-full bg-[#161A2B] border border-white/10"
+                        className="w-7 h-7 rounded-full bg-[#111111] border border-white/10"
                       />
                       <div className="min-w-0">
                         <p className="text-[11px] text-white font-semibold truncate">
                           {buyerProfile.displayName}
                         </p>
-                        <p className="text-[9px] text-[#94A3B8] truncate">
+                        <p className="text-[9px] text-[#A3A3A3] truncate">
                           @{buyerProfile.username}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-[#12172A]/40 border border-white/[0.04] space-y-1.5">
+                  <div className="p-2.5 rounded-xl bg-[#0A0A0A]/40 border border-white/[0.04] space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🛍</span>
-                      <span className="text-[10px] font-bold text-[#A78BFA]">Seller</span>
+                      <span className="text-[10px] font-bold text-white">Seller</span>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <img
                         src={sellerProfile.avatarUrl || getAvatarUrl(sellerUid!)}
                         alt=""
-                        className="w-7 h-7 rounded-full bg-[#161A2B] border border-white/10"
+                        className="w-7 h-7 rounded-full bg-[#111111] border border-white/10"
                       />
                       <div className="min-w-0">
                         <p className="text-[11px] text-white font-semibold truncate">
                           {sellerProfile.displayName}
                         </p>
-                        <p className="text-[9px] text-[#94A3B8] truncate">
+                        <p className="text-[9px] text-[#A3A3A3] truncate">
                           @{sellerProfile.username}
                         </p>
                       </div>
@@ -1355,7 +1355,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   </div>
                 </>
               ) : (
-                <p className="text-[10px] text-[#94A3B8] px-1 leading-relaxed">
+                <p className="text-[10px] text-[#A3A3A3] px-1 leading-relaxed">
                   Waiting for participants to select their roles...
                 </p>
               )}
@@ -1370,18 +1370,18 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
         </div>
         {/* Role Selection Modal */}
         {view === "room" && !rolesComplete && !roomExpired && activeRoom && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D111D]/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050505]/80 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.2 }}
-              className="bg-[#12172A]/95 border border-white/[0.08] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
+              className="bg-[#0A0A0A]/95 border border-white/[0.08] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <div className="text-center mb-6">
                 <h3 className="text-lg font-black text-white uppercase tracking-widest font-mono">
                   Choose Your Role
                 </h3>
-                <p className="text-[11px] text-[#94A3B8] mt-2 max-w-sm mx-auto leading-relaxed">
+                <p className="text-[11px] text-[#A3A3A3] mt-2 max-w-sm mx-auto leading-relaxed">
                   Each participant must select a unique role before the deal can begin.
                 </p>
               </div>
@@ -1394,8 +1394,8 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                     currentUserRole === "buyer"
                       ? "bg-emerald-500/10 border-emerald-500/30"
                       : buyerUid
-                      ? "bg-[#12172A]/30 border-white/[0.04] opacity-50 cursor-not-allowed"
-                      : "bg-[#12172A]/40 border-white/[0.06] hover:bg-emerald-500/[0.06] hover:border-emerald-500/20 cursor-pointer"
+                      ? "bg-[#0A0A0A]/30 border-white/[0.04] opacity-50 cursor-not-allowed"
+                      : "bg-[#0A0A0A]/40 border-white/[0.06] hover:bg-emerald-500/[0.06] hover:border-emerald-500/20 cursor-pointer"
                   }`}
                 >
                   <span className="text-3xl">🛒</span>
@@ -1406,7 +1406,7 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                         <Check className="w-3 h-3" /> Selected by {buyerProfile.displayName}
                       </p>
                     ) : (
-                      <p className="text-[10px] text-[#94A3B8] mt-0.5">Waiting for a participant...</p>
+                      <p className="text-[10px] text-[#A3A3A3] mt-0.5">Waiting for a participant...</p>
                     )}
                   </div>
                   {currentUserRole === "buyer" && (
@@ -1419,31 +1419,31 @@ const DealRoom: React.FC<DealRoomProps> = ({ onBack }) => {
                   disabled={!!sellerUid && sellerUid !== currentUser?.uid}
                   className={`w-full p-4 rounded-2xl border transition-all text-left flex items-center gap-4 ${
                     currentUserRole === "seller"
-                      ? "bg-[#6C5CE0]/10 border-[#6C5CE0]/30"
+                      ? "bg-white/10 border-white/20 "
                       : sellerUid
-                      ? "bg-[#12172A]/30 border-white/[0.04] opacity-50 cursor-not-allowed"
-                      : "bg-[#12172A]/40 border-white/[0.06] hover:bg-[#6C5CE0]/[0.06] hover:border-[#6C5CE0]/20 cursor-pointer"
+                      ? "bg-[#0A0A0A]/30 border-white/[0.04] opacity-50 cursor-not-allowed"
+                      : "bg-[#0A0A0A]/40 border-white/[0.06] hover:bg-white/[0.06] hover:border-white/20  cursor-pointer"
                   }`}
                 >
                   <span className="text-3xl">🛍</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white">Seller</p>
                     {sellerProfile ? (
-                      <p className="text-[10px] text-[#A78BFA] flex items-center gap-1 mt-0.5">
+                      <p className="text-[10px] text-white flex items-center gap-1 mt-0.5">
                         <Check className="w-3 h-3" /> Selected by {sellerProfile.displayName}
                       </p>
                     ) : (
-                      <p className="text-[10px] text-[#94A3B8] mt-0.5">Waiting for another participant...</p>
+                      <p className="text-[10px] text-[#A3A3A3] mt-0.5">Waiting for another participant...</p>
                     )}
                   </div>
                   {currentUserRole === "seller" && (
-                    <span className="text-[#A78BFA]"><Check className="w-5 h-5" /></span>
+                    <span className="text-white"><Check className="w-5 h-5" /></span>
                   )}
                 </button>
               </div>
 
               {currentUserRole && (
-                <p className="text-[10px] text-[#94A3B8] text-center mt-4">
+                <p className="text-[10px] text-[#A3A3A3] text-center mt-4">
                   Waiting for both participants to confirm their roles.
                 </p>
               )}

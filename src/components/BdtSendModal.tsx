@@ -177,14 +177,14 @@ export default function BdtSendModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="absolute inset-0 bg-[#0B0F17]/85 backdrop-blur-md"
+            className="absolute inset-0 bg-[#000000]/85 backdrop-blur-md"
           />
 
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            className="bg-[#0D111D]/95 border border-[#6C5CE0]/40 rounded-3xl w-full max-w-md p-6 shadow-2xl relative z-10 overflow-hidden backdrop-blur-xl"
+            className="bg-[#050505]/95 border border-white/20  rounded-3xl w-full max-w-md p-6 shadow-2xl relative z-10 overflow-hidden backdrop-blur-xl"
           >
             {stage === "check" && (
               <div className="space-y-4">
@@ -193,7 +193,7 @@ export default function BdtSendModal({
                   <span className="text-xs font-black font-mono text-emerald-400 tracking-widest uppercase animate-pulse">
                     Checking recipient…
                   </span>
-                  <p className="text-[10px] text-[#94A3B8]">Verifying the payout profile with the payment server.</p>
+                  <p className="text-[10px] text-[#A3A3A3]">Verifying the payout profile with the payment server.</p>
                 </div>
               </div>
             )}
@@ -205,7 +205,7 @@ export default function BdtSendModal({
                   <h3 className="text-[15px] font-black tracking-tight text-white text-center">
                     {recipient?.displayName || "This user"} can&apos;t receive money yet
                   </h3>
-                  <p className="text-[12px] text-[#94A3B8] font-mono text-center max-w-xs">
+                  <p className="text-[12px] text-[#A3A3A3] font-mono text-center max-w-xs">
                     {blockedReason}
                   </p>
                 </div>
@@ -228,35 +228,35 @@ export default function BdtSendModal({
               <div className="space-y-4">
                 <div className="flex items-start justify-between border-b border-white/5 pb-4 mb-1">
                   <div>
-                    <h3 className="text-[17px] font-black tracking-tight text-[#F8FAFC] flex items-center gap-2">
+                    <h3 className="text-[17px] font-black tracking-tight text-[#FFFFFF] flex items-center gap-2">
                       <Banknote className="w-5 h-5 text-emerald-400" />
                       Send Money
                     </h3>
-                    <p className="text-[10px] text-[#94A3B8] mt-0.5">
+                    <p className="text-[10px] text-[#A3A3A3] mt-0.5">
                       Bangladesh fiat transfer · bKash payout.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleClose}
-                    className="px-2.5 py-1 rounded-lg bg-[#161A2B] hover:bg-[#1E2235] border border-white/[0.06] text-[#94A3B8] hover:text-white text-[9px] font-bold font-mono uppercase cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-[#111111] hover:bg-[#151515] border border-white/[0.06] text-[#A3A3A3] hover:text-white text-[9px] font-bold font-mono uppercase cursor-pointer"
                   >
                     Cancel
                   </button>
                 </div>
 
                 {/* Recipient — the payment number is never shown here. */}
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-[#12172A]/60 border border-white/[0.06]">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-[#0A0A0A]/60 border border-white/[0.06]">
                   <div className="flex items-center gap-3 min-w-0">
                     <img
                       src={recipient?.avatarUrl}
                       alt={recipient?.displayName || "Recipient"}
                       referrerPolicy="no-referrer"
-                      className="w-10 h-10 rounded-full bg-[#0B0F17] border border-white/[0.06] object-cover shrink-0"
+                      className="w-10 h-10 rounded-full bg-[#000000] border border-white/[0.06] object-cover shrink-0"
                     />
                     <div className="min-w-0">
                       <p className="text-[13px] font-black text-white truncate">{recipient?.displayName || "Recipient"}</p>
-                      <p className="text-[10px] text-[#94A3B8] font-mono truncate">@{recipient?.username || "unknown"}</p>
+                      <p className="text-[10px] text-[#A3A3A3] font-mono truncate">@{recipient?.username || "unknown"}</p>
                     </div>
                   </div>
                   <div className="shrink-0 flex items-center gap-1.5">
@@ -264,7 +264,7 @@ export default function BdtSendModal({
                       <ShieldCheck className="w-3 h-3" />
                       Payment number added
                     </span>
-                    <span className="px-2 py-0.5 rounded-md border text-[9px] font-mono font-bold bg-[#6C5CE0]/10 text-[#A78BFA] border-[#6C5CE0]/25">
+                    <span className="px-2 py-0.5 rounded-md border text-[9px] font-mono font-bold bg-white/10 text-white border-white/20 ">
                       BDT
                     </span>
                   </div>
@@ -272,7 +272,7 @@ export default function BdtSendModal({
 
                 {/* Payment method selector — bKash active only. */}
                 <div>
-                  <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1.5 pl-0.5">
+                  <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1.5 pl-0.5">
                     Payment Method
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -286,13 +286,13 @@ export default function BdtSendModal({
                           m.active
                             ? method === m.id
                               ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-300"
-                              : "bg-[#0B0F17]/60 border-white/10 text-[#94A3B8] hover:border-emerald-500/30 hover:text-white"
-                            : "bg-[#0B0F17]/40 border-white/[0.04] text-[#6C5CE0] cursor-not-allowed"
+                              : "bg-[#000000]/60 border-white/10 text-[#A3A3A3] hover:border-emerald-500/30 hover:text-white"
+                            : "bg-[#000000]/40 border-white/[0.04] text-white cursor-not-allowed"
                         }`}
                       >
                         <Smartphone className="w-4 h-4" />
                         <span>{m.label}</span>
-                        <span className={`font-mono ${m.active ? "text-emerald-400/80" : "text-[#6C5CE0]"}`}>
+                        <span className={`font-mono ${m.active ? "text-emerald-400/80" : "text-white"}`}>
                           {m.badge}
                         </span>
                       </button>
@@ -302,10 +302,10 @@ export default function BdtSendModal({
 
                 {/* Amount */}
                 <div>
-                  <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1.5 pl-0.5">
+                  <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1.5 pl-0.5">
                     Amount · BDT
                   </label>
-                  <div className="flex items-center gap-2 bg-[#0B0F17]/70 border border-white/[0.06] focus-within:border-[#6C5CE0]/50 rounded-xl px-3 py-3 transition-all">
+                  <div className="flex items-center gap-2 bg-[#000000]/70 border border-white/[0.06] focus-within:border-white/20  rounded-xl px-3 py-3 transition-all">
                     <span className="text-xl font-black font-mono text-emerald-400">{symbol}</span>
                     <input
                       type="text"
@@ -321,31 +321,31 @@ export default function BdtSendModal({
 
                 {/* Note */}
                 <div>
-                  <label className="block text-[#94A3B8] text-[9px] font-extrabold uppercase tracking-widest mb-1.5 pl-0.5">
-                    Note <span className="text-[#6C5CE0] normal-case">(optional)</span>
+                  <label className="block text-[#A3A3A3] text-[9px] font-extrabold uppercase tracking-widest mb-1.5 pl-0.5">
+                    Note <span className="text-white normal-case">(optional)</span>
                   </label>
                   <input
                     type="text"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="e.g. Payment for freelance work"
-                    className="w-full bg-[#0B0F17]/70 border border-white/[0.06] focus:border-[#6C5CE0]/50 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all"
+                    className="w-full bg-[#000000]/70 border border-white/[0.06] focus:border-white/20  rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all"
                   />
                 </div>
 
                 {/* Summary */}
-                <div className="space-y-2 bg-[#12172A]/40 border border-white/[0.05] rounded-2xl p-3.5">
+                <div className="space-y-2 bg-[#0A0A0A]/40 border border-white/[0.05] rounded-2xl p-3.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#94A3B8] font-mono">You Send</span>
+                    <span className="text-[10px] text-[#A3A3A3] font-mono">You Send</span>
                     <span className="text-[13px] font-black font-mono text-white">{parsedAmount ? fmtBdt(parsedAmount) : "—"}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#94A3B8] font-mono">Payment Method</span>
+                    <span className="text-[10px] text-[#A3A3A3] font-mono">Payment Method</span>
                     <span className="text-[10px] font-bold text-emerald-300 font-mono">bKash</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#94A3B8] font-mono">Transfer Fee</span>
-                    <span className="text-[10px] font-bold text-[#94A3B8] font-mono">৳0</span>
+                    <span className="text-[10px] text-[#A3A3A3] font-mono">Transfer Fee</span>
+                    <span className="text-[10px] font-bold text-[#A3A3A3] font-mono">৳0</span>
                   </div>
                 </div>
 
@@ -363,32 +363,32 @@ export default function BdtSendModal({
 
             {stage === "confirm" && (
               <div className="space-y-4">
-                <h3 className="text-[17px] font-black tracking-tight text-[#F8FAFC]">
+                <h3 className="text-[17px] font-black tracking-tight text-[#FFFFFF]">
                   Send {parsedAmount ? fmtBdt(parsedAmount) : "—"} to @{recipient?.username}?
                 </h3>
 
-                <div className="space-y-2 bg-[#12172A]/40 border border-white/[0.05] rounded-2xl p-3.5">
+                <div className="space-y-2 bg-[#0A0A0A]/40 border border-white/[0.05] rounded-2xl p-3.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#94A3B8] font-mono">Recipient</span>
+                    <span className="text-[10px] text-[#A3A3A3] font-mono">Recipient</span>
                     <span className="text-[10px] font-bold text-white font-mono">@{recipient?.username}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#94A3B8] font-mono">Recipient payment number</span>
+                    <span className="text-[10px] text-[#A3A3A3] font-mono">Recipient payment number</span>
                     <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 font-mono">
                       <Lock className="w-3 h-3" /> Protected · hidden
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#94A3B8] font-mono">Method</span>
+                    <span className="text-[10px] text-[#A3A3A3] font-mono">Method</span>
                     <span className="text-[10px] font-bold text-emerald-300 font-mono">bKash</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#94A3B8] font-mono">Fee</span>
-                    <span className="text-[10px] font-bold text-[#94A3B8] font-mono">৳0</span>
+                    <span className="text-[10px] text-[#A3A3A3] font-mono">Fee</span>
+                    <span className="text-[10px] font-bold text-[#A3A3A3] font-mono">৳0</span>
                   </div>
                   {note && (
                     <div className="pt-1.5 border-t border-white/[0.05]">
-                      <span className="text-[10px] text-[#94A3B8] font-mono block">Note</span>
+                      <span className="text-[10px] text-[#A3A3A3] font-mono block">Note</span>
                       <span className="text-[11px] text-white/80">{note}</span>
                     </div>
                   )}
@@ -403,7 +403,7 @@ export default function BdtSendModal({
                   <button
                     type="button"
                     onClick={() => setStage("form")}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-[#0D111D] border border-white/[0.06] hover:border-neutral-500 text-[#94A3B8] hover:text-white text-xs font-bold transition-all cursor-pointer"
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-[#050505] border border-white/[0.06] hover:border-neutral-500 text-[#A3A3A3] hover:text-white text-xs font-bold transition-all cursor-pointer"
                   >
                     Back
                   </button>
@@ -425,7 +425,7 @@ export default function BdtSendModal({
                   <span className="text-xs font-black font-mono text-emerald-400 tracking-widest uppercase animate-pulse">
                     PROCESSING BDT PAYMENT…
                   </span>
-                  <p className="text-[10px] text-[#94A3B8] font-mono text-center">{stepText || "Submitted to bKash…"}</p>
+                  <p className="text-[10px] text-[#A3A3A3] font-mono text-center">{stepText || "Submitted to bKash…"}</p>
                 </div>
                 <div className="space-y-3 font-mono text-[10px] px-2 bg-black/40 p-4 rounded-2xl border border-white/5">
                   <StepRow label="Verifying recipient & amount (server)" active />
@@ -443,14 +443,14 @@ export default function BdtSendModal({
                   <h3 className="text-[16px] font-black tracking-tight text-white mt-1">
                     {parsedAmount ? fmtBdt(parsedAmount) : ""} Sent
                   </h3>
-                  <p className="text-[12px] text-[#94A3B8] font-mono">
+                  <p className="text-[12px] text-[#A3A3A3] font-mono">
                     to @{recipient?.username} · via bKash
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between bg-black/40 border border-white/5 rounded-xl px-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="text-[8px] uppercase text-[#6C5CE0] font-mono font-bold">Transfer ID</p>
+                    <p className="text-[8px] uppercase text-white font-mono font-bold">Transfer ID</p>
                     <p className="text-[11px] font-mono text-white truncate">{transferId}</p>
                   </div>
                   <button
@@ -458,7 +458,7 @@ export default function BdtSendModal({
                     onClick={() => {
                       if (navigator.clipboard) navigator.clipboard.writeText(transferId);
                     }}
-                    className="p-1.5 rounded-lg text-[#94A3B8] hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#A3A3A3] hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
                     title="Copy transfer ID"
                   >
                     <Copy className="w-3.5 h-3.5" />
@@ -466,7 +466,7 @@ export default function BdtSendModal({
                 </div>
 
                 {note && (
-                  <p className="text-[10px] text-[#6C5CE0] font-mono bg-[#6C5CE0]/[0.06] border border-[#6C5CE0]/10 rounded-xl px-3 py-2">
+                  <p className="text-[10px] text-white font-mono bg-white/[0.06] border border-white/20  rounded-xl px-3 py-2">
                     Note: {note}
                   </p>
                 )}
@@ -486,17 +486,17 @@ export default function BdtSendModal({
                 <div className="flex flex-col items-center justify-center gap-2">
                   <Lock className="w-10 h-10 text-rose-400" />
                   <h3 className="text-[15px] font-black tracking-tight text-white">Payment not completed</h3>
-                  <p className="text-[11px] text-[#94A3B8] font-mono text-center">{errorMsg}</p>
+                  <p className="text-[11px] text-[#A3A3A3] font-mono text-center">{errorMsg}</p>
                 </div>
                 {errorCode && (
-                  <p className="text-center text-[9px] text-[#6C5CE0] font-mono">CODE · {errorCode}</p>
+                  <p className="text-center text-[9px] text-white font-mono">CODE · {errorCode}</p>
                 )}
                 <div className="flex gap-3">
                   {errorCode !== "BKASH_NOT_CONFIGURED" && errorCode !== "RECIPIENT_NO_PAYMENT_NUMBER" && (
                     <button
                       type="button"
                       onClick={() => setStage("form")}
-                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#0D111D] border border-white/[0.06] hover:border-neutral-500 text-[#94A3B8] hover:text-white text-xs font-bold transition-all cursor-pointer"
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#050505] border border-white/[0.06] hover:border-neutral-500 text-[#A3A3A3] hover:text-white text-xs font-bold transition-all cursor-pointer"
                     >
                       Try Again
                     </button>
@@ -513,7 +513,7 @@ export default function BdtSendModal({
             )}
 
             {stage === "check" && (
-              <p className="text-center text-[9px] text-[#6C5CE0] mt-3 font-mono">
+              <p className="text-center text-[9px] text-white mt-3 font-mono">
                 Secure server-side check — no payment numbers leave the backend.
               </p>
             )}
@@ -527,7 +527,7 @@ export default function BdtSendModal({
 function StepRow({ label, active }: { label: string; active?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <span className={active ? "text-emerald-400 font-bold" : "text-[#6C5CE0]"}>{label}</span>
+      <span className={active ? "text-emerald-400 font-bold" : "text-white"}>{label}</span>
       <span>{active ? <Loader2 className="w-3 h-3 animate-spin text-emerald-400" /> : <Check className="w-3 h-3 text-emerald-400/60" />}</span>
     </div>
   );

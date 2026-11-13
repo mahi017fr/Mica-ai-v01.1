@@ -1,8 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,450;1,600&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,450;1,600&display=swap');
 @import "tailwindcss";
 
 /* ==========================================================================
-   Design tokens — Premium AI SaaS theme (Linear / Vercel / ChatGPT inspired)
+   Design tokens â€” Premium AI SaaS theme (Linear / Vercel / ChatGPT inspired)
    ========================================================================== */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -12,12 +12,16 @@
   /* Re-map the Tailwind shades this codebase already uses everywhere
      (sky-*, emerald-*, yellow-*) onto the new brand palette, so every
      existing className in the app inherits the new look automatically. */
-  --color-sky-50:  #F8FAFC;
-  --color-sky-100: #F8FAFC;
-  --color-sky-200: #CBD5E1;
-  --color-sky-300: #94A3B8;
-  --color-sky-400: #94A3B8;
-  --color-sky-500: #64748B;
+  --color-sky-50:  #FFFFFF;
+  --color-sky-100: #F5F5F5;
+  --color-sky-200: #E5E5E5;
+  --color-sky-300: #D4D4D4;
+  --color-sky-400: #A3A3A3;
+  --color-sky-500: #737373;
+  --color-sky-600: #525252;
+  --color-sky-700: #404040;
+  --color-sky-800: #262626;
+  --color-sky-900: #171717;
 
   --color-emerald-200: #86EFAC;
   --color-emerald-300: #4ADE80;
@@ -31,20 +35,23 @@
 }
 
 :root {
-  --bg:            #0B0F17;
-  --sidebar:       #0D111D;
-  --surface:       #12172A;
-  --card:          #161A2B;
-  --hover:         #1C2235;
-  --border:        rgba(255, 255, 255, 0.06);
-  --primary:       #6C5CE0;
-  --ai-accent:     #7C3AED;
+  --bg:            #0B0D14;
+  --sidebar:       #11131D;
+  --surface:       #151824;
+  --card:          #171A26;
+  --hover:         #1F2233;
+  --border:        #292D3A;
+  --primary:       #F5F5FA;
+  --ai-accent:     #9875FF;
+  --accent-purple: #9875FF;
+  --accent-lavender: #B9A6FF;
+  --accent-blue:   #91B9FF;
   --success:       #22C55E;
   --warning:       #F59E0B;
   --danger:        #EF4444;
-  --text-primary:   #F8FAFC;
-  --text-secondary: #94A3B8;
-  --text-muted:     #64748B;
+  --text-primary:   #F5F5FA;
+  --text-secondary: #A1A5B5;
+  --text-muted:     #717589;
 
   /* legacy aliases kept so any remaining var() references still resolve */
   --premium-black: var(--sidebar);
@@ -52,17 +59,17 @@
   --premium-blue-deep: var(--sidebar);
   --premium-blue-deep-2: var(--sidebar);
   --premium-blue-accent: var(--primary);
-  --premium-blue-accent-soft: rgba(108, 92, 224, 0.35);
+  --premium-blue-accent-soft: rgba(255, 255, 255, 0.20);
   --premium-pink-accent: var(--primary);
-  --premium-pink-accent-soft: rgba(108, 92, 224, 0.35);
+  --premium-pink-accent-soft: rgba(255, 255, 255, 0.20);
   --premium-purple-accent: var(--ai-accent);
   --premium-text-primary: var(--text-primary);
   --premium-text-secondary: var(--text-secondary);
-  --premium-border-blue: rgba(108, 92, 224, 0.22);
-  --premium-border-pink: rgba(108, 92, 224, 0.22);
+  --premium-border-blue: rgba(255, 255, 255, 0.18);
+  --premium-border-pink: rgba(255, 255, 255, 0.18);
 }
 
-/* Custom scrollbar — quiet, single-tone */
+/* Custom scrollbar â€” quiet, single-tone */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -132,8 +139,8 @@ html, body, #root {
    The bar is `position: fixed` at the bottom of the viewport and is exactly
    --mica-mobile-nav-h tall PLUS the device bottom safe-area inset. Every full
    height pane (inbox list, chat, settings, deal room, wallet) opts into
-   `.mica-with-mobile-nav` so its last row — message composer, send button,
-   scroll content — always sits ABOVE the bar instead of behind it.
+   `.mica-with-mobile-nav` so its last row â€” message composer, send button,
+   scroll content â€” always sits ABOVE the bar instead of behind it.
    ========================================================================== */
 :root {
   --mica-mobile-nav-h: 52px;
@@ -155,7 +162,7 @@ html, body, #root {
   bottom: calc(var(--mica-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
 }
 
-/* Desktop keeps the vertical icon rail instead — no reserved strip. */
+/* Desktop keeps the vertical icon rail instead â€” no reserved strip. */
 @media (min-width: 768px) {
   .mica-with-mobile-nav {
     padding-bottom: 0;
@@ -181,7 +188,7 @@ body {
 }
 
 /* ==========================================================================
-   Premium surfaces — subtle glass, calm depth, no neon
+   Premium surfaces â€” subtle glass, calm depth, no neon
    ========================================================================== */
 
 .premium-bg-gradient,
@@ -208,7 +215,7 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
 }
 
-/* Buttons — flat, calm, single accent color */
+/* Buttons â€” flat, calm, single accent color */
 .btn-neu-blue,
 .btn-neu {
   background: var(--card);
@@ -236,7 +243,7 @@ body {
 .btn-neu-blue-solid,
 .btn-neu-solid {
   background: var(--primary);
-  color: #ffffff;
+  color: #000000;
   border: none;
   border-radius: 10px;
   padding: 11px 20px;
@@ -275,12 +282,12 @@ body {
 .neu-emoji-btn:hover {
   transform: translateY(-2px);
   background: var(--hover);
-  border-color: rgba(108, 92, 224, 0.4);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .neu-emoji-btn.is-active {
-  background: rgba(108, 92, 224, 0.16);
-  border-color: rgba(108, 92, 224, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.40);
 }
 
 .glass-btn {
@@ -296,8 +303,8 @@ body {
 }
 
 .glass-btn.is-active {
-  background: rgba(108, 92, 224, 0.18);
-  border-color: rgba(108, 92, 224, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.38);
 }
 
 /* Soft, calm pulse for online/active/typing indicators (no glow) */
@@ -311,7 +318,7 @@ body {
 .text-premium-secondary { color: var(--text-secondary); }
 
 /* ==========================================================================
-   Glass — app-wide, very subtle
+   Glass â€” app-wide, very subtle
    Panels using Tailwind's backdrop-blur-* utilities (chat header, sidebar,
    message bubbles, modals, input bar, dropdowns, toasts) get a quiet
    frosted look: soft blur, faint border, gentle shadow. No saturation
@@ -345,7 +352,7 @@ body {
   color: var(--text-secondary);
 }
 
-/* ─── Message composer ambient glow ──────────────────────────────────── */
+/* â”€â”€â”€ Message composer ambient glow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @property --composer-glow-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -364,7 +371,7 @@ body {
 
 /* The rotating conic-gradient behind the composer repaints its blurred layer
    on every frame. On phones that competes with typing for paint time, so the
-   ring holds still there — the visual difference is imperceptible at 20%
+   ring holds still there â€” the visual difference is imperceptible at 20%
    opacity, but it removes a constant full-width repaint while typing. */
 @media (max-width: 767px) {
   .mica-composer-glow {
@@ -373,11 +380,11 @@ body {
 }
 
 /* ==========================================================================
-   MICA Home · AI landing accents (name shimmer, utility pills, chips)
+   MICA Home Â· AI landing accents (name shimmer, utility pills, chips)
    Only white + soft purple, slow, premium, low distraction.
    ========================================================================== */
 
-/* Animated white→soft-purple shimmer across the greeting's display name */
+/* Animated whiteâ†’soft-purple shimmer across the greeting's display name */
 @keyframes mica-name-shimmer {
   0%   { background-position: 0% 50%; }
   100% { background-position: 200% 50%; }
@@ -386,30 +393,31 @@ body {
 .mica-name-shimmer {
   background-image: linear-gradient(
     100deg,
-    #ffffff 0%,
-    #ffffff 22%,
-    #a78bfa 42%,
-    #ddd0ff 50%,
-    #a78bfa 58%,
-    #ffffff 78%,
-    #ffffff 100%
+    #F5F5F5 0%,
+    #F5F5F5 20%,
+    #B9A6FF 42%,
+    #91B9FF 50%,
+    #B9A6FF 58%,
+    #F5F5F5 80%,
+    #F5F5F5 100%
   );
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: mica-name-shimmer 8s linear infinite;
+  animation: mica-name-shimmer 10s linear infinite;
 }
 
-/* New Session button — dark pill, subtle purple border, glow on hover */
+/* New Session button â€” dark pill, subtle white border, quiet lift on hover */
 .mica-new-session {
   transition: border-color 250ms ease, background-color 250ms ease, box-shadow 250ms ease, transform 250ms ease;
 }
 .mica-new-session:hover {
-  border-color: rgba(139, 92, 246, 0.55);
-  background-color: rgba(124, 58, 237, 0.1);
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.22), 0 0 6px rgba(139, 92, 246, 0.2);
+  border-color: rgba(152, 117, 255, 0.45);
+  background-color: rgba(152, 117, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(152, 117, 255, 0.08);
 }
+
 
 /* Slow, calm atmospheric glow drift behind the empty-state composer.
    Keeps the navy/purple centered while gently breathing. */
@@ -429,7 +437,7 @@ body {
   animation: mica-bg-drift-2 18s ease-in-out infinite;
 }
 
-/* Login page "Powered by" marquee � seamless right -> left loop.
+/* Login page "Powered by" marquee ï¿½ seamless right -> left loop.
    The track holds the list twice; translating -50% lands exactly on the
    second copy, so the restart is invisible. */
 @keyframes mica-poweredby-marquee {
@@ -442,8 +450,35 @@ body {
 }
 
 /* ==========================================================================
-   Login page � subtle ambient animations (visual only; static look unchanged)
+   Login page ï¿½ subtle ambient animations (visual only; static look unchanged)
    ========================================================================== */
+
+/* Left-panel gradient: soft light purple + soft light blue on pure black */
+.mica-brand-aurora {
+  background-color: #000000;
+  background-image: linear-gradient(
+    90deg,
+    rgba(152, 117, 255, 0.16) 0%,
+    rgba(145, 185, 255, 0.14) 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  background-position: 0% 50%;
+  animation: mica-brand-aurora-shift 18s ease-in-out infinite;
+  will-change: background-position;
+}
+
+/* Whole blended gradient travels left -> right, then gently back. */
+@keyframes mica-brand-aurora-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mica-brand-aurora {
+    animation: none;
+  }
+}
 
 /* MICA logo: very slow, gentle fade/pulse */
 @keyframes mica-logo-pulse {
@@ -461,8 +496,32 @@ body {
   100% { background-position: 0 0; }
 }
 .mica-dots-drift {
-  animation: mica-dots-drift 140s linear infinite;
+  animation:
+    mica-dots-drift 140s linear infinite,
+    mica-dots-shimmer 9s ease-in-out infinite;
 }
 .mica-dots-drift-slow {
-  animation: mica-dots-drift 190s linear infinite reverse;
+  animation:
+    mica-dots-drift 190s linear infinite reverse,
+    mica-dots-shimmer-soft 12s ease-in-out infinite;
 }
+
+/* Gentle brightness shimmer â€” opacity only, so dot size, shape, spacing and
+   position stay exactly as they are. */
+@keyframes mica-dots-shimmer {
+  0%, 100% { opacity: 0.34; }
+  50%      { opacity: 0.52; }
+}
+@keyframes mica-dots-shimmer-soft {
+  0%, 100% { opacity: 0.22; }
+  50%      { opacity: 0.38; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mica-dots-drift,
+  .mica-dots-drift-slow {
+    animation: none;
+  }
+}
+
+
